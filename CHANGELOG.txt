@@ -1,3 +1,13 @@
+0.0.329 (MODIFY: bookmark folders - rename, nested HTML export / import, Home tile name)
+- Rename: long press a folder in Bookmarks > "Rename folder". Bookmarks.renameFolder() changes the last part of the path; its sub folders, bookmarks and Home folder pins move with it. Empty or already used name = nothing changes (toast).
+- Export: sub folders are written inside their folder (nested <DL>). Import: nested folders become paths "A/B"; browser root names (Bookmarks bar, Other bookmarks ...) add nothing, a "/" in a name becomes "-".
+- Home: a folder tile shows the folder's own name (not the full path).
+- Not changed: vault code, picker, storage format.
+- Could break: an import of a very deep tree is cut at 6 levels (addFolder limit) and 200 folders as before. Vault entries keep the old folder path after a rename (they are copies).
+- Checked: braces / parentheses balanced (Bookmarks.kt +1 as before 0.0.328, strings), single-match patch audit.
+- Files (under app/src/main/java/com/jabra/mgb/): Bookmarks.kt, BookmarksScreen.kt, HomeView.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.329.txt.
+- NOT tested: Gradle build (CI), device, 360 / 1280 dp, dark + light.
+
 0.0.328 (BUILD: ask folder when saving a bookmark, sub folders, vault hide / unhide / restore follow the folder tree)
 - Save: star / Command Center "Bookmark this page" / long press link "Bookmark link" open BookmarkFolderPicker (new file): save here, open a sub folder, Up, New folder (made inside the folder you are in), Cancel = nothing saved. Move (one and many) uses the same picker.
 - Sub folders: no new storage. A folder is a path string "A/B" (mgb_folders.json, Item.folder), so old data, import / export, vault entries and Home work as before. Bookmarks.addFolder(path) also makes the parents; removeFolder removes the folder + its sub folders (bookmarks go to no folder); helpers shortName / under / ancestors / childFolders. BookmarksScreen shows the folders of the open level (count = all bookmarks below), Back goes one level up, menu "New folder" inside an open folder makes a sub folder.

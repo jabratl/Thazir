@@ -128,6 +128,23 @@ object Bookmarks {
         return path
     }
 
+    /** 0.0.329: rename one folder (last part of the path); sub folders, bookmarks and Home pins move with it. Returns the new path, or "" when the name is empty or taken. */
+    @Synchronized
+    fun renameFolder(old: String, newName: String): String {
+        val n = newName.replace('/', ' ').trim().take(40)
+        if (n.isEmpty() || old !in fol) return ""
+        val parent = old.substringBeforeLast('/', "")
+        val np = if (parent.isEmpty()) n else "$parent/$n"
+        if (np == old) return old
+        if (fol.any { it.equals(np, true) && !it.equals(old, true) }) return ""
+        fun mv(f: String) = if (f == old) np else if (f.startsWith("$old/")) np + f.substring(old.length) else f
+        val f2 = fol.map { mv(it) }; fol.clear(); fol.addAll(f2)
+        val b2 = bm.map { if (it.folder.isEmpty()) it else Item(it.title, it.url, it.time, mv(it.folder)) }; bm.clear(); bm.addAll(b2)
+        val h2 = hm.map { if (it.folder.isEmpty()) it else Home(it.title, it.url, mv(it.folder)) }; hm.clear(); hm.addAll(h2)
+        saveFolders(); saveAsync(F_BM, bm); saveHome()
+        return np
+    }
+
     /** 0.0.328: sub folder helpers (paths "A/B"). */
     fun shortName(path: String): String = path.substringAfterLast('/')
     fun under(f: String, root: String): Boolean = f == root || f.startsWith("$root/")
@@ -181,11 +198,14 @@ object Bookmarks {
                 .append(esc(x.title.ifBlank { x.url })).append("</A>\n")
         }
         for (x in bm) if (x.folder.isEmpty()) line(x, "    ")
-        for (f in fol) { // S25: folders as nested lists
-            sb.append("    <DT><H3>").append(esc(f)).append("</H3>\n    <DL><p>\n")
-            for (x in bm) if (x.folder == f) line(x, "        ")
-            sb.append("    </DL><p>\n")
+        fun walk(f: String, depth: Int) { // S25 + 0.0.329: folders as nested lists, sub folders inside their folder
+            val pad = "    ".repeat(depth)
+            sb.append(pad).append("<DT><H3>").append(esc(shortName(f))).append("</H3>\n").append(pad).append("<DL><p>\n")
+            for (x in bm) if (x.folder == f) line(x, pad + "    ")
+            for (k in childFolders(f)) walk(k, depth + 1)
+            sb.append(pad).append("</DL><p>\n")
         }
+        for (f in childFolders("")) walk(f, 1)
         sb.append("</DL><p>\n")
         return sb.toString()
     }
@@ -215,12 +235,16 @@ object Bookmarks {
                 val g = m.value
                 when {
                     g.startsWith("<H3", true) -> pending = unesc(g.replace(ANY_TAG, "").trim())
-                    g.startsWith("<DL", true) -> { stack.add(pending ?: stack.lastOrNull().orEmpty()); pending = null }
+                    g.startsWith("<DL", true) -> { // 0.0.329: stack holds folder PATHS ("A/B"); browser root names add nothing
+                        val parent = stack.lastOrNull().orEmpty()
+                        val pn = pending?.replace('/', '-')?.trim()
+                        stack.add(if (pn.isNullOrEmpty()) parent else if (parent.isEmpty() && pn.lowercase() in ROOT_NAMES) "" else if (parent.isEmpty()) pn else "$parent/$pn")
+                        pending = null
+                    }
                     g.startsWith("</DL", true) -> if (stack.isNotEmpty()) stack.removeAt(stack.size - 1)
                     else -> {
                         val am = A_TAG.find(g) ?: continue
                         var f = stack.lastOrNull().orEmpty()
-                        if (f.lowercase() in ROOT_NAMES) f = ""
                         found.add(Triple(unesc(am.groupValues[3].replace(ANY_TAG, "").trim()), unesc(am.groupValues[2].trim()), f))
                     }
                 }

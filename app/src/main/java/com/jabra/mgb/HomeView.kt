@@ -538,7 +538,7 @@ class HomeView(
         }
         box.addView(inner, FrameLayout.LayoutParams(dp(56), dp(56), Gravity.CENTER))
         if (editing) addBadge(box) { Bookmarks.removeHomeFolder(name); refresh() } // S28: unpin only
-        val c = cell(box, name)
+        val c = cell(box, Bookmarks.shortName(name)) // 0.0.329: sub folder shows its own name
         box.layoutParams = LinearLayout.LayoutParams(dp(64), dp(60))
         c.setOnClickListener { if (!editing) { folder = name; rebuild() } }
         return c

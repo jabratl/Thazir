@@ -439,9 +439,18 @@ object BookmarksScreen {
             r.setOnLongClickListener {
                 MaterialAlertDialogBuilder(act)
                     .setTitle(name)
-                    .setItems(arrayOf("Delete folder and sub folders (bookmarks are kept)")) { _, _ ->
-                        Bookmarks.removeFolder(name)
-                        render()
+                    .setItems(arrayOf("Rename folder", "Delete folder and sub folders (bookmarks are kept)")) { _, w ->
+                        if (w == 1) { Bookmarks.removeFolder(name); render() }
+                        else { // 0.0.329
+                            val et = EditText(act).apply { setText(Bookmarks.shortName(name)); setSingleLine(); setSelection(text.length) }
+                            val bx = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(8), dp(24), 0); addView(et, LinearLayout.LayoutParams(MATCH, WRAP)) }
+                            MaterialAlertDialogBuilder(act).setTitle("Rename folder").setView(bx)
+                                .setPositiveButton("Rename") { _, _ ->
+                                    val r = Bookmarks.renameFolder(name, et.text.toString())
+                                    if (r.isEmpty()) Util.toast(act, "Name is empty or already used")
+                                    else { val cur = folder; if (cur != null && Bookmarks.under(cur, name)) folder = r + cur.substring(name.length); render() }
+                                }.setNegativeButton("Cancel", null).show()
+                        }
                     }
                     .show()
                 true
