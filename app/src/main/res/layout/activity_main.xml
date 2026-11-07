@@ -149,6 +149,20 @@
             android:textStyle="bold"
             android:visibility="gone" />
 
+        <!-- 0.0.319: Chrome-style "+" new tab button next to the address bar (tap = new tab, hold = new private tab) -->
+        <ImageView
+            android:id="@+id/btn_newtab"
+            android:layout_width="34dp"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="New tab"
+            android:focusable="true"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_add"
+            android:tooltipText="New tab" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_tabs"
             style="@style/Widget.Material3.Button.OutlinedButton"

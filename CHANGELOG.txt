@@ -1,3 +1,12 @@
+0.0.319 (MODIFY: Chrome-style "+" new tab button next to the address bar)
+- New "+" button in the bottom bar between the address field and the tab count (activity_main.xml btn_newtab, ic_add, 34x44dp, touch area >= 44dp tall). Tap = new tab (home page); inside a private tab it opens another private tab, like Chrome. Hold = new private tab.
+- It hides while you type in the address bar, on a squeezed bar (Back + Forward both shown on a narrow phone), when the Social chip is shown, and in installed-app / site windows, so the address field keeps its room.
+- Settings > Appearance > Bars (behaviour card) > "New tab button" switch (default ON, key ap_bar_newtab). Live update through AppearanceScreen.onChange.
+- Colours only mg_* (dark + light), no new drawables. The pinned bar preview inside Appearance does not show the "+" (not changed).
+- Files: res/layout/activity_main.xml, MainActivity.kt, AppearancePrefs.kt, AppearanceScreen.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: narrower address field when the shield and "+" are both shown on a 360dp phone (about 110dp left for the address); the bar swipe gestures start on the "+" like on the other buttons (not checked).
+- NOT tested: Gradle build (CI), device, 360 / 1280 dp render, dark + light.
+
 0.0.318 (FIX: Instagram reels no longer jump to other / suggested accounts, repeat the same reel, or hijack the Home feed)
 - Causes: (1) the tap hook caught ANY link with a video inside, also in the Home feed, and sent it to the global reels viewer (other / suggested accounts); (2) a /reel/<id>/ page was always redirected to the global viewer, even when Instagram itself had opened it; (3) the swipe pager remembered the reel id from page load, so after Instagram moved to another reel by itself every swipe went to the same neighbour again; (4) an old profile list could stay active for 6 hours.
 - Now: only profile grids (pager of THAT account) and Explore tiles (global viewer) are hooked. Home feed, stories, suggestions and all other pages are left to Instagram. A /reel/ page is redirected to the global viewer only when opened from outside (no referrer). The pager reads the current reel live, ignores swipes while a page is loading, does nothing on reels that are not in the list, and drops the list (30 min) when you leave that profile.

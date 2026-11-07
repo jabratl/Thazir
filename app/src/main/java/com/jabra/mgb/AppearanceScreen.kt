@@ -457,6 +457,8 @@ object AppearanceScreen {
                 updatePreview()
             }
             val up = AppearancePrefs.barTop(act) // A6: directions follow the bar position
+            toggleRow(behCard, R.drawable.ic_add, "New tab button", "Show a + next to the address bar: tap = new tab, hold = new private tab",
+                { AppearancePrefs.newTabBtn(act) }) { on -> AppearancePrefs.setNewTabBtn(act, on); AppearanceScreen.onChange?.invoke() }
             toggleRow(behCard, R.drawable.ic_screen, "Swipe for fullscreen", "Swipe the bar " + (if (up) "up" else "down") + " to hide the bar and system bars",
                 { AppearancePrefs.swipeFs(act) }) { on -> AppearancePrefs.setSwipeFs(act, on) }
             toggleRow(behCard, R.drawable.ic_list, "Swipe to view tabs", "Swipe the bar " + (if (up) "down" else "up") + " to open the tab switcher",

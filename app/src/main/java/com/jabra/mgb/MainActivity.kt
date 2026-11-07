@@ -29,6 +29,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     private lateinit var btnFwd: ImageView // A1: optional Forward arrow in the bar
     private lateinit var btnTabs: MaterialButton
     private lateinit var btnShield: ImageView // S68: Privacy Guard
+    private lateinit var btnNewTab: ImageView // 0.0.319: "+" next to the address bar
     private lateinit var btnEngine: TextView // S69: search engine badge
     private lateinit var progress: LinearProgressIndicator
     private lateinit var backCb: OnBackPressedCallback
@@ -84,6 +85,16 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         btnFwd = findViewById(R.id.btn_fwd) // A1
         btnTabs = findViewById(R.id.btn_tabs)
         btnShield = findViewById(R.id.btn_shield) // S68
+        btnNewTab = findViewById(R.id.btn_newtab) // 0.0.319
+        btnNewTab.setOnClickListener { // same as Chrome: a private tab opens another private tab
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+            tabs.newTab(TabManager.HOME_PAGE, 0, true, tabs.active?.priv == true)
+        }
+        btnNewTab.setOnLongClickListener {
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+            tabs.newTab(TabManager.HOME_PAGE, 0, true, true)
+            true
+        }
         btnEngine = findViewById(R.id.btn_engine) // S69
         progress = findViewById(R.id.progress)
         progress.trackColor = android.graphics.Color.TRANSPARENT // S21d: only the accent line, thicker
@@ -475,6 +486,10 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         btnEngine.visibility = if (eng) View.VISIBLE else View.GONE
         if (eng) EnginePicker.styleBadge(this, btnEngine)
         SocialChip.update(this, tabs, urlBar.hasFocus()) // 0.0.286: social chip at the end of the address bar
+        // 0.0.319: "+" hides while typing, on a squeezed bar and when the Social chip is shown, so the address field keeps its room
+        val showNew = shared && AppearancePrefs.newTabBtn(this) && !urlBar.hasFocus() && !navTight() && findViewById<View>(R.id.btn_social).visibility != View.VISIBLE
+        btnNewTab.visibility = if (showNew) View.VISIBLE else View.GONE
+        btnNewTab.setColorFilter(getColor(R.color.mg_text))
     }
 
     // ---------- TabManager.Listener ----------
