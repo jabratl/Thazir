@@ -164,7 +164,7 @@ object DownloadsApi {
         .put("received", i.received).put("total", i.total).put("fileSize", i.fileSize)
         .put("start", i.start).put("end", i.end).put("validator", i.validator)
         .put("conflict", i.conflict).put("headers", i.headers).put("method", i.method)
-        .put("body", i.body ?: JSONObject.NULL)
+        .put("body", i.body ?: JSONObject.NULL).put("plain", i.plain)
 
     private fun fromStore(o: JSONObject): DlItem {
         val i = DlItem(o.getInt("id"), o.getString("url"))
@@ -175,6 +175,7 @@ object DownloadsApi {
         i.start = o.optLong("start"); i.end = o.optLong("end"); i.validator = o.optString("validator")
         i.conflict = o.optString("conflict", "uniquify"); i.headers = o.optJSONArray("headers") ?: JSONArray()
         i.method = o.optString("method", "GET"); i.body = if (o.isNull("body")) null else o.optString("body")
+        i.plain = o.optBoolean("plain")
         return i
     }
 
@@ -284,7 +285,7 @@ object DownloadsApi {
      * and report list them while they run. Newest 12 only. Thread safe.
      */
     fun plainJobs(): List<JSONObject> {
-        val list = synchronized(items) { items.values.filter { it.plain }.sortedByDescending { maxOf(it.start, it.end) }.take(12) }
+        val list = synchronized(items) { items.values.filter { it.plain && it.state != "complete" }.sortedByDescending { maxOf(it.start, it.end) }.take(12) }
         return list.map { i ->
             val st = when (i.state) { "in_progress" -> "run"; "complete" -> "done"; else -> "fail" }
             val name = (if (i.filename.isNotEmpty()) i.filename else i.rel).substringAfterLast('/').ifBlank { i.url.substringAfterLast('/').take(60) }
@@ -296,7 +297,7 @@ object DownloadsApi {
             }
             JSONObject().put("key", "nat:" + i.id).put("title", name).put("state", st).put("paused", i.paused && st == "run")
                 .put("pct", if (tot > 0) (rec.toDouble() / tot).coerceIn(0.0, 1.0) else 0.0).put("text", text)
-                .put("url", i.url).put("native", true).put("updated", if (st == "run") System.currentTimeMillis() else maxOf(i.start, i.end))
+                .put("url", i.url).put("native", true).put("canResume", i.canResume && st == "fail").put("updated", if (st == "run") System.currentTimeMillis() else maxOf(i.start, i.end))
         }
     }
 
@@ -317,7 +318,7 @@ object DownloadsApi {
                 Downloader.abort(i)
                 Downloader.partFile(i.id).delete()
             }
-            "job-remove" -> if (i.state != "in_progress") i.plain = false // leaves the queue only; file + chrome.downloads item stay
+            "job-remove" -> if (i.state != "in_progress") { i.plain = false; save() } // leaves the queue only; file + chrome.downloads item stay
         }
     }
 
@@ -366,7 +367,28 @@ object DownloadsApi {
         } catch (e: Exception) { /* notifications are optional */ }
     }
 
-    fun notifyDone(item: DlItem) = notifyItem(item, true)
+    fun notifyDone(item: DlItem) { notifyItem(item, true); if (item.plain) addSaved(item) }
+
+    /**
+     * 0.0.326: a finished plain download goes into the Saved files list (storage.local mgHist, same entry V77 writes:
+     * id, title, src, time, size), so Open / Share / Show / Rename / Vault / Remove work like for V77 files and it stays after a restart.
+     */
+    private fun addSaved(i: DlItem) {
+        main.post {
+            try {
+                val a = ChromeBridge.local.get("mgHist").optJSONArray("mgHist") ?: JSONArray()
+                for (k in 0 until a.length()) if (a.optJSONObject(k)?.optInt("id") == i.id) return@post
+                var ref = ""
+                for (k in 0 until i.headers.length()) i.headers.optJSONObject(k)?.let { if (it.optString("name").equals("Referer", true)) ref = it.optString("value") }
+                val src = if (ref.startsWith("http", true)) ref else if (i.url.startsWith("http", true)) i.url else ""
+                val name = (if (i.filename.isNotEmpty()) i.filename else i.rel).substringAfterLast('/')
+                val e = JSONObject().put("id", i.id).put("title", name).put("src", src).put("time", i.end.takeIf { it > 0 } ?: System.currentTimeMillis()).put("size", maxOf(i.fileSize, 0L))
+                val out = JSONArray().put(e)
+                for (k in 0 until minOf(a.length(), 499)) a.optJSONObject(k)?.let { out.put(it) }
+                ChromeBridge.storageSet("local", JSONObject().put("mgHist", out))
+            } catch (e: Exception) { }
+        }
+    }
     fun notifyFail(item: DlItem) = notifyItem(item, false)
 
     /** Notification shown while the foreground service runs. */

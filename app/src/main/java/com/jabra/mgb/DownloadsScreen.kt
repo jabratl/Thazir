@@ -398,6 +398,9 @@ object DownloadsScreen {
                 })
                 actions.addView(button("Cancel") { EngineApi.send(JSONObject().put("type", "job-cancel").put("key", key)) })
             } else {
+                if (j.optBoolean("native") && j.optBoolean("canResume")) actions.addView(button("Resume", true) { // 0.0.326: cut / failed plain download
+                    EngineApi.send(JSONObject().put("type", "job-pause").put("key", key).put("on", false))
+                })
                 if (state != "done") actions.addView(button("Why?") { // S86: explain this failure
                     DiagScreen.open(act, null, -1, j.optString("text").ifBlank { j.optString("error") }, j.optString("url"))
                 })

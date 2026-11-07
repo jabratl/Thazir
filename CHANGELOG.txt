@@ -1,3 +1,12 @@
+0.0.326 (MODIFY: finished plain downloads go to Saved files, plain rows survive a restart, Resume button)
+- Why: 0.0.325 listed running plain downloads, but a finished one only showed as a "Done" row until the app closed and had no Open / Share; after a restart a cut download was gone from the queue.
+- Now: DownloadsApi.notifyDone() writes a finished plain download into storage.local mgHist (same entry V77 writes: id, title, src, time, size), so Saved files, Open / Show / Share / Rename / Vault / Remove / select all work with no UI change; plainJobs() lists only running / failed rows (done ones are in Saved files, no double row). DlItem.plain is saved (toStore / fromStore). Failed or cut rows with canResume get a "Resume" button in DownloadsScreen.jobRow (sends the same job-pause on=false). Remove now saves.
+- Not changed: Downloader / DownloadService, V77 jobs, mgHist shape, Saved files UI.
+- Could break: mgHist capped at 500 entries when a plain file is added. Rows made by 0.0.325 (not saved) are not listed after update. Entry is added on the main thread after the file is published (short delay).
+- Checked: braces / parentheses balanced (DownloadsApi.kt, DownloadsScreen.kt), single-match patch audit.
+- Files (all changed since 0.0.324, includes the 0.0.325 files): app/src/main/java/com/jabra/mgb/DownloadsApi.kt, EngineApi.kt, DownloadsScreen.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.326.txt.
+- NOT tested: Gradle build (CI), device, 360 / 1280 dp, dark + light.
+
 0.0.325 (FIX: downloads started by a tab link / blob were not in the Downloads queue while running)
 - Why (root cause): Downloads screen, Media screen and the report read only V77 jobs (EngineApi.jobs = storage.session mgJobs). A plain link / blob / data download of any site goes TabManager DownloadListener -> DownloadsApi.startPlain -> Downloader and is no V77 job, so it ran (notification + toast) but was never listed.
 - Now: DlItem.plain flag (set in startPlain), DownloadsApi.plainJobs() returns those items (newest 12) as job-shaped JSON (key "nat:<id>", state run / done / fail, pct, size text), EngineApi.jobs() adds them, EngineApi.send() routes job-pause / job-cancel / job-remove of a "nat:" key to DownloadsApi.plainControl (Pause, Resume, Cancel, Remove work like the V77 rows). Existing Downloads / Media UI code unchanged.
