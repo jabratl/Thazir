@@ -2,6 +2,13 @@ package com.jabra.mgb
 
 import android.app.Activity
 import android.content.ClipData
+import android.content.ClipDescription
+import android.os.Build
+import android.os.PersistableBundle
+import android.view.WindowManager
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Handler
@@ -358,7 +365,37 @@ return 'n'+n;
 
     // ---- saved list (S40: search, Add, Edit, Generate, file import / export)
 
-    fun screen(act: FragmentActivity) {
+    // 0.0.321: Brave-style protection. Opening the list, showing, copying, editing and exporting always ask for fingerprint / screen lock
+    // (own 30 s window, NOT the Vault one); no screen lock on the phone = no access (never "open without asking").
+    private var authAt = 0L
+    private const val GRACE_MS = 30_000L
+    private const val CLIP_MS = 60_000L
+    private const val SHOW_MS = 30_000L
+
+    private fun guard(act: FragmentActivity, why: String, ok: () -> Unit) {
+        if (System.currentTimeMillis() - authAt < GRACE_MS) { ok(); return }
+        val auth = if (Build.VERSION.SDK_INT >= 30) BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            else BiometricManager.Authenticators.BIOMETRIC_WEAK
+        val can = try { BiometricManager.from(act).canAuthenticate(auth) } catch (e: Exception) { -99 }
+        if (can != BiometricManager.BIOMETRIC_SUCCESS) {
+            Util.toast(act, "Set a screen lock or fingerprint first to open saved passwords")
+            return
+        }
+        try {
+            val prompt = BiometricPrompt(act, ContextCompat.getMainExecutor(act), object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(r: BiometricPrompt.AuthenticationResult) { authAt = System.currentTimeMillis(); ok() }
+            })
+            val b = BiometricPrompt.PromptInfo.Builder().setTitle(why).setSubtitle("Saved passwords are protected").setAllowedAuthenticators(auth)
+            if (Build.VERSION.SDK_INT < 30) b.setNegativeButtonText("Cancel")
+            prompt.authenticate(b.build())
+        } catch (e: Exception) {
+            Util.toast(act, "Cannot ask for unlock")
+        }
+    }
+
+    fun screen(act: FragmentActivity) = guard(act, "Unlock passwords") { screenOpen(act) }
+
+    private fun screenOpen(act: FragmentActivity) {
         fun dp(v: Int) = Util.dp(act, v)
         val cText = act.getColor(R.color.mg_text)
         val cDim = act.getColor(R.color.mg_text_dim)
@@ -417,6 +454,8 @@ return 'n'+n;
             override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) { }
             override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) { }
         })
+        dlg.window?.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE) // 0.0.321: no screenshot / recents picture of the list
+        dlg.setOnDismissListener { authAt = 0L }
         dlg.show()
         render()
         // the dialog stays open after Add / More: the list refreshes when the work is done
@@ -434,10 +473,21 @@ return 'n'+n;
         }
     }
 
-    private fun copy(act: Activity, label: String, text: String) {
+    private fun copy(act: Activity, label: String, text: String, secret: Boolean = false) {
         val cm = act.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        cm.setPrimaryClip(ClipData.newPlainText(label, text))
-        Util.toast(act, "$label copied")
+        val clip = ClipData.newPlainText(label, text)
+        if (secret && Build.VERSION.SDK_INT >= 33) clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) } // 0.0.321: hidden in the clipboard preview
+        cm.setPrimaryClip(clip)
+        if (secret) {
+            Handler(Looper.getMainLooper()).postDelayed({ // 0.0.321: password leaves the clipboard after 60 s
+                try {
+                    if (cm.primaryClipDescription?.label == label) {
+                        if (Build.VERSION.SDK_INT >= 28) cm.clearPrimaryClip() else cm.setPrimaryClip(ClipData.newPlainText("", ""))
+                    }
+                } catch (e: Exception) { }
+            }, CLIP_MS)
+            Util.toast(act, "$label copied, cleared in 60 s")
+        } else Util.toast(act, "$label copied")
     }
 
     private fun entryMenu(act: FragmentActivity, e: Entry, close: () -> Unit, changed: () -> Unit) {
@@ -446,17 +496,31 @@ return 'n'+n;
             .setItems(arrayOf("Copy user name", "Copy password", "Show password", "Open site", "Edit", "Delete")) { _, i ->
                 when (i) {
                     0 -> copy(act, "User name", e.user)
-                    1 -> Vault.unlock(act, "Copy password") {
+                    1 -> guard(act, "Copy password") {
                         val p = Vault.decrypt(e.enc)
-                        if (p == null) Util.toast(act, "Cannot read this password") else copy(act, "Password", p)
+                        if (p == null) Util.toast(act, "Cannot read this password") else copy(act, "Password", p, true)
                     }
-                    2 -> Vault.unlock(act, "Show password") {
+                    2 -> guard(act, "Show password") {
                         val p = Vault.decrypt(e.enc)
-                        MaterialAlertDialogBuilder(act).setTitle(e.host).setMessage(e.user + "\n" + (p ?: "(cannot read)"))
-                            .setPositiveButton("Close", null).show()
+                        if (p == null) { Util.toast(act, "Cannot read this password"); return@guard }
+                        val dots = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" // 0.0.321: hidden first, length not shown
+                        var shown = false
+                        val d = MaterialAlertDialogBuilder(act).setTitle(e.host).setMessage(e.user + "\n" + dots)
+                            .setPositiveButton("Close", null).setNeutralButton("Show", null).create()
+                        d.window?.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+                        val hd = Handler(Looper.getMainLooper())
+                        val auto = Runnable { if (d.isShowing) d.dismiss() } // closes itself after 30 s
+                        d.setOnDismissListener { hd.removeCallbacks(auto) }
+                        d.show()
+                        hd.postDelayed(auto, SHOW_MS)
+                        d.getButton(android.app.AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+                            shown = !shown
+                            d.setMessage(e.user + "\n" + (if (shown) p else dots))
+                            d.getButton(android.app.AlertDialog.BUTTON_NEUTRAL).text = if (shown) "Hide" else "Show"
+                        }
                     }
                     3 -> { close(); (act as? MainActivity)?.openSite("https://" + e.host) }
-                    4 -> Vault.unlock(act, "Edit login") { editDialog(act, e, changed) }
+                    4 -> guard(act, "Edit login") { editDialog(act, e, changed) }
                     else -> MaterialAlertDialogBuilder(act)
                         .setMessage("Delete the saved login for ${e.host}?")
                         .setPositiveButton("Delete") { _, _ -> remove(act, e); Util.toast(act, "Deleted"); changed() }
@@ -595,7 +659,7 @@ return 'n'+n;
             .setTitle("Export passwords")
             .setMessage("The CSV file is plain text: anyone who gets it can read every password. Save it only where you trust, and delete it after use.")
             .setPositiveButton("Export") { _, _ ->
-                Vault.unlock(act, "Export passwords") {
+                guard(act, "Export passwords") {
                     val sb = StringBuilder("name,url,username,password\n")
                     for (e in es) {
                         val p = Vault.decrypt(e.enc) ?: continue
