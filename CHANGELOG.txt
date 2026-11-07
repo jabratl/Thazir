@@ -1,3 +1,11 @@
+0.0.315 (FIX: Instagram reels opened from a profile stay on that profile)
+- Why: every tapped reel was sent to the global viewer instagram.com/reels/<id>/, so swiping up showed other accounts' reels. (Caused by 0.0.303 SocialReels.)
+- Now: tapping a reel on a profile (main grid or Reels tab) opens /reel/<id>/ and swipe up / down goes to the next / previous reel of THAT account, in grid order (list = the reels loaded in the grid when you tapped). At the end a small note says "Last loaded reel of this profile"; go Back, scroll the grid to load more, tap again. Explore / Home / shared links still use the global viewer.
+- Also fixed: the profile Reels tab (instagram.com/<user>/reels/) was treated as a reel page, so it went full screen and pull-to-refresh was off. Now it behaves like a normal page.
+- Files: SocialReels.kt (JS + 2 regexes), build.gradle.kts, CHANGELOG, HANDOFF. Switch sm_reels OFF = old Instagram behaviour.
+- Could break: Instagram changes its grid markup (then the list has only the tapped reel and swipe shows the "last" note); each swipe loads a page (about 1 s); swipe is ignored inside comments / input.
+- NOT tested: Gradle build (CI), device, live Instagram.
+
 0.0.314 (FIX: app update keeps downloading in the background)
 - Why: the update download was tied to the update dialog. Touching outside the dialog, or the screen turning off, closed the dialog and that cancelled the download and deleted the partly downloaded file.
 - Now the download runs in a foreground service (UpdateService.kt, type dataSync) with a CPU + Wi-Fi lock. It goes on when the dialog is closed, the screen is off or Thazir is in the background.
