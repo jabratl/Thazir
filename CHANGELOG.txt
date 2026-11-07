@@ -1,3 +1,11 @@
+0.0.316 (FIX: Google sign-in asks which account; Passport keeps the chosen one)
+- Why: sign-in used the Authorization API without an account, so Google silently reused the account that had already given consent. After Sign out + Clear Passport, "Sign in with Google" signed in with the first Gmail again.
+- Now: Sign in with Google first opens the phone's Google account list (all accounts on the phone + "Add account"). The chosen account is saved (orb_g_acc) and used for every later Drive upload / restore / daily auto upload, so a second Gmail on the phone can never get mixed in. Sign out removes it.
+- Other Gmails could not sign in (only the ones added under "credentials" worked): this is the Google Cloud OAuth consent screen being in Testing mode (only listed Test users allowed). NOT a code issue. Fix in Google Cloud Console: Google Auth Platform (or APIs & Services > OAuth consent screen) > Audience > "Publish app" > In production. The scopes used (drive.appdata, userinfo.email, userinfo.profile) are non-sensitive, so no Google verification review is needed. Keep the Android client (com.jabra.mgb + SHA-1 of the key that signs the APK) as it is.
+- Files: CloudSync.kt (account picker + setAccount), build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: phones where the account chooser is blocked (then "Could not open the account list"). Authorization API setAccount needs play-services-auth 21.x (already 21.2.0).
+- NOT tested: Gradle build (CI), device.
+
 0.0.315 (FIX: Instagram reels opened from a profile stay on that profile)
 - Why: every tapped reel was sent to the global viewer instagram.com/reels/<id>/, so swiping up showed other accounts' reels. (Caused by 0.0.303 SocialReels.)
 - Now: tapping a reel on a profile (main grid or Reels tab) opens /reel/<id>/ and swipe up / down goes to the next / previous reel of THAT account, in grid order (list = the reels loaded in the grid when you tapped). At the end a small note says "Last loaded reel of this profile"; go Back, scroll the grid to load more, tap again. Explore / Home / shared links still use the global viewer.

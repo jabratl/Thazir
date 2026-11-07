@@ -1,6 +1,9 @@
 package com.jabra.mgb
 
+import android.accounts.Account
+import android.accounts.AccountManager
 import android.app.Activity
+import android.content.Intent
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -40,9 +43,12 @@ object CloudSync {
     private const val FILE = "thazir-passport.json"
     const val K_ON = "orb_g"
     const val K_AT = "orb_g_at"
+    const val K_ACC = "orb_g_acc" // 0.0.316: the Google account picked at sign-in; every later upload / restore uses it
 
     private val launchers = WeakHashMap<Activity, ActivityResultLauncher<IntentSenderRequest>>()
+    private val pickers = WeakHashMap<Activity, ActivityResultLauncher<Intent>>()
     private var pending: ((AuthorizationResult?) -> Unit)? = null
+    private var pendingPick: ((Account?) -> Unit)? = null
     private val http: OkHttpClient by lazy {
         OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(40, TimeUnit.SECONDS).build()
     }
@@ -50,10 +56,18 @@ object CloudSync {
     private fun sp(c: Context) = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
     fun signedIn(c: Context): Boolean = sp(c).getBoolean(K_ON, false)
     fun lastSync(c: Context): Long = sp(c).getLong(K_AT, 0L)
+    /** The account chosen at sign-in (null = none yet). */
+    private fun account(c: Context): Account? = sp(c).getString(K_ACC, null)?.takeIf { it.isNotBlank() }?.let { Account(it, "com.google") }
     fun photoFile(c: Context): File = File(c.applicationContext.filesDir, "orb_photo.png")
 
     /** Call in Activity.onCreate next to BrowserExtras.init (launchers must be registered before STARTED). */
     fun init(a: ComponentActivity) {
+        pickers[a] = a.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+            val cb = pendingPick
+            pendingPick = null
+            val n = r.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
+            cb?.invoke(if (r.resultCode == Activity.RESULT_OK && !n.isNullOrBlank()) Account(n, r.data?.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE) ?: "com.google") else null)
+        }
         launchers[a] = a.registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
             val cb = pending
             pending = null
@@ -68,9 +82,11 @@ object CloudSync {
     }
 
     /** Gets an access token for [scopes]. [interactive] false = never show a Google screen (daily auto upload). */
-    private fun authorize(act: Activity, scopes: List<String>, interactive: Boolean, cb: (String?, String?) -> Unit) {
+    private fun authorize(act: Activity, scopes: List<String>, interactive: Boolean, acc: Account?, cb: (String?, String?) -> Unit) {
         try {
-            val req = AuthorizationRequest.builder().setRequestedScopes(scopes.map { Scope(it) }).build()
+            val rb = AuthorizationRequest.builder().setRequestedScopes(scopes.map { Scope(it) })
+            if (acc != null) rb.setAccount(acc) // 0.0.316: always the chosen account, never "whichever Google decides"
+            val req = rb.build()
             Identity.getAuthorizationClient(act).authorize(req)
                 .addOnSuccessListener { res ->
                     if (res.hasResolution()) {
@@ -102,21 +118,39 @@ object CloudSync {
     // ------------------------------------------------------------ sign in / out
     /** done(null) = signed in, else a short error text. Runs on the main thread. */
     fun signIn(act: Activity, done: (String?) -> Unit) {
-        authorize(act, listOf(DRIVE, EMAIL, PROFILE), true) { token, err ->
-            if (token == null) { done(err ?: "Sign-in failed"); return@authorize }
-            val app = act.applicationContext
-            Thread {
-                val msg = try { loadProfile(app, token); null } catch (e: Exception) { "Signed in, but the Google profile could not be read" }
-                act.runOnUiThread {
-                    sp(app).edit().putBoolean(K_ON, true).apply()
-                    done(msg)
-                }
-            }.start()
+        // 0.0.316: ask WHICH account first (accounts on this phone + "Add account"), so a second sign-in never reuses the first one silently
+        pickAccount(act) { acc ->
+            if (acc == null) { done("Sign-in cancelled"); return@pickAccount }
+            authorize(act, listOf(DRIVE, EMAIL, PROFILE), true, acc) { token, err ->
+                if (token == null) { done(err ?: "Sign-in failed"); return@authorize }
+                val app = act.applicationContext
+                Thread {
+                    val msg = try { loadProfile(app, token); null } catch (e: Exception) { "Signed in, but the Google profile could not be read" }
+                    act.runOnUiThread {
+                        sp(app).edit().putBoolean(K_ON, true).putString(K_ACC, acc.name).apply()
+                        done(msg)
+                    }
+                }.start()
+            }
+        }
+    }
+
+    private fun pickAccount(act: Activity, cb: (Account?) -> Unit) {
+        val l = pickers[act]
+        if (l == null) { cb(null); return }
+        try {
+            val i = AccountManager.newChooseAccountIntent(null, null, arrayOf("com.google"), null, null, null, null)
+            pendingPick = cb
+            l.launch(i)
+        } catch (e: Exception) {
+            pendingPick = null
+            Util.toast(act, "Could not open the account list")
+            cb(null)
         }
     }
 
     fun signOut(c: Context) {
-        sp(c).edit().remove(K_ON).remove(K_AT).remove(Orbit.NAME).remove(Orbit.MAIL).apply()
+        sp(c).edit().remove(K_ON).remove(K_AT).remove(K_ACC).remove(Orbit.NAME).remove(Orbit.MAIL).apply()
         try { photoFile(c).delete() } catch (_: Exception) { }
     }
 
@@ -181,7 +215,7 @@ object CloudSync {
 
     /** Uploads [json] (made by Backup.passportJson on the main thread). done(null) = saved. */
     fun upload(act: Activity, json: String, interactive: Boolean, done: (String?) -> Unit) {
-        authorize(act, listOf(DRIVE), interactive) { token, err ->
+        authorize(act, listOf(DRIVE), interactive, account(act)) { token, err ->
             if (token == null) { done(err ?: "Not signed in"); return@authorize }
             val app = act.applicationContext
             Thread {
@@ -196,7 +230,7 @@ object CloudSync {
 
     /** Downloads the Passport file and hands it to the normal Import dialog (choose what to restore). */
     fun restore(act: Activity, done: (String?) -> Unit) {
-        authorize(act, listOf(DRIVE), true) { token, err ->
+        authorize(act, listOf(DRIVE), true, account(act)) { token, err ->
             if (token == null) { done(err ?: "Not signed in"); return@authorize }
             Thread {
                 var text: String? = null
