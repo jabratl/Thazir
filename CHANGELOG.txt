@@ -1,3 +1,13 @@
+0.0.328 (BUILD: ask folder when saving a bookmark, sub folders, vault hide / unhide / restore follow the folder tree)
+- Save: star / Command Center "Bookmark this page" / long press link "Bookmark link" open BookmarkFolderPicker (new file): save here, open a sub folder, Up, New folder (made inside the folder you are in), Cancel = nothing saved. Move (one and many) uses the same picker.
+- Sub folders: no new storage. A folder is a path string "A/B" (mgb_folders.json, Item.folder), so old data, import / export, vault entries and Home work as before. Bookmarks.addFolder(path) also makes the parents; removeFolder removes the folder + its sub folders (bookmarks go to no folder); helpers shortName / under / ancestors / childFolders. BookmarksScreen shows the folders of the open level (count = all bookmarks below), Back goes one level up, menu "New folder" inside an open folder makes a sub folder.
+- Vault bookmarks: a folder is hidden when it or any folder above it is hidden. Folder chip = folder + all below; "Hide folder" hides folder, sub folders and all bookmarks under it; "Unhide folder" shows them again and opens the folders above; Select folders ticks every bookmark below; unhiding bookmarks opens their folder, the folders above and below. Undo puts the exact old state back. Moving to the vault from the browser: chip of a folder includes its sub folders; Restore of a selected folder brings back every bookmark below it, folders are re-made as paths.
+- Not changed: Vault storage format, Home screen (a folder tile shows its own bookmarks only), export file (folders stay one level in the HTML), rename folder.
+- Could break: Home folder tile for "A/B" shows the full path text; old rows with "/" typed in a folder name now count as sub folders.
+- Checked: braces / parentheses balanced in all changed .kt files, single-match patch audit.
+- Files: BookmarkFolderPicker.kt (new), Bookmarks.kt, BookmarksScreen.kt, VaultItems.kt, MainActivity.kt, CommandCenter.kt, TabManager.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.328.txt (all under app/src/main/java/com/jabra/mgb/).
+- NOT tested: Gradle build (CI), device, 360 / 1280 dp, dark + light.
+
 0.0.327 (MODIFY: private tab pictures are blurred in the tab switcher)
 - Now: TabSwitcher.snap() runs the page picture of a private tab through blurred() (shrink to 1/14, scale back with smoothing, all Android versions); the sharp bitmap is recycled at once. Normal tabs unchanged. Card / list / grid use the same previewOf, so all views are blurred.
 - Not changed: tab data, thumbs map, private purge, other files.

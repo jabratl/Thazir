@@ -356,17 +356,21 @@ object VaultItems {
         fixChip()
         val q = query.trim().lowercase()
         var l = shownAll().sortedByDescending { it.optLong("time") }
-        if (type == "bm" && chip > 0) { val f = bmFolders().getOrNull(chip - 1); if (f != null) l = l.filter { it.optString("folder") == f } }
+        if (type == "bm" && chip > 0) { val f = bmFolders().getOrNull(chip - 1); if (f != null) l = l.filter { Bookmarks.under(it.optString("folder"), f) } }
         if (q.isNotEmpty()) l = l.filter { it.optString("title").lowercase().contains(q) || it.optString("url").lowercase().contains(q) || it.optString("folder").lowercase().contains(q) }
         return l
     }
 
-    private fun bmFolders(): List<String> = shownAll().map { it.optString("folder") }.filter { it.isNotEmpty() }.distinct().sorted()
+    /** 0.0.328: folders are paths "A/B"; a parent folder is listed even when only its sub folders hold bookmarks. */
+    private fun bmFolders(): List<String> = shownAll().map { it.optString("folder") }.filter { it.isNotEmpty() }.flatMap { listOf(it) + Bookmarks.ancestors(it) }.distinct().sorted()
+
+    /** 0.0.328: a folder is hidden when it, or any folder above it, is hidden. */
+    private fun folderHid(f: String): Boolean { if (f.isEmpty()) return false; val hf = VaultStore.hiddenFolders(); return hf.contains(f) || Bookmarks.ancestors(f).any { hf.contains(it) } }
 
     // ---------- V16: hide + selection helpers ----------
 
     /** A bookmark is hidden by its own flag or because its folder is hidden. */
-    private fun isHid(o: JSONObject) = o.optBoolean("hidden") || (o.optString("folder").isNotEmpty() && VaultStore.hiddenFolders().contains(o.optString("folder")))
+    private fun isHid(o: JSONObject) = o.optBoolean("hidden") || folderHid(o.optString("folder"))
 
     /** Items of this list that are allowed on screen now (hidden ones only when Show hidden is ON). Only bookmarks can be hidden. */
     private fun shownAll(): List<JSONObject> {
@@ -381,7 +385,7 @@ object VaultItems {
         if (!hide) { hideSelected(a, false); return }
         val fo = sel.mapNotNull { VaultStore.item(it) }.map { it.optString("folder") }.filter { it.isNotEmpty() }.distinct()
         if (fo.isEmpty()) { hideSelected(a, true); return }
-        val total = VaultStore.items("bm").count { fo.contains(it.optString("folder")) }
+        val total = VaultStore.items("bm").count { b -> fo.any { Bookmarks.under(b.optString("folder"), it) } }
         MaterialAlertDialogBuilder(a).setTitle("Hide")
             .setItems(arrayOf("Only the selected bookmarks", "Selected bookmarks and their " + (if (fo.size == 1) "folder" else "${fo.size} folders") + " ($total bookmarks in total)")) { _, i ->
                 hideSelected(a, true, i == 1)
@@ -397,16 +401,17 @@ object VaultItems {
         for (id in ids) {
             val o = VaultStore.item(id) ?: continue
             val fo = o.optString("folder")
-            if (!hide && fo.isNotEmpty()) folders.add(fo)
+            if (!hide && fo.isNotEmpty()) { folders.add(fo); folders.addAll(Bookmarks.ancestors(fo)); VaultStore.hiddenFolders().filter { Bookmarks.under(it, fo) }.let { folders.addAll(it) } } // 0.0.328
             if (hide && withFolders && fo.isNotEmpty() && !VaultStore.hiddenFolders().contains(fo) && newlyHidden.add(fo)) VaultStore.setFolderHidden(a, fo, true)
             if (o.optBoolean("hidden") != hide) { o.put("hidden", hide); VaultStore.updateItem(a, o) }
             n++
         }
-        if (!hide) for (f in folders) VaultStore.setFolderHidden(a, f, false) // unhiding a bookmark also opens its folder
+        val wasHid = if (hide) emptySet() else VaultStore.hiddenFolders()
+        if (!hide) for (f in folders) VaultStore.setFolderHidden(a, f, false) // unhiding a bookmark also opens its folder (and the folders above / below it)
         selecting = false; sel.clear(); chip = 0; listPage()
         bar(a, (if (hide) "Hid " else "Unhid ") + plural(n), "Undo") {
             for (id in ids) { val o = VaultStore.item(id) ?: continue; o.put("hidden", !hide); VaultStore.updateItem(a, o) }
-            for (f in folders) VaultStore.setFolderHidden(a, f, true)
+            for (f in folders) if (wasHid.contains(f)) VaultStore.setFolderHidden(a, f, true)
             for (f in newlyHidden) VaultStore.setFolderHidden(a, f, false)
             chip = 0; listPage()
         }
@@ -428,10 +433,22 @@ object VaultItems {
         }
     }
 
+    /** 0.0.328: Hide / Unhide a folder = the folder, all its sub folders and every bookmark under it. Unhide also opens the folders above it. Undo puts the exact old state back. */
     private fun hideFolder(a: Activity, folder: String, hide: Boolean) {
-        VaultStore.setFolderHidden(a, folder, hide)
+        val items = VaultStore.items("bm").filter { Bookmarks.under(it.optString("folder"), folder) }
+        val oldItem = items.associate { it.optString("id") to it.optBoolean("hidden") }
+        val oldFol = VaultStore.hiddenFolders().filter { Bookmarks.under(it, folder) || Bookmarks.ancestors(folder).contains(it) }.toSet()
+        val subFol = (VaultStore.hiddenFolders().filter { Bookmarks.under(it, folder) } + folder).toSet()
+        val upFol = Bookmarks.ancestors(folder)
+        for (o in items) if (o.optBoolean("hidden") != hide) { o.put("hidden", hide); VaultStore.updateItem(a, o) }
+        if (hide) VaultStore.setFolderHidden(a, folder, true)
+        else { for (f in subFol + upFol) VaultStore.setFolderHidden(a, f, false) }
         chip = 0; listPage()
-        bar(a, (if (hide) "Folder hidden: " else "Folder shown: ") + folder, "Undo") { VaultStore.setFolderHidden(a, folder, !hide); chip = 0; listPage() }
+        bar(a, (if (hide) "Folder hidden: " else "Folder shown: ") + folder, "Undo") {
+            for ((id, was) in oldItem) { val o = VaultStore.item(id) ?: continue; if (o.optBoolean("hidden") != was) { o.put("hidden", was); VaultStore.updateItem(a, o) } }
+            for (f in subFol + upFol) VaultStore.setFolderHidden(a, f, oldFol.contains(f))
+            chip = 0; listPage()
+        }
     }
 
     private fun selectFolderDialog(a: Activity) {
@@ -439,7 +456,7 @@ object VaultItems {
         if (fs.isEmpty()) { Util.toast(a, "No folders here"); return }
         // V17: tick folders one by one (a ticked folder selects all its bookmarks, un-ticking a fully selected folder removes them), or All folders
         val shown = shownAll()
-        fun idsOf(f: String) = shown.filter { it.optString("folder") == f }.map { it.optString("id") }
+        fun idsOf(f: String) = shown.filter { Bookmarks.under(it.optString("folder"), f) }.map { it.optString("id") }
         val checked = BooleanArray(fs.size) { val l = idsOf(fs[it]); l.isNotEmpty() && sel.containsAll(l) }
         val was = checked.copyOf()
         MaterialAlertDialogBuilder(a).setTitle("Select folders")
@@ -480,7 +497,7 @@ object VaultItems {
         if (selecting) ui.head.addView(selectTools(a), lp(dp(a, 2)))
         if (type == "bm" && bmFolders().isNotEmpty()) {
             val hf = VaultStore.hiddenFolders()
-            ui.head.addView(chips(a, listOf("All") + bmFolders().map { if (hf.contains(it)) "$it (hidden)" else it }, chip) { chip = it; chipName = bmFolders().getOrNull(it - 1) ?: ""; limit = PAGE; listPage() }, lp(dp(a, 4)))
+            ui.head.addView(chips(a, listOf("All") + bmFolders().map { if (folderHid(it)) "$it (hidden)" else it }, chip) { chip = it; chipName = bmFolders().getOrNull(it - 1) ?: ""; limit = PAGE; listPage() }, lp(dp(a, 4)))
         }
         if (type == "bm" && !selecting) { // V16: hide controls
             val hc = hiddenCount()
@@ -490,7 +507,7 @@ object VaultItems {
             if (chip > 0) {
                 val f = bmFolders().getOrNull(chip - 1)
                 if (f != null) {
-                    val hidden = VaultStore.hiddenFolders().contains(f)
+                    val hidden = folderHid(f)
                     r.addView(VaultScreen.link(a, if (hidden) "Unhide folder" else "Hide folder") { hideFolder(a, f, !hidden) }, LinearLayout.LayoutParams(WRAP, dp(a, 44)))
                 }
             }
@@ -632,7 +649,7 @@ object VaultItems {
     private fun pKey(s: Src) = if (type == "file") s.e.ref + ":" + s.e.time else keyOf(type, s.e.url, s.e.time)
 
     private fun pLabels(): List<String> =
-        if (type == "bm") listOf("All") + pSrc.map { it.e.folder }.filter { it.isNotEmpty() }.distinct().sorted()
+        if (type == "bm") listOf("All") + pSrc.map { it.e.folder }.filter { it.isNotEmpty() }.flatMap { listOf(it) + Bookmarks.ancestors(it) }.distinct().sorted()
         else listOf("All", "Today", "Last 7 days", "Older than 30 days")
 
     private fun pShown(): List<Src> {
@@ -641,7 +658,7 @@ object VaultItems {
         if (pChip > 0 && pChip < labels.size) {
             val now = System.currentTimeMillis(); val today = dayKey(now)
             l = when {
-                type == "bm" -> l.filter { it.e.folder == labels[pChip] }
+                type == "bm" -> l.filter { Bookmarks.under(it.e.folder, labels[pChip]) }
                 pChip == 1 -> l.filter { it.e.time >= today }
                 pChip == 2 -> l.filter { it.e.time >= today - 6L * 86400000L }
                 else -> l.filter { it.e.time < now - 30L * 86400000L }

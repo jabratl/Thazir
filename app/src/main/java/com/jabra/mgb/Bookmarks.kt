@@ -114,20 +114,34 @@ object Bookmarks {
     /** Returns the folder name (existing one if the name is already used), or "" for a blank name. */
     @Synchronized
     fun addFolder(name: String): String {
-        val n = name.trim().take(40)
-        if (n.isEmpty()) return ""
-        fol.firstOrNull { it.equals(n, true) }?.let { return it }
-        fol.add(n)
-        saveFolders()
-        return n
+        // 0.0.328: a sub folder is a path "A/B" (each part max 40 chars); the parents are made too
+        val parts = name.split('/').map { it.trim().take(40) }.filter { it.isNotEmpty() }.take(6)
+        if (parts.isEmpty()) return ""
+        var path = ""
+        var made = false
+        for (part in parts) {
+            val want = if (path.isEmpty()) part else "$path/$part"
+            val have = fol.firstOrNull { it.equals(want, true) }
+            if (have != null) path = have else { fol.add(want); path = want; made = true }
+        }
+        if (made) saveFolders()
+        return path
     }
+
+    /** 0.0.328: sub folder helpers (paths "A/B"). */
+    fun shortName(path: String): String = path.substringAfterLast('/')
+    fun under(f: String, root: String): Boolean = f == root || f.startsWith("$root/")
+    fun ancestors(f: String): List<String> { val out = ArrayList<String>(); var p = f; while (p.contains('/')) { p = p.substringBeforeLast('/'); out.add(p) }; return out }
+    /** Direct children of [parent] ("" = top level), as full paths. */
+    @Synchronized fun childFolders(parent: String): List<String> =
+        fol.filter { if (parent.isEmpty()) !it.contains('/') else it.startsWith("$parent/") && !it.substring(parent.length + 1).contains('/') }
 
     /** Deletes the folder; its bookmarks go back to "no folder". */
     @Synchronized
     fun removeFolder(name: String) {
-        if (!fol.remove(name)) return
+        if (!fol.removeAll { under(it, name) }) return // 0.0.328: sub folders go too
         val moved = ArrayList<Item>()
-        for (x in bm) moved.add(if (x.folder == name) Item(x.title, x.url, x.time, "") else x)
+        for (x in bm) moved.add(if (under(x.folder, name)) Item(x.title, x.url, x.time, "") else x)
         bm.clear()
         bm.addAll(moved)
         saveAsync(F_BM, bm)

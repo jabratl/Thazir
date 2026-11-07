@@ -355,8 +355,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             Bookmarks.removeBookmark(t.url)
             Util.toast(this, "Bookmark removed")
         } else {
-            Bookmarks.addBookmark(t.title.ifBlank { Util.host(t.url) }, t.url)
-            Util.toast(this, "Bookmark added")
+            BookmarkFolderPicker.save(this, t.title.ifBlank { Util.host(t.url) }, t.url) // 0.0.328: ask the folder
         }
     }
 

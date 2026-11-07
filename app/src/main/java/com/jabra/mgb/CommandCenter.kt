@@ -205,8 +205,7 @@ object CommandCenter {
             if (!Bookmarks.isBookmarked(cur.url)) reg(R.drawable.ic_bookmark_border, "Bookmark this page", Util.host(cur.url), "add save star", {
                 tabs.active?.let { t ->
                     if (t.url.startsWith("http")) {
-                        Bookmarks.addBookmark(t.title.ifBlank { Util.host(t.url) }, t.url)
-                        Util.toast(act, "Bookmarked")
+                        BookmarkFolderPicker.save(act, t.title.ifBlank { Util.host(t.url) }, t.url) // 0.0.328
                     }
                 }
             })

@@ -812,6 +812,7 @@ class TabManager(
             if (!tab.priv) rows.add(MenuSheet.Item(if (Bookmarks.isBookmarked(l)) "Remove bookmark" else "Bookmark link",
                 if (Bookmarks.isBookmarked(l)) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border) {
                 if (Bookmarks.isBookmarked(l)) { Bookmarks.removeBookmark(l); Util.toast(ctx, "Bookmark removed") }
+                else if (ctx is android.app.Activity) BookmarkFolderPicker.save(ctx, text?.trim().orEmpty(), l) // 0.0.328: ask the folder
                 else { Bookmarks.addBookmark(text?.trim().orEmpty(), l); Util.toast(ctx, "Bookmark added") }
             })
             rows.add(MenuSheet.Item("Copy link", R.drawable.ic_list) { copyText(l) })

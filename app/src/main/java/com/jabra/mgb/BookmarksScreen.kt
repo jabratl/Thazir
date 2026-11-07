@@ -171,7 +171,7 @@ object BookmarksScreen {
 
         @Suppress("OVERRIDE_DEPRECATION")
         override fun onBackPressed() { // S24, S27
-            if (selecting) endSelect() else if (folder != null) { folder = null; render() } else dismiss()
+            if (selecting) endSelect() else if (folder != null) { folder = folder!!.substringBeforeLast('/', "").ifEmpty { null }; render() } else dismiss()
         }
 
         private fun header(): View = if (selecting) selHeader() else normalHeader()
@@ -186,7 +186,7 @@ object BookmarksScreen {
                 setImageResource(R.drawable.ic_back)
                 setPadding(dp(10), dp(10), dp(10), dp(10))
                 contentDescription = "Back"
-                setOnClickListener { if (folder != null) { folder = null; render() } else dismiss() } // S24
+                setOnClickListener { if (folder != null) { folder = folder!!.substringBeforeLast('/', "").ifEmpty { null }; render() } else dismiss() } // S24, 0.0.328: one level up
             }, LinearLayout.LayoutParams(dp(44), dp(48)))
             // S23/S25: segmented pills Bookmarks | History | Downloads (shared with DownloadsScreen)
             val seg = pills(act, if (mode == Mode.BOOKMARKS) 0 else 1) { i ->
@@ -208,7 +208,7 @@ object BookmarksScreen {
                         if (which == 0) { selecting = true; picked.clear(); build() } // S27
                         else if (mode == Mode.BOOKMARKS) {
                             when (which) {
-                                1 -> askNewFolder { render() }
+                                1 -> BookmarkFolderPicker.askName(act, folder ?: "") { render() } // 0.0.328: inside an open folder = sub folder
                                 2 -> BrowserExtras.importBookmarks { render() }
                                 else -> BrowserExtras.exportBookmarks()
                             }
@@ -305,21 +305,10 @@ object BookmarksScreen {
 
         private fun moveSelected() {
             if (picked.isEmpty()) return
-            val names = ArrayList<String>()
-            names.add("No folder")
-            names.addAll(Bookmarks.folders())
-            names.add("New folder...")
-            fun doMove(f: String) {
+            BookmarkFolderPicker.pick(act, "Move " + picked.size + " to") { f -> // 0.0.328: folder tree
                 for (u in picked.toList()) Bookmarks.setFolder(u, f)
                 endSelect()
             }
-            MaterialAlertDialogBuilder(act)
-                .setTitle("Move " + picked.size + " to")
-                .setItems(names.toTypedArray()) { _, i ->
-                    if (i == names.size - 1) askNewFolder { n -> doMove(n) }
-                    else doMove(if (i == 0) "" else names[i])
-                }
-                .show()
         }
 
         /** S28: show the picked bookmarks on the home screen. */
@@ -379,16 +368,16 @@ object BookmarksScreen {
                 val open = folder
                 if (open != null && q.isEmpty()) { // S24: folder title
                     box.addView(TextView(act).apply {
-                        text = open
+                        text = open.replace("/", " > ")
                         setTextColor(act.getColor(R.color.mg_text))
                         textSize = 16f
                         setTypeface(typeface, android.graphics.Typeface.BOLD)
                         setPadding(dp(16), dp(4), dp(16), dp(8))
                     })
                 }
-                if (open == null && q.isEmpty()) {
-                    for (f in Bookmarks.folders()) {
-                        box.addView(folderRow(f, all.count { it.folder == f }))
+                if (q.isEmpty()) { // 0.0.328: folders of this level (top level or the sub folders of the open folder)
+                    for (f in Bookmarks.childFolders(open ?: "")) {
+                        box.addView(folderRow(f, all.count { Bookmarks.under(it.folder, f) }))
                         count++
                     }
                 }
@@ -434,7 +423,7 @@ object BookmarksScreen {
                 setColorFilter(act.getColor(R.color.mg_text_dim))
             }, LinearLayout.LayoutParams(dp(24), dp(24)))
             r.addView(TextView(act).apply {
-                text = name
+                text = Bookmarks.shortName(name)
                 setTextColor(act.getColor(R.color.mg_text))
                 textSize = 15f
                 maxLines = 1
@@ -450,7 +439,7 @@ object BookmarksScreen {
             r.setOnLongClickListener {
                 MaterialAlertDialogBuilder(act)
                     .setTitle(name)
-                    .setItems(arrayOf("Delete folder (bookmarks are kept)")) { _, _ ->
+                    .setItems(arrayOf("Delete folder and sub folders (bookmarks are kept)")) { _, _ ->
                         Bookmarks.removeFolder(name)
                         render()
                     }
@@ -480,17 +469,7 @@ object BookmarksScreen {
         }
 
         private fun askMove(b: Bookmarks.Item) {
-            val names = ArrayList<String>()
-            names.add("No folder")
-            names.addAll(Bookmarks.folders())
-            names.add("New folder...")
-            MaterialAlertDialogBuilder(act)
-                .setTitle("Move to")
-                .setItems(names.toTypedArray()) { _, i ->
-                    if (i == names.size - 1) askNewFolder { n -> Bookmarks.setFolder(b.url, n); render() }
-                    else { Bookmarks.setFolder(b.url, if (i == 0) "" else names[i]); render() }
-                }
-                .show()
+            BookmarkFolderPicker.pick(act, "Move to", b.folder) { f -> Bookmarks.setFolder(b.url, f); render() } // 0.0.328
         }
 
         /** S78: site icon (saved by the tabs or downloaded once from the site) on a soft tile; first letter until then. */
