@@ -215,6 +215,7 @@ object SettingsScreen {
         )
 
         private val SUB_FOLD = 14 // S48: rows per category before sub groups fold
+        private val NOFOLD = setOf("privacy") // 0.0.320: 19 rows after the 0.0.312 merge made its groups fold; short clear groups read better than hidden ones
         /** 0.0.312: these two switches already sit in the quick row at the top, so the lists do not show them a second time. Searching still finds them. */
         private val DUP = setOf("Hide bar while scrolling", "Reduce motion")
         private var rowTint: Int? = null // 0.0.313: colour of the icon tiles of the category being built
@@ -551,7 +552,7 @@ object SettingsScreen {
                 if (out.isEmpty()) return
                 shown = out
             }
-            val fold = !searching && !sub && shown.count { it is Row } > SUB_FOLD
+            val fold = !searching && !sub && key !in NOFOLD && shown.count { it is Row } > SUB_FOLD // 0.0.320: privacy keeps plain group labels
             val isOpen = searching || sub || (!link && openCat == key)
             val card = LinearLayout(act).apply {
                 orientation = LinearLayout.VERTICAL
@@ -1185,6 +1186,11 @@ object SettingsScreen {
                 },
                 Row(R.drawable.ic_lock, "Lock after", AppLock.delayLabel(act)) { AppLock.pickDelay(act) { fill() } }, // S45
                 Row(R.drawable.ic_vault, "Vault", VaultScreen.summary(act)) { VaultScreen.open(act) }, // V3
+                Row(R.drawable.ic_lock, "HTTPS-only mode", if (HttpsOnly.on(act)) "ON" else "OFF") { // S41; 0.0.320: moved up under Security
+                    HttpsOnly.set(act, !HttpsOnly.on(act))
+                    fill()
+                },
+                Sub("Permissions"), // 0.0.320
                 Row(R.drawable.ic_shield, "Site permissions", "${SitePerms.count(act)} saved") { // S45
                     fa?.let { SitePerms.screen(it) { fill() } }
                 },
@@ -1192,10 +1198,6 @@ object SettingsScreen {
                     SiteSettings.open(act) { fill() }
                 },
                 Row(R.drawable.ic_shield, "Device permissions", "", "Camera, microphone, notifications, location, install apps") { DevicePerms.open(act) }, // 0.0.281; 0.0.312: moved here from General
-                Row(R.drawable.ic_lock, "HTTPS-only mode", if (HttpsOnly.on(act)) "ON" else "OFF") { // S41
-                    HttpsOnly.set(act, !HttpsOnly.on(act))
-                    fill()
-                },
                 Sub("Ads and cookies"),
                 Row(R.drawable.ic_shield, "Ad blocker", if (AdBlock.enabled) "ON · ${AdBlock.blocked} blocked" else "OFF") {
                     Util.toast(act, if (AdBlock.toggle()) "Ad blocker ON (reload the page)" else "Ad blocker OFF (reload the page)")

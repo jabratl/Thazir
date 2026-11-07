@@ -1,3 +1,10 @@
+0.0.320 (MODIFY: Settings > Privacy and security groups no longer fold, Security / Permissions split)
+- Root cause: SettingsScreen folds the sub groups (uppercase label + arrow, only the first open) of any card with more than SUB_FOLD (14) rows. The 0.0.312 merge of Privacy + Passwords made the card 19 rows, so SECURITY / ADS AND COOKIES / PASSWORDS / EMAIL ALIAS started to fold by accident while the other cards show plain group labels.
+- Now: new NOFOLD set (privacy) so this card shows plain group labels like the others. Group Security (7 rows) split: Security = App lock, Lock after, Vault, HTTPS-only mode; new group Permissions = Site permissions, Site settings, Device permissions. Ads and cookies, Passwords, Email alias unchanged.
+- Files: app/src/main/java/com/jabra/mgb/SettingsScreen.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.320.txt.
+- Could break: nothing in data (no key, label or hint changed; search and Reset use the same labels). The privacy card is longer on screen when open (19 rows + 5 labels, all visible).
+- NOT tested: Gradle build (CI), device, 360 / 1280 dp render, dark + light.
+
 0.0.319 (MODIFY: Chrome-style "+" new tab button next to the address bar)
 - New "+" button in the bottom bar between the address field and the tab count (activity_main.xml btn_newtab, ic_add, 34x44dp, touch area >= 44dp tall). Tap = new tab (home page); inside a private tab it opens another private tab, like Chrome. Hold = new private tab.
 - It hides while you type in the address bar, on a squeezed bar (Back + Forward both shown on a narrow phone), when the Social chip is shown, and in installed-app / site windows, so the address field keeps its room.
