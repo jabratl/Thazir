@@ -1,3 +1,12 @@
+0.0.324 (MODIFY: App lock and Ad blocker look like the other switches, "Lock after" hidden while App lock is OFF)
+- Why: rowView draws a real switch only when the value is exactly "ON" / "OFF". App lock ("ON · After 1 minute") and Ad blocker ("ON · 12 blocked") put extra text in the value, so they showed text instead of a switch although a tap toggles them. "Lock after" was shown even when App lock was OFF.
+- Now (SettingsScreen.kt only): both rows use value ON / OFF (switch, haptic tick and row flash work like the others); the delay ("Locks after 1 minute") and the count ("12 blocked so far") moved to the hint line, shown only while ON. SettingsScreen.dd() hides "Lock after" while App lock is OFF (not while searching, so search still finds it); turning App lock ON refreshes the card through the existing fill().
+- Not changed: AppLock / AdBlock logic, toasts, Reset keys, the other rows.
+- Could break: nothing in data. Hint line of Ad blocker shows the count at the time the card is built (not live).
+- Checked: braces / parentheses balanced, diff = 4 changed lines only.
+- Files: app/src/main/java/com/jabra/mgb/SettingsScreen.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.324.txt.
+- NOT tested: Gradle build (CI), device, 360 / 1280 dp, dark + light.
+
 0.0.323 (MODIFY: Settings grouping, part 2: Data and backup, Grabber page, Extensions)
 - Why: "Clear data" held two rows that are not clear actions (Recently closed tabs, Saved pages); the Grabber page opened with the rarely used V77 backup switch before the real Engine settings; the Extensions card was a flat list of extension + userscript rows.
 - Now (labels + row order only, no logic / key / id / handler changed): Data and backup = Backup / Saved and recent (Recently closed tabs, Saved pages) / Clear data (history, cookies, cache). Grabber and buttons = Engine / Player and buttons / Download buttons / Backup downloader (V77 Grabber switch, moved last; RESET key v77_backup unchanged). Extensions = Extensions row, then group Userscripts (3 rows).

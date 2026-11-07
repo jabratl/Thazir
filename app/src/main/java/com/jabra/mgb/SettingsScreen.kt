@@ -243,7 +243,7 @@ object SettingsScreen {
         private fun dd(items: List<Any>): List<Any> {
             if (query.isNotBlank()) return items
             val kept = ArrayList<Any>()
-            for (x in items) if (!(x is Row && x.label in DUP)) kept.add(x)
+            for (x in items) if (!(x is Row && (x.label in DUP || (x.label == "Lock after" && !AppLock.on(act))))) kept.add(x) // 0.0.324: "Lock after" only while App lock is ON
             val out = ArrayList<Any>()
             for (i in kept.indices) {
                 val x = kept[i]
@@ -1184,7 +1184,7 @@ object SettingsScreen {
             ))
             category("privacy", R.drawable.ic_shield, "Privacy and security", "Lock, passwords, ads, permissions", listOf( // 0.0.312: + Passwords and email
                 Sub("Security"),
-                Row(R.drawable.ic_lock, "App lock", if (AppLock.on(act)) "ON · ${AppLock.delayLabel(act)}" else "OFF") { // S45
+                Row(R.drawable.ic_lock, "App lock", if (AppLock.on(act)) "ON" else "OFF", if (AppLock.on(act)) "Locks ${AppLock.delayLabel(act).lowercase()}" else "") { // S45; 0.0.324: real switch, delay in the hint
                     fa?.let { AppLock.toggle(it) { fill() } }
                 },
                 Row(R.drawable.ic_lock, "Lock after", AppLock.delayLabel(act)) { AppLock.pickDelay(act) { fill() } }, // S45
@@ -1202,7 +1202,7 @@ object SettingsScreen {
                 },
                 Row(R.drawable.ic_shield, "Device permissions", "", "Camera, microphone, notifications, location, install apps") { DevicePerms.open(act) }, // 0.0.281; 0.0.312: moved here from General
                 Sub("Ads and cookies"),
-                Row(R.drawable.ic_shield, "Ad blocker", if (AdBlock.enabled) "ON · ${AdBlock.blocked} blocked" else "OFF") {
+                Row(R.drawable.ic_shield, "Ad blocker", if (AdBlock.enabled) "ON" else "OFF", if (AdBlock.enabled) "${AdBlock.blocked} blocked so far" else "") { // 0.0.324: real switch, count in the hint
                     Util.toast(act, if (AdBlock.toggle()) "Ad blocker ON (reload the page)" else "Ad blocker OFF (reload the page)")
                     fill()
                 },
