@@ -1,3 +1,10 @@
+0.0.317 (FIX: crash "ForegroundServiceDidNotStartInTimeException" in WebAudioService)
+- Root cause: Background play starts WebAudioService with startForegroundService(), but the service only called startForeground() inside onStartCommand, after other work, and not at all when it was stopped, failed or restarted first. Coming back to the app quickly (onResume -> stopService) could also overtake the start. Android then kills Thazir after about 5 s.
+- Fix: WebAudioService calls startForeground() first thing in onCreate and again at the start of every onStartCommand (also for the Stop action); if it cannot, it stops itself. MediaPrefs.onResume stops the service 0.8 s later (cancelled by a new onPause start) so a stop never overtakes a start.
+- Files: WebAudioService.kt, MediaPrefs.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: the Background play notification can show for under a second when you come back to the app quickly. If Android refuses startForeground (no permission / not allowed), the service just ends and play stops in the background.
+- NOT tested: Gradle build (CI), device.
+
 0.0.316 (FIX: Google sign-in asks which account; Passport keeps the chosen one)
 - Why: sign-in used the Authorization API without an account, so Google silently reused the account that had already given consent. After Sign out + Clear Passport, "Sign in with Google" signed in with the first Gmail again.
 - Now: Sign in with Google first opens the phone's Google account list (all accounts on the phone + "Add account"). The chosen account is saved (orb_g_acc) and used for every later Drive upload / restore / daily auto upload, so a second Gmail on the phone can never get mixed in. Sign out removes it.

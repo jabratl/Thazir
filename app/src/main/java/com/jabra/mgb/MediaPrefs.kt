@@ -50,6 +50,7 @@ object MediaPrefs {
     fun onPause(a: Activity) {
         if (!bg(a) || a.isFinishing || a.isChangingConfigurations || !audible(a)) return
         away = true
+        stopPending?.let { stopH.removeCallbacks(it) }; stopPending = null // 0.0.317: a late stop from a quick Home / back must not kill this start
         try { ContextCompat.startForegroundService(a, Intent(a, WebAudioService::class.java)) } catch (_: Exception) { }
     }
 
@@ -63,5 +64,14 @@ object MediaPrefs {
     fun onResume(a: Activity, web: android.webkit.WebView? = null) {
         away = false
         try { web?.evaluateJavascript("window.__mgbYm&&(window.__mgbYm.away=0);", null) } catch (_: Exception) { }
-        try { a.stopService(Intent(a, WebAudioService::class.java)) } catch (_: Exception) { } }
+        // 0.0.317: stop a moment later, so a stop can never overtake startForegroundService() (ForegroundServiceDidNotStartInTimeException)
+        val app = a.applicationContext
+        stopPending?.let { stopH.removeCallbacks(it) }
+        val r = Runnable { stopPending = null; try { app.stopService(Intent(app, WebAudioService::class.java)) } catch (_: Exception) { } }
+        stopPending = r
+        stopH.postDelayed(r, 800)
+    }
+
+    private val stopH = android.os.Handler(android.os.Looper.getMainLooper())
+    private var stopPending: Runnable? = null
 }

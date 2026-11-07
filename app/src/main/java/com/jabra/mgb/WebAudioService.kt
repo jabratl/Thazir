@@ -30,8 +30,11 @@ class WebAudioService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACT_STOP) { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return START_NOT_STICKY }
+    private var fg = false
+
+    /** 0.0.317: startForegroundService() must be answered by startForeground() at once, on EVERY path (stop, error, restart), or Android kills the app (ForegroundServiceDidNotStartInTimeException). */
+    private fun goForeground(): Boolean {
+        if (fg) return true
         if (Build.VERSION.SDK_INT >= 26) {
             val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             if (nm.getNotificationChannel(CH) == null) nm.createNotificationChannel(NotificationChannel(CH, "Background play", NotificationManager.IMPORTANCE_LOW))
@@ -44,7 +47,21 @@ class WebAudioService : Service() {
             .addAction(0, "Stop", stop).build()
         try {
             ServiceCompat.startForeground(this, NOTE_ID, n, if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0)
-        } catch (e: Exception) { stopSelf(); return START_NOT_STICKY }
+            fg = true
+        } catch (e: Exception) {
+            try { startForeground(NOTE_ID, n); fg = true } catch (_: Exception) { }
+        }
+        return fg
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        goForeground() // first thing, before anything else can return or throw
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val ok = goForeground()
+        if (intent?.action == ACT_STOP || !ok) { try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }; stopSelf(); return START_NOT_STICKY }
         try { if (wl == null) wl = (getSystemService(POWER_SERVICE) as android.os.PowerManager).newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "mgb:webaudio").apply { setReferenceCounted(false) }; wl?.acquire(4 * 60 * 60 * 1000L) } catch (_: Exception) { }
         h.removeCallbacks(tick); quiet = 0; h.postDelayed(tick, 6000)
         return START_NOT_STICKY
