@@ -1,3 +1,18 @@
+0.0.323 (MODIFY: Settings grouping, part 2: Data and backup, Grabber page, Extensions)
+- Why: "Clear data" held two rows that are not clear actions (Recently closed tabs, Saved pages); the Grabber page opened with the rarely used V77 backup switch before the real Engine settings; the Extensions card was a flat list of extension + userscript rows.
+- Now (labels + row order only, no logic / key / id / handler changed): Data and backup = Backup / Saved and recent (Recently closed tabs, Saved pages) / Clear data (history, cookies, cache). Grabber and buttons = Engine / Player and buttons / Download buttons / Backup downloader (V77 Grabber switch, moved last; RESET key v77_backup unchanged). Extensions = Extensions row, then group Userscripts (3 rows).
+- Checked: braces / parentheses of SettingsScreen.kt balanced, last list element has no trailing comma, every Row kept once (diff = moved / added lines only).
+- Files: app/src/main/java/com/jabra/mgb/SettingsScreen.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.323.txt.
+- Could break: nothing in data. Search finds the same rows by the same labels.
+- NOT tested: Gradle build (CI), device, 360 / 1280 dp, dark + light.
+
+0.0.322 (MODIFY: Settings rows grouped by what they do, fewer mixed groups)
+- Why: two groups mixed unrelated things. Browser > Browsing held 8 rows (search, translate, bar, refresh, rotate, social, media, default browser); Downloads > Library held the file library, the diagnose / report tools and the manga / schedule lists together.
+- Now (labels + row order only, no logic, key, id or handler changed): Browser = Look and feel / Browsing (Search engine, Translate to, Default browser) / Page and screen (Hide bar, Pull down to refresh, Rotate) / Sites and media (Social sites, Media) / Tabs / Motion. Downloads = Library (Downloads, Novel grabber, Queue, Download history, Followed manga, Scheduled downloads) / Problems and reports (Report center, Report log size, Clear report log, Auto Diagnose pill) / Quality and files. Privacy card unchanged since 0.0.320.
+- Files: app/src/main/java/com/jabra/mgb/SettingsScreen.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.322.txt.
+- Could break: nothing in data. Browser card is still 14 rows (fold limit is "more than 14"), so it must not get one more row without NOFOLD; empty group labels are already removed by dd().
+- NOT tested: Gradle build (CI), device, 360 / 1280 dp, dark + light.
+
 0.0.321 (FIX: saved passwords were too easy to see, now protected like Brave)
 - Root cause: opening Settings > Passwords showed all sites + user names with no check; Show password / Copy / Edit / Export went through Vault.unlock, which (a) is skipped for 2 minutes after any Vault unlock, (b) runs the action WITHOUT asking when the phone has no screen lock, (c) the revealed password sat in a normal dialog (screenshot / recents picture) and stayed on screen, and a copied password stayed in the clipboard for ever.
 - Now (PasswordStore.kt only): new guard() = fingerprint / face / screen lock prompt, own 30 s window (not the Vault one), no screen lock = no access (toast "Set a screen lock or fingerprint first"). Used for: opening the Passwords list (also from the menu and Command Center), Copy password, Show password, Edit, Export CSV. The list dialog and the Show dialog are FLAG_SECURE (no screenshot, blank recents). Show password opens hidden (dots, length not shown), Show / Hide button, closes itself after 30 s. Copy password is marked sensitive on Android 13+ and is removed from the clipboard after 60 s (only if it is still our clip). The 30 s window ends when the Passwords list closes.

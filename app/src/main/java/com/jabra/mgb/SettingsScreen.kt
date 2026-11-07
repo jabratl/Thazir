@@ -1013,6 +1013,8 @@ object SettingsScreen {
                         .setItems(names.toTypedArray()) { _, i -> Util.setEngine(act, names[i]); fill() }.show()
                 },
                 Row(R.drawable.ic_search, "Translate to", Translate.langName(act)) { Translate.pickLang(act) { fill() } }, // S41
+                Row(R.drawable.ic_screen, "Default browser", if (isDefaultBrowser()) "Default" else "", "Make MGB open web links") { openDefaultBrowser() }, // Step C
+                Sub("Page and screen"), // 0.0.322: Browsing group was 8 mixed rows
                 Row(R.drawable.ic_screen, "Hide bar while scrolling", if (hideBar()) "ON" else "OFF") {
                     prefs.edit().putBoolean("hide_bar", !hideBar()).apply()
                     fill()
@@ -1026,9 +1028,9 @@ object SettingsScreen {
                     Orient.apply(act)
                     fill()
                 },
+                Sub("Sites and media"), // 0.0.322
                 Row(R.drawable.ic_desktop, "Social sites", if (SocialMode.on(act)) "ON" else "OFF", "Facebook, Reddit, X, Discord and more fit the phone. Switch per site") { SocialScreen.open(act) { fill() } }, // 0.0.224
                 Row(R.drawable.ic_play, "Media", "DRM, background play, YouTube") { MediaScreen.open(act) }, // 0.0.296
-                Row(R.drawable.ic_screen, "Default browser", if (isDefaultBrowser()) "Default" else "", "Make MGB open web links") { openDefaultBrowser() }, // Step C
                 Sub("Tabs"),
                 Row(R.drawable.ic_list, "Swipe a tab card to close it", if (TabPrefs.swipeClose(act)) "ON" else "OFF") {
                     TabPrefs.set(act, "swipe_close", !TabPrefs.swipeClose(act))
@@ -1058,6 +1060,9 @@ object SettingsScreen {
                 Row(R.drawable.ic_book, "Novel grabber", "", "Web novels and chapters to EPUB, DOCX, TXT") { ext("novel/studio.html") }, // N1
                 Row(R.drawable.ic_list, "Queue", "", "Running, waiting and failed jobs") { ext("queue.html") },
                 Row(R.drawable.ic_history, "Download history", "", "Everything Grabber saved") { ext("history.html") },
+                Row(R.drawable.ic_bookmark, "Followed manga", Follow.count().let { if (it > 0) "$it" else "" }, "Alerts for new chapters") { Follow.open(act, "", null) { u -> dismiss(); BookmarksScreen.tabsRef?.openUrl(u) } },
+                Row(R.drawable.ic_history, "Scheduled downloads", Sched.count().let { if (it > 0) "$it" else "" }, "Start at a time you choose") { Sched.open(act) { emptyList() } },
+                Sub("Problems and reports"), // 0.0.322: diagnose rows no longer sit inside Library
                 Row(R.drawable.ic_info, "Report center", "", "Why something does not work: report, copy, share") { DiagScreen.open(act, null, -1) }, // S85, V18
                 Row(R.drawable.ic_list, "Report log size", DiagScreen.logSizeText(), "Events kept for the report (no page text)"), // S85
                 Row(R.drawable.ic_close, "Clear report log", "", "Delete the diagnose log and the Grabber log") { DiagScreen.askClearLog(act) { fill() } }, // S85
@@ -1065,8 +1070,6 @@ object SettingsScreen {
                     AutoDiag.setOn(act, !AutoDiag.on(act))
                     fill()
                 },
-                Row(R.drawable.ic_bookmark, "Followed manga", Follow.count().let { if (it > 0) "$it" else "" }, "Alerts for new chapters") { Follow.open(act, "", null) { u -> dismiss(); BookmarksScreen.tabsRef?.openUrl(u) } },
-                Row(R.drawable.ic_history, "Scheduled downloads", Sched.count().let { if (it > 0) "$it" else "" }, "Start at a time you choose") { Sched.open(act) { emptyList() } },
                 Sub("Quality and files"),
                 Row(R.drawable.ic_download, "Download quality", DetectedPanel.maxQLabel(), "Used when you press Download or Download all") { DetectedPanel.maxQDialog(act) { fill() } },
                 Row(R.drawable.ic_download, "Preferred video format", QualityPrefs.containerLabel(), "MP4 or WebM when a stream offers both. Picks, does not convert") { QualityPrefs.containerDialog(act) { fill() } },
@@ -1083,12 +1086,6 @@ object SettingsScreen {
                 Row(R.drawable.ic_download, "Download rules", DlRules.summary(act), "Wi-Fi only, battery, storage. Checked before a download starts") { DlRules.dialog(act) { fill() } }
             ))
             category("grabber", R.drawable.ic_settings, "Grabber and buttons", "Engine, buttons, player", listOf(
-                Sub("V77 backup"), // S65
-                Row(R.drawable.ic_play, "V77 Grabber (backup)", if (V77Alt.on(act)) "ON" else "OFF", "Original Media Grabber instead of the native downloader, for when it is under maintenance") {
-                    V77Alt.set(act, !V77Alt.on(act))
-                    Util.toast(act, if (V77Alt.on(act)) "V77 Grabber ON. Reload open pages" else "Native downloader is main again. Reload open pages")
-                    fill()
-                },
                 Sub("Engine"),
                 Row(R.drawable.ic_settings, "Download engine", engSummary(), "Speed, retries, limits, live recording") { DlEngine.open(act) },
                 Row(R.drawable.ic_settings, "Grabber settings", "", "Sites, theme, backup, reset") { GrabSet.open(act) },
@@ -1128,6 +1125,12 @@ object SettingsScreen {
                 Row(R.drawable.ic_download, "Extra native download button", if (nativeBtn()) "ON" else "OFF") {
                     DlMode.manual(act); prefs.edit().putBoolean("native_btn", !nativeBtn()).apply()
                     Util.toast(act, "Changes in a few seconds")
+                    fill()
+                },
+                Sub("Backup downloader"), // S65; 0.0.323: moved last
+                Row(R.drawable.ic_play, "V77 Grabber (backup)", if (V77Alt.on(act)) "ON" else "OFF", "Original Media Grabber instead of the native downloader, for when it is under maintenance") {
+                    V77Alt.set(act, !V77Alt.on(act))
+                    Util.toast(act, if (V77Alt.on(act)) "V77 Grabber ON. Reload open pages" else "Native downloader is main again. Reload open pages")
                     fill()
                 }
             ))
@@ -1236,9 +1239,10 @@ object SettingsScreen {
                 },
                 Row(R.drawable.ic_share, "Export data") { Backup.exportData(act) },
                 Row(R.drawable.ic_download, "Import data") { Backup.importData(act) },
-                Sub("Clear data"),
+                Sub("Saved and recent"),
                 Row(R.drawable.ic_history, "Recently closed tabs") { Backup.closedTabs(act, tabs) }, // V18
                 Row(R.drawable.ic_folder, "Saved pages", "${PageSave.count(act)} pages") { tabs?.let { SavedPages.open(act, it) } }, // T4, V18
+                Sub("Clear data"), // 0.0.323: saved items are not "clear" actions
                 Row(R.drawable.ic_trash, "Clear browsing history") {
                     confirm("Clear all browsing history?", "Clear") { Bookmarks.clearHistory(); Util.toast(act, "History cleared") }
                 },
@@ -1261,6 +1265,7 @@ object SettingsScreen {
             ))
             category("extensions", R.drawable.ic_folder, "Extensions", "Add, turn on or off, remove", listOf( // S1
                 Row(R.drawable.ic_folder, "Extensions", ExtListScreen.summary(act), "Add .zip or .crx files") { ExtListScreen.open(act) }, // V18
+                Sub("Userscripts"), // 0.0.323
                 Row(R.drawable.ic_code, "Userscripts", "${Userscripts.count(act)} scripts", "Your own scripts on pages") { UserscriptsScreen.open(act) { fill() } }, // T7
                 Row(R.drawable.ic_code, "Run userscripts", if (Userscripts.masterOn(act)) "ON" else "OFF") { // T7
                     Userscripts.setMaster(act, !Userscripts.masterOn(act)); Userscripts.refreshAll(act)
