@@ -51,6 +51,9 @@ object AppLock {
         BiometricManager.from(c).canAuthenticate(authenticators()) == BiometricManager.BIOMETRIC_SUCCESS
     } catch (e: Exception) { false }
 
+    /** 0.0.331: same system prompt for the private tabs lock (PrivateTabs.toggleLock). */
+    fun ask(act: FragmentActivity, title: String, result: (Boolean) -> Unit) = authenticate(act, title, result)
+
     // ---- settings
 
     /** Turn ON / OFF. ON asks the user to prove it is them first (so a lock that cannot be opened is never set). */
@@ -99,10 +102,27 @@ object AppLock {
     }
 
     fun onStart(act: FragmentActivity) {
-        if (!on(act)) { dismiss(); return }
+        if (!on(act)) { if (!PrivateTabs.lockOn(act)) dismiss(); return } // 0.0.331: a showing private tabs lock page must stay
         if (dialog?.isShowing == true) return
         if (unlocked && SystemClock.elapsedRealtime() - leftAt >= DELAYS[delayIdx(act)]) unlocked = false
         if (!unlocked) show(act)
+    }
+
+    // ---- 0.0.331: private tabs lock (only while the App lock is OFF)
+
+    private var privLeftAt = 0L
+
+    /** onStop: remember that the app was left with a private tab in front. */
+    fun privStop(act: FragmentActivity, privFront: Boolean) {
+        if (!on(act) && privFront && PrivateTabs.lockOn(act) && !act.isChangingConfigurations) privLeftAt = SystemClock.elapsedRealtime()
+    }
+
+    /** onStart: coming back with a private tab in front = lock page (fingerprint / PIN) until unlocked. */
+    fun privStart(act: FragmentActivity, privFront: Boolean) {
+        if (on(act) || !PrivateTabs.lockOn(act) || privLeftAt == 0L) return
+        if (dialog?.isShowing == true) return
+        privLeftAt = 0L
+        if (privFront) show(act, "Private tabs are locked")
     }
 
     fun onDestroy() {
@@ -145,7 +165,7 @@ object AppLock {
         }
     }
 
-    private fun show(act: FragmentActivity) {
+    private fun show(act: FragmentActivity, title: String = "Thazir is locked") {
         if (act.isFinishing || act.isDestroyed) return
         if (!available(act)) { unlocked = true; return } // lock screen was removed on the phone: do not trap the user
         if (dialog?.isShowing == true) return
@@ -169,7 +189,7 @@ object AppLock {
             setColorFilter(act.getColor(R.color.mg_primary))
         }, LinearLayout.LayoutParams(dp(56), dp(56)))
         col.addView(TextView(act).apply {
-            text = "Thazir is locked"
+            text = title
             textSize = 22f
             gravity = Gravity.CENTER
             setTextColor(act.getColor(R.color.mg_text))

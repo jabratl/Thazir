@@ -95,6 +95,7 @@ object LinkInbox {
         })
         val row = LinearLayout(act).apply { gravity = Gravity.END }
         row.addView(btn("Dismiss", dim) { area.removeView(card) })
+        row.addView(btn("Private", dim) { area.removeView(card); tabs.newTab(url, 0, true, true) }) // 0.0.331
         row.addView(btn("Open", primary) { area.removeView(card); tabs.newTab(url) })
         card.addView(row)
         val reduce = TabPrefs.reduce(act)

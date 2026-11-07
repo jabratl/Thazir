@@ -495,14 +495,14 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     /** 0.0.330: while any private tab is open the window is FLAG_SECURE: blank / dark app preview in Recents (no screenshots either). Goes away when the last private tab is closed. */
     private var privSecure = false
-    private fun syncPrivateSecure() {
-        val any = try { tabs.allTabs().any { it.priv } } catch (e: Exception) { false }
+    fun syncPrivateSecure() { // 0.0.331: public (Settings calls it), follows the switch Hide private tabs in app preview
+        val any = PrivateTabs.secureOn(this) && (try { tabs.allTabs().any { it.priv } } catch (e: Exception) { false })
         AppLock.privateOpen = any
         if (any == privSecure) return
         privSecure = any
         try {
             if (any) window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
-            else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+            else if (!AppLock.on(this)) window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE) // 0.0.331: App lock keeps its own secure window
         } catch (e: Exception) { }
     }
 
@@ -558,6 +558,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     override fun onStart() {
         super.onStart()
         AppLock.onStart(this) // S45: lock again after the chosen delay
+        AppLock.privStart(this, tabs.active?.priv == true) // 0.0.331: private tabs lock
         SocialLock.onStart(this, tabs.active) // 0.0.260 (D7)
         SocialQuick.onStart(this, tabs.active) // 0.0.307: refresh the feed when you come back
         SocialTime.start(this, tabs) // 0.0.261 (C3)
@@ -568,6 +569,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     override fun onStop() {
         VaultStore.onAppStop(this) // V3
         AppLock.onStop(this) // S45
+        AppLock.privStop(this, tabs.active?.priv == true) // 0.0.331
         SocialLock.onStop() // 0.0.260 (D7)
         SocialQuick.onStop() // 0.0.307
         SocialTime.stop() // 0.0.261 (C3)

@@ -125,6 +125,7 @@ object BookmarksScreen {
             root.addView(searchBox(), LinearLayout.LayoutParams(MATCH, dp(44)).apply {
                 marginStart = dp(16); marginEnd = dp(16); topMargin = dp(4); bottomMargin = dp(8)
             })
+            if (mode == Mode.HISTORY) root.addView(HistoryFilter.row(act) { build() }, LinearLayout.LayoutParams(MATCH, WRAP)) // 0.0.330
 
             val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
             val emptyView = TextView(act).apply {
@@ -351,7 +352,7 @@ object BookmarksScreen {
 
         private fun askClear() {
             MaterialAlertDialogBuilder(act)
-                .setMessage("Clear all browsing history?")
+                .setMessage(if (HistoryFilter.active) "Clear ALL browsing history? This includes rows hidden by the filter." else "Clear all browsing history?") // 0.0.330
                 .setPositiveButton("Clear") { _, _ -> Bookmarks.clearHistory(); render() }
                 .setNegativeButton("Cancel", null)
                 .show()
@@ -390,7 +391,8 @@ object BookmarksScreen {
                 count += items.size
             } else {
                 val fmt = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
-                val all = Bookmarks.history().take(300)
+                val all = (if (HistoryFilter.active) HistoryFilter.apply(Bookmarks.history()) else Bookmarks.history()).take(300) // 0.0.330
+                empty?.text = if (HistoryFilter.active || q.isNotEmpty()) "No history matches" else "No history yet"
                 val items = if (q.isEmpty()) all else all.filter { it.title.contains(q, true) || it.url.contains(q, true) } // S23
                 for (b in items) { box.addView(row(b, Util.host(b.url) + " · " + fmt.format(java.util.Date(b.time)))); visible.add(keyOf(b)) }
                 count = items.size

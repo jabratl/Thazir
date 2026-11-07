@@ -95,7 +95,7 @@ object SettingsScreen {
             "grabber" to listOf("web_play", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),
             "player" to listOf("pl_gestures", "pl_hold_speed", "pl_hold_slide", "pl_dtap_sec", "pl_seek_sens", "pl_vol_boost", "pl_bright", "pl_fit_default",
                 "pl_speed_keep", "pl_speed_last", "pl_speeds", "pl_quality_cap", "pl_repeat", "pl_sub_size", "pl_sub_bg", "pl_sub_pos", "sub_size", "sub_color", "bg_audio"),
-            "privacy" to listOf("https_only", "hide_ad_space", "hide_cookie"),
+            "privacy" to listOf("https_only", "hide_ad_space", "hide_cookie", "priv_secure"),
             "data" to listOf("auto_backup")
         )
         private val RESTART = setOf("Theme", "Rotate browser with phone", "Extra native download button") // Step C: restart icon
@@ -128,6 +128,9 @@ object SettingsScreen {
             "Extra native download button" to "Second button, native downloader",
             "App lock" to "Ask for fingerprint or PIN",
             "Lock after" to "Time before the app locks",
+            "Hide private tabs in app preview" to "Blank Recents picture, no screenshots",
+            "Lock private tabs" to "Fingerprint or PIN for private tabs",
+            "Close all private tabs" to "Closes every private tab now",
             "Site permissions" to "Camera, mic, location per site",
             "Site settings" to "Permissions, JS, desktop, text size per site",
             "HTTPS-only mode" to "Prefer secure https pages",
@@ -185,6 +188,9 @@ object SettingsScreen {
             "Keep speed" to "remember playback speed next video player",
             "Default quality" to "resolution height 1080 720 480 video player",
             "App lock" to "fingerprint biometric pin password security",
+            "Hide private tabs in app preview" to "incognito recents screenshot blank preview secure",
+            "Lock private tabs" to "incognito biometric fingerprint pin unlock return",
+            "Close all private tabs" to "incognito close wipe clear",
             "Site permissions" to "camera microphone location mic",
             "Suspend background tabs" to "memory ram free sleep inactive tabs unload",
             "Site settings" to "site host website per-site javascript desktop zoom text size permissions reset",
@@ -1191,6 +1197,19 @@ object SettingsScreen {
                 Row(R.drawable.ic_vault, "Vault", VaultScreen.summary(act)) { VaultScreen.open(act) }, // V3
                 Row(R.drawable.ic_lock, "HTTPS-only mode", if (HttpsOnly.on(act)) "ON" else "OFF") { // S41; 0.0.320: moved up under Security
                     HttpsOnly.set(act, !HttpsOnly.on(act))
+                    fill()
+                },
+                Sub("Private tabs"), // 0.0.331
+                Row(R.drawable.ic_lock, "Hide private tabs in app preview", if (PrivateTabs.secureOn(act)) "ON" else "OFF", "Blank picture in Recents and no screenshots while a private tab is open") {
+                    PrivateTabs.setSecure(act, !PrivateTabs.secureOn(act))
+                    (act as? MainActivity)?.syncPrivateSecure()
+                    fill()
+                },
+                Row(R.drawable.ic_lock, "Lock private tabs", if (PrivateTabs.lockOn(act)) "ON" else "OFF", "Fingerprint or PIN when you come back to a private tab") {
+                    fa?.let { PrivateTabs.toggleLock(it) { fill() } }
+                },
+                Row(R.drawable.ic_trash, "Close all private tabs", "${tabs?.allTabs()?.count { it.priv } ?: 0} open") {
+                    tabs?.let { t -> t.allTabs().filter { it.priv }.forEach { t.close(it) } }
                     fill()
                 },
                 Sub("Permissions"), // 0.0.320

@@ -1,3 +1,20 @@
+0.0.331 (MODIFY: Private tabs settings - switch for the blank app preview, private tabs lock, close all private tabs, Private button on shared links)
+- Why: 0.0.330 made the app preview blank for private tabs but with no way to turn it off, and Thazir had no private-tab settings at all (Brave / Chrome have them).
+- Settings > Privacy and security > Private tabs (new group, 3 rows):
+  * Hide private tabs in app preview (default ON): the 0.0.330 behaviour as a switch. ON = blank picture in Recents + no screenshots while a private tab is open. OFF = normal preview and screenshots.
+  * Lock private tabs (default OFF): coming back to the app while a private tab is in front shows the lock page (fingerprint / PIN, same prompt as the App lock, title "Private tabs are locked"). Turning it ON asks fingerprint / PIN first; needs a phone screen lock. Not used while the App lock is ON (it already covers everything). Leaving to a picker / other app also counts as leaving.
+  * Close all private tabs: closes every private tab now; the value shows how many are open.
+- Share card (Link inbox): new "Private" button beside Open = open the shared link in a private tab.
+- Fix: in 0.0.330 closing the last private tab cleared FLAG_SECURE even while the App lock was ON; now it stays secure when the App lock is ON.
+- Files (under app/src/main/java/com/jabra/mgb/): PrivateTabs.kt (new), AppLock.kt (ask, privStart / privStop, show title, onStart keeps a showing private lock page), MainActivity.kt (syncPrivateSecure follows the switch + public, two lifecycle hooks), SettingsScreen.kt (3 rows, search words, RESET privacy + priv_secure), LinkInbox.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.331.txt.
+- Pref keys: priv_secure (mgb_ui, in the Privacy Reset list), priv_lock (mgb_lock, same file as the App lock, NOT in Reset so a reset cannot unlock it).
+- Already there before (not changed): separate cookies / no history / no saved session for private tabs, plum address field, blurred switcher pictures, Close all private tabs notification + switcher menu, Open in New Private Tab on link long press, no passwords / extensions / favicons in private tabs.
+- Not possible here: "open links from other apps in private" - Thazir is not a general link handler (only shared links and the social links switch), so the share card button is the nearest.
+- Not done: separate search engine for private tabs, close private tabs after some time away.
+- Could break: Lock private tabs asks again after every return from a file picker / camera / permission screen while a private tab is in front. The lock page covers the window only; sound of a playing private page can continue behind it. This zip also carries the 0.0.330 changes of the "History filter" chat (entry 0.0.330b below).
+- Checked: braces / parentheses balanced in all 6 changed .kt files, single-match patch audit, no new "/*" in Kotlin comments, no XML or ids added, colours / icons reused (ic_lock, ic_trash).
+- NOT tested: Gradle / Kotlin compile (CI), device, 360 / 1280 dp, dark + light, biometric prompt, Recents blank with the switch OFF / ON.
+
 0.0.330 (FIX: private tab showed in the phone's app preview)
 - Why: leaving the app to the phone home screen left a picture of the open page in Recents. Only the App lock set a secure window.
 - Now: MainActivity.syncPrivateSecure() (called from onTabsChanged and onResume) sets FLAG_SECURE while at least one private tab exists and clears it when the last private tab is closed; AppLock.privateOpen stops the App lock from clearing it. Recents shows a blank / dark card.
@@ -6,6 +23,18 @@
 - Checked: braces / parentheses balanced, single-match patch audit.
 - Files (under app/src/main/java/com/jabra/mgb/): AppLock.kt, MainActivity.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.330.txt.
 - NOT tested: Gradle build (CI), device.
+
+0.0.330b (MODIFY: History filter (second 0.0.330 change) like Brave - time + site chips)
+- Why: History had only a text search. Now under the search box (History tab only) there are chips: Time, Site, Clear (Clear only when a filter is on).
+- Time: Any time / Last 15 minutes / Last hour / Today / Last 24 hours / Last 7 days / Last 30 days / Last year / Custom (number + minutes, hours, days, weeks, months, years). Month = 30 days, year = 365 days, Today = since local midnight.
+- Site: list of visited sites with row counts (most visited first), type to narrow the list or type any site; "Any site" resets. A name with a dot (youtube.com) matches that host and its sub domains (www, m ...); a word without a dot (git) matches any host containing it. Time + Site + search text work together (AND). Select / Open / Remove work on the filtered rows.
+- Filter state lives in HistoryFilter (object), so it survives rotation; it is not saved to disk and resets when the app process ends.
+- Filter runs on all 500 stored rows first, then the list shows the first 300 matches (before: first 300 rows, then search).
+- Not changed: history storage, Bookmarks tab, Downloads tab, vault code, Backup shape. "Clear history" still clears ALL history (the dialog now says so when a filter is on).
+- Could break: very long site names are cut in the chip (200dp max). Custom number limited to 4 digits. 
+- Checked: braces / parentheses balanced (HistoryFilter.kt new, BookmarksScreen.kt +1 brace +12 parens from 3 small hooks), single-match patch audit, no /* in comments, no XML or ids added, all colours via R.color.mg_*, icons reused (ic_clock, ic_desktop, ic_close).
+- Files (under app/src/main/java/com/jabra/mgb/): HistoryFilter.kt (new), BookmarksScreen.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.330.txt.
+- NOT tested: Gradle / Kotlin compile (CI), device, 360 / 1280 dp, dark + light.
 
 0.0.329 (MODIFY: bookmark folders - rename, nested HTML export / import, Home tile name)
 - Rename: long press a folder in Bookmarks > "Rename folder". Bookmarks.renameFolder() changes the last part of the path; its sub folders, bookmarks and Home folder pins move with it. Empty or already used name = nothing changes (toast).
