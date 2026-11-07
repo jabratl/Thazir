@@ -493,7 +493,21 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     // ---------- TabManager.Listener ----------
 
+    /** 0.0.330: while any private tab is open the window is FLAG_SECURE: blank / dark app preview in Recents (no screenshots either). Goes away when the last private tab is closed. */
+    private var privSecure = false
+    private fun syncPrivateSecure() {
+        val any = try { tabs.allTabs().any { it.priv } } catch (e: Exception) { false }
+        AppLock.privateOpen = any
+        if (any == privSecure) return
+        privSecure = any
+        try {
+            if (any) window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
+            else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        } catch (e: Exception) { }
+    }
+
     override fun onTabsChanged() {
+        syncPrivateSecure()
         val tabCount = tabs.count.toString()
         if (btnTabs.text.toString() != tabCount) { // S21c: the count pops when it changes
             btnTabs.text = tabCount
@@ -578,6 +592,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     override fun onResume() {
         super.onResume()
+        syncPrivateSecure() // 0.0.330
         backCb.isEnabled = true
         if (siteWin || SiteWindow.used) bindWindow() // 0.0.248 (A7b): the window in front owns the shared helpers
         tabs.active?.web?.onResume()

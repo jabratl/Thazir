@@ -1,3 +1,12 @@
+0.0.330 (FIX: private tab showed in the phone's app preview)
+- Why: leaving the app to the phone home screen left a picture of the open page in Recents. Only the App lock set a secure window.
+- Now: MainActivity.syncPrivateSecure() (called from onTabsChanged and onResume) sets FLAG_SECURE while at least one private tab exists and clears it when the last private tab is closed; AppLock.privateOpen stops the App lock from clearing it. Recents shows a blank / dark card.
+- Not changed: App lock logic, vault screens, tab data.
+- Could break: while a private tab is open, screenshots and screen recording of the whole app are blocked (also in normal tabs).
+- Checked: braces / parentheses balanced, single-match patch audit.
+- Files (under app/src/main/java/com/jabra/mgb/): AppLock.kt, MainActivity.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.330.txt.
+- NOT tested: Gradle build (CI), device.
+
 0.0.329 (MODIFY: bookmark folders - rename, nested HTML export / import, Home tile name)
 - Rename: long press a folder in Bookmarks > "Rename folder". Bookmarks.renameFolder() changes the last part of the path; its sub folders, bookmarks and Home folder pins move with it. Empty or already used name = nothing changes (toast).
 - Export: sub folders are written inside their folder (nested <DL>). Import: nested folders become paths "A/B"; browser root names (Bookmarks bar, Other bookmarks ...) add nothing, a "/" in a name becomes "-".

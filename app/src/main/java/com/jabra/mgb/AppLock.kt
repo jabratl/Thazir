@@ -113,9 +113,12 @@ object AppLock {
 
     // ---- internals
 
+    /** 0.0.330: true while a private tab is open; MainActivity keeps FLAG_SECURE on (blank app preview) and the lock must not clear it. */
+    @Volatile var privateOpen = false
+
     private fun secure(act: FragmentActivity, on: Boolean) {
         try {
-            if (on) act.window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+            if (on || privateOpen) act.window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
             else act.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         } catch (e: Exception) { }
     }
