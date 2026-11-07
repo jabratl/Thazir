@@ -136,9 +136,22 @@ object TabSwitcher {
             c.drawColor(Color.WHITE)
             c.scale(s, s)
             w.draw(c)
+            val keep = if (t.priv) blurred(b) else b // 0.0.327: private tab pictures are blurred, the sharp one is dropped at once
             thumbs[t.id]?.recycle()
-            thumbs[t.id] = b
+            thumbs[t.id] = keep
         } catch (e: Throwable) { Log.w(TAG, "snap failed", e) }
+    }
+
+    /** 0.0.327: strong soft blur for a private tab picture (shrink to ~1/14, grow back with smoothing; works on every Android version). */
+    private fun blurred(src: Bitmap): Bitmap {
+        return try {
+            val sw = (src.width / 14).coerceAtLeast(2); val sh = (src.height / 14).coerceAtLeast(2)
+            val small = Bitmap.createScaledBitmap(src, sw, sh, true)
+            val big = Bitmap.createScaledBitmap(small, src.width, src.height, true)
+            if (small !== big) small.recycle()
+            if (src !== big) src.recycle()
+            big
+        } catch (e: Throwable) { Log.w(TAG, "blur failed", e); src }
     }
 
     fun show(act: Activity, tm: TabManager) {
