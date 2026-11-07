@@ -607,12 +607,28 @@ object VaultItems {
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Delete") { _, _ ->
                 val ids = ArrayList(sel)
+                val t0 = type
+                // 0.0.332: bookmarks / history entries are only index rows, so they can come back with Undo (pages / files are wiped with their blob)
+                val keep = if (t0 == "page" || t0 == "file") emptyList() else try {
+                    VaultStore.items(t0).filter { ids.contains(it.optString("id")) }.map { E(it.optString("title"), it.optString("url"), it.optLong("time"), it.optString("folder")) }
+                } catch (x: Exception) { emptyList() }
                 bg.execute {
                     for (id in ids) VaultStore.removeItem(a, id, type == "page" || type == "file")
                     val ok = sealed(a)
-                    main.post { if (dlg?.isShowing != true) return@post; selecting = false; sel.clear(); listPage(); bar(a, if (ok) "Deleted ${plural(n)}" else "Deleted, but the vault list could not save yet. It will retry.", null, null) }
+                    main.post { if (dlg?.isShowing != true) return@post; selecting = false; sel.clear(); listPage(); bar(a, if (ok) "Deleted ${plural(n)}" else "Deleted, but the vault list could not save yet. It will retry.", if (ok && keep.isNotEmpty()) "Undo" else null, if (ok && keep.isNotEmpty()) ({ undoDelete(a, t0, keep) }) else null) }
                 }
             }.show()
+    }
+
+    /** 0.0.332: Undo of a vault delete of bookmarks / history: the same verified add path as Move to vault (no originals touched). */
+    private fun undoDelete(a: Activity, t: String, keep: List<E>) {
+        bg.execute {
+            val r = try { addToVault(a, t, keep.map { Src(it, { }) }, false) } catch (x: Exception) { Result(false) }
+            main.post {
+                if (dlg?.isShowing == true) { listPage(); bar(a, if (r.ok) "Undone" else "Could not undo", null, null) }
+                else Util.toast(a, if (r.ok) "Undone" else "Could not undo")
+            }
+        }
     }
 
     private fun restoreDialog(a: Activity) {

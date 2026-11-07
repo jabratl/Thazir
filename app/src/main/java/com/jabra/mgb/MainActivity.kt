@@ -352,8 +352,9 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         val t = tabs.active ?: return
         if (t.home || t.isExt || !t.url.startsWith("http")) return
         if (Bookmarks.isBookmarked(t.url)) {
+            val gone = Bookmarks.item(t.url)
             Bookmarks.removeBookmark(t.url)
-            Util.toast(this, "Bookmark removed")
+            if (gone != null) BmUndo.bookmarks(window.decorView, listOf(gone)) else Util.toast(this, "Bookmark removed") // 0.0.332
         } else {
             BookmarkFolderPicker.save(this, t.title.ifBlank { Util.host(t.url) }, t.url) // 0.0.328: ask the folder
         }

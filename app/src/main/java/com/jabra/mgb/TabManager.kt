@@ -811,7 +811,7 @@ class TabManager(
             if (WebPlay.isMediaUrl(l)) rows.add(MenuSheet.Item("Play in player", R.drawable.ic_play) { WebPlay.play(ctx, l, null, ref, ua) })
             if (!tab.priv) rows.add(MenuSheet.Item(if (Bookmarks.isBookmarked(l)) "Remove bookmark" else "Bookmark link",
                 if (Bookmarks.isBookmarked(l)) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border) {
-                if (Bookmarks.isBookmarked(l)) { Bookmarks.removeBookmark(l); Util.toast(ctx, "Bookmark removed") }
+                if (Bookmarks.isBookmarked(l)) { val gone = Bookmarks.item(l); Bookmarks.removeBookmark(l); val hv = (ctx as? android.app.Activity)?.window?.decorView; if (gone != null && hv != null) BmUndo.bookmarks(hv, listOf(gone)) else Util.toast(ctx, "Bookmark removed") } // 0.0.332
                 else if (ctx is android.app.Activity) BookmarkFolderPicker.save(ctx, text?.trim().orEmpty(), l) // 0.0.328: ask the folder
                 else { Bookmarks.addBookmark(text?.trim().orEmpty(), l); Util.toast(ctx, "Bookmark added") }
             })

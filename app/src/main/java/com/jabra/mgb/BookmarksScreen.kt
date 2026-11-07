@@ -204,14 +204,15 @@ object BookmarksScreen {
                 setPadding(dp(10), dp(10), dp(10), dp(10))
                 contentDescription = "More"
                 setOnClickListener {
-                    val labels = if (mode == Mode.BOOKMARKS) arrayOf("Select", "New folder", "Import bookmarks", "Export bookmarks") else arrayOf("Select", "Clear history")
+                    val labels = if (mode == Mode.BOOKMARKS) arrayOf("Select", "New folder", "Import bookmarks", "Export bookmarks", "Sort by...") else arrayOf("Select", "Clear history")
                     MaterialAlertDialogBuilder(act).setItems(labels) { _, which ->
                         if (which == 0) { selecting = true; picked.clear(); build() } // S27
                         else if (mode == Mode.BOOKMARKS) {
                             when (which) {
                                 1 -> BookmarkFolderPicker.askName(act, folder ?: "") { render() } // 0.0.328: inside an open folder = sub folder
                                 2 -> BrowserExtras.importBookmarks { render() }
-                                else -> BrowserExtras.exportBookmarks()
+                                3 -> BrowserExtras.exportBookmarks()
+                                else -> BmSort.pick(act) { render() } // 0.0.332
                             }
                         } else askClear()
                     }.show()
@@ -294,6 +295,12 @@ object BookmarksScreen {
             MaterialAlertDialogBuilder(act)
                 .setMessage("Remove " + n + (if (n == 1) " item?" else " items?"))
                 .setPositiveButton("Remove") { _, _ ->
+                    val gone = ArrayList<Bookmarks.Item>() // 0.0.332: kept for Undo
+                    for (k in picked.toList()) {
+                        if (mode == Mode.BOOKMARKS) Bookmarks.item(k)?.let { gone.add(it) }
+                        else Bookmarks.history().firstOrNull { it.time.toString() == k.substringBefore('|') && it.url == k.substringAfter('|') }?.let { gone.add(it) }
+                    }
+                    if (mode == Mode.BOOKMARKS) BmUndo.bookmarks(window?.decorView, gone) { render() } else BmUndo.history(window?.decorView, gone) { render() }
                     for (k in picked.toList()) {
                         if (mode == Mode.BOOKMARKS) Bookmarks.removeBookmark(k)
                         else Bookmarks.removeHistory(k.substringBefore('|').toLongOrNull() ?: 0L, k.substringAfter('|'))
@@ -353,7 +360,7 @@ object BookmarksScreen {
         private fun askClear() {
             MaterialAlertDialogBuilder(act)
                 .setMessage(if (HistoryFilter.active) "Clear ALL browsing history? This includes rows hidden by the filter." else "Clear all browsing history?") // 0.0.330
-                .setPositiveButton("Clear") { _, _ -> Bookmarks.clearHistory(); render() }
+                .setPositiveButton("Clear") { _, _ -> val old = Bookmarks.history(); Bookmarks.clearHistory(); render(); BmUndo.history(window?.decorView, old) { render() } } // 0.0.332
                 .setNegativeButton("Cancel", null)
                 .show()
         }
@@ -387,7 +394,7 @@ object BookmarksScreen {
                     open == null -> all.filter { it.folder.isEmpty() }
                     else -> all.filter { it.folder == open }
                 }
-                for (b in items) { box.addView(row(b, Util.host(b.url))); visible.add(keyOf(b)) }
+                for (b in BmSort.apply(items)) { box.addView(row(b, Util.host(b.url))); visible.add(keyOf(b)) } // 0.0.332: Sort
                 count += items.size
             } else {
                 val fmt = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
@@ -442,7 +449,7 @@ object BookmarksScreen {
                 MaterialAlertDialogBuilder(act)
                     .setTitle(name)
                     .setItems(arrayOf("Rename folder", "Delete folder and sub folders (bookmarks are kept)")) { _, w ->
-                        if (w == 1) { Bookmarks.removeFolder(name); render() }
+                        if (w == 1) { val snap = Bookmarks.folderSnap(name); Bookmarks.removeFolder(name); render(); BmUndo.folder(window?.decorView, name, snap) { render() } } // 0.0.332
                         else { // 0.0.329
                             val et = EditText(act).apply { setText(Bookmarks.shortName(name)); setSingleLine(); setSelection(text.length) }
                             val bx = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(8), dp(24), 0); addView(et, LinearLayout.LayoutParams(MATCH, WRAP)) }

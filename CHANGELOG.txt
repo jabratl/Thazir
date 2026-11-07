@@ -1,3 +1,14 @@
+0.0.332 (MODIFY: Undo bar after deleting bookmarks / folders / history / vault entries, Sort for bookmarks)
+- Why: removing a bookmark, a folder or history was final at once.
+- Undo bar (new BmUndo.kt): "Bookmark removed  Undo" bar at the bottom for 6 s, theme colours, swipe it away. Where: Bookmarks list Select > Remove (one or many), Delete folder (long press; the folder, its sub folders and the bookmarks inside it come back), History Remove and Clear history, Home folder tile > Remove bookmark, star button (remove bookmark), link long press > Remove bookmark.
+- Vault: Delete from vault of bookmarks and history entries now shows "Deleted N  Undo" (same verified add path as Move to vault: sealed + read back). Vault pages and files cannot be undone (their encrypted file is wiped); the confirm text is the same as before.
+- Sort (Bookmarks 3-dot menu > Sort by...): Added order (as before) / Newest first / Oldest first / A to Z / By site. Only the shown order changes, nothing stored. Kept in memory (back to Added order after the app restarts); no new pref.
+- Bookmarks.kt: item(url), restoreBookmarks (back in time order, old folder made again, existing url skipped), folderSnap + restoreFolder, restoreHistory. Remove / storage format unchanged.
+- Could break: Undo of a folder puts a bookmark back into the old folder only if that bookmark is still outside any folder (if you moved it meanwhile it stays where you put it). Undo of "Clear history" restores up to 500 rows. The bar can sit over the bottom toolbar.
+- Checked: braces / parentheses balanced in all 7 changed .kt files (Bookmarks.kt +1 brace as before, string), single-match patch audit, Material 1.12 Snackbar API (setBackgroundTint / setTextColor / setActionTextColor).
+- Files (under app/src/main/java/com/jabra/mgb/): BmUndo.kt (new), Bookmarks.kt, BookmarksScreen.kt, HomeView.kt, MainActivity.kt, TabManager.kt, VaultItems.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.332.txt.
+- NOT tested: Gradle / Kotlin compile (CI), device, 360 / 1280 dp, dark + light, vault Undo with a locked vault.
+
 0.0.331 (MODIFY: Private tabs settings - switch for the blank app preview, private tabs lock, close all private tabs, Private button on shared links)
 - Why: 0.0.330 made the app preview blank for private tabs but with no way to turn it off, and Thazir had no private-tab settings at all (Brave / Chrome have them).
 - Settings > Privacy and security > Private tabs (new group, 3 rows):

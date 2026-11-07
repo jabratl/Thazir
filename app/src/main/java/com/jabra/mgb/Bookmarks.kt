@@ -99,6 +99,52 @@ object Bookmarks {
         if (bm.removeAll { it.url == url }) saveAsync(F_BM, bm)
     }
 
+    // ---------- 0.0.332: undo helpers (BmUndo) ----------
+
+    /** Folder (with its sub folders) and the bookmarks inside it, taken before removeFolder. */
+    class FolderSnap(val folders: List<String>, val items: List<Item>)
+
+    @Synchronized fun item(url: String): Item? = bm.firstOrNull { it.url == url }
+
+    /** Puts removed bookmarks back in time order; the old folder is made again. A url that exists already is skipped. */
+    @Synchronized
+    fun restoreBookmarks(items: List<Item>) {
+        var n = 0
+        for (x in items) {
+            if (x.url.isBlank() || bm.any { it.url == x.url }) continue
+            val fo = if (x.folder.isEmpty()) "" else addFolder(x.folder)
+            val back = Item(x.title, x.url, x.time, fo)
+            val at = bm.indexOfFirst { it.time > x.time }
+            if (at < 0) bm.add(back) else bm.add(at, back)
+            n++
+        }
+        if (n > 0) saveAsync(F_BM, bm)
+    }
+
+    @Synchronized fun folderSnap(name: String): FolderSnap = FolderSnap(fol.filter { under(it, name) }, bm.filter { under(it.folder, name) })
+
+    /** Undo of removeFolder: folders again, and the bookmarks that are still outside any folder go back in. */
+    @Synchronized
+    fun restoreFolder(s: FolderSnap) {
+        for (f in s.folders) addFolder(f)
+        var n = 0
+        for (x in s.items) {
+            val i = bm.indexOfFirst { it.url == x.url }
+            if (i >= 0 && bm[i].folder.isEmpty()) { bm[i] = Item(bm[i].title, bm[i].url, bm[i].time, x.folder); n++ }
+        }
+        if (n > 0) saveAsync(F_BM, bm)
+    }
+
+    @Synchronized
+    fun restoreHistory(items: List<Item>) {
+        var n = 0
+        for (x in items) if (hist.none { it.time == x.time && it.url == x.url }) { hist.add(x); n++ }
+        if (n == 0) return
+        hist.sortByDescending { it.time }
+        while (hist.size > MAX_HISTORY) hist.removeAt(hist.size - 1)
+        saveAsync(F_HIST, hist)
+    }
+
     // ---------- S24: folders ----------
 
     private fun saveFolders() {

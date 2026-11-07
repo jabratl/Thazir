@@ -505,7 +505,7 @@ class HomeView(
                 labels.add("Remove from home"); acts.add { Bookmarks.removeHome(url); refresh() }
             } else {
                 labels.add("Move out of folder"); acts.add { Bookmarks.setFolder(url, ""); refresh() }
-                labels.add("Remove bookmark"); acts.add { Bookmarks.removeBookmark(url); refresh() }
+                labels.add("Remove bookmark"); acts.add { val gone = Bookmarks.item(url); Bookmarks.removeBookmark(url); refresh(); if (gone != null) BmUndo.bookmarks(this, listOf(gone)) { refresh() } } // 0.0.332
             }
             MaterialAlertDialogBuilder(context)
                 .setTitle(name)
