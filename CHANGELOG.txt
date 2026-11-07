@@ -1,3 +1,12 @@
+0.0.325 (FIX: downloads started by a tab link / blob were not in the Downloads queue while running)
+- Why (root cause): Downloads screen, Media screen and the report read only V77 jobs (EngineApi.jobs = storage.session mgJobs). A plain link / blob / data download of any site goes TabManager DownloadListener -> DownloadsApi.startPlain -> Downloader and is no V77 job, so it ran (notification + toast) but was never listed.
+- Now: DlItem.plain flag (set in startPlain), DownloadsApi.plainJobs() returns those items (newest 12) as job-shaped JSON (key "nat:<id>", state run / done / fail, pct, size text), EngineApi.jobs() adds them, EngineApi.send() routes job-pause / job-cancel / job-remove of a "nat:" key to DownloadsApi.plainControl (Pause, Resume, Cancel, Remove work like the V77 rows). Existing Downloads / Media UI code unchanged.
+- Not changed: Downloader / DownloadService transfer code, V77 jobs, chrome.downloads API, Saved files list, notification.
+- Could break: a plain download now also shows in Media screen "Downloading" and in the report job list (wanted). Rows are not saved: after an app restart finished plain rows are gone from the queue (file stays in Downloads). Remove only hides the row.
+- Checked: braces / parentheses balanced in both .kt files, single-match patch audit, no nested comment opener.
+- Files: app/src/main/java/com/jabra/mgb/DownloadsApi.kt, app/src/main/java/com/jabra/mgb/EngineApi.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.325.txt.
+- NOT tested: Gradle build (CI), device, 360 / 1280 dp, dark + light.
+
 0.0.324 (MODIFY: App lock and Ad blocker look like the other switches, "Lock after" hidden while App lock is OFF)
 - Why: rowView draws a real switch only when the value is exactly "ON" / "OFF". App lock ("ON · After 1 minute") and Ad blocker ("ON · 12 blocked") put extra text in the value, so they showed text instead of a switch although a tap toggles them. "Lock after" was shown even when App lock was OFF.
 - Now (SettingsScreen.kt only): both rows use value ON / OFF (switch, haptic tick and row flash work like the others); the delay ("Locks after 1 minute") and the count ("12 blocked so far") moved to the hint line, shown only while ON. SettingsScreen.dd() hides "Lock after" while App lock is OFF (not while searching, so search still finds it); turning App lock ON refreshes the card through the existing fill().

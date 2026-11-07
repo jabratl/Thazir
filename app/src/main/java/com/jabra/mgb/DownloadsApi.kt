@@ -61,6 +61,7 @@ class DlItem(val id: Int, val url: String) {
     var src: WeakReference<WebView>? = null          // page that owns a blob: url
     val lock = ReentrantLock()
     @Volatile var call: okhttp3.Call? = null
+    @Volatile var plain = false                      // 0.0.325: started by a tab link / blob (DownloadListener); listed in the Downloads queue
 }
 
 /**
@@ -256,6 +257,7 @@ object DownloadsApi {
     fun startPlain(url: String, userAgent: String?, disposition: String?, mime: String?, referer: String?, src: WebView?): DlItem? {
         if (!listOf("http://", "https://", "data:", "blob:").any { url.startsWith(it, true) }) return null
         val item = newItem(url)
+        item.plain = true // 0.0.325: shows in Downloads > Downloading (EngineApi.jobs)
         item.rel = cleanRel(plainName(url, disposition, mime))
         if (!mime.isNullOrBlank()) item.mime = mime
         val http = url.startsWith("http", true)
@@ -275,6 +277,48 @@ object DownloadsApi {
         askPerms()
         Downloader.start(item)
         return item
+    }
+
+    /**
+     * 0.0.325: plain downloads (tab link / blob / data) as V77-job-shaped JSON (key nat:<id>) so the Downloads screen, Media screen
+     * and report list them while they run. Newest 12 only. Thread safe.
+     */
+    fun plainJobs(): List<JSONObject> {
+        val list = synchronized(items) { items.values.filter { it.plain }.sortedByDescending { maxOf(it.start, it.end) }.take(12) }
+        return list.map { i ->
+            val st = when (i.state) { "in_progress" -> "run"; "complete" -> "done"; else -> "fail" }
+            val name = (if (i.filename.isNotEmpty()) i.filename else i.rel).substringAfterLast('/').ifBlank { i.url.substringAfterLast('/').take(60) }
+            val rec = i.received; val tot = i.total
+            val text = when (st) {
+                "run" -> if (tot > 0) EngineApi.fmtSize(rec) + " / " + EngineApi.fmtSize(tot) else EngineApi.fmtSize(rec)
+                "done" -> ""
+                else -> if (i.error == "USER_CANCELED") "Canceled" else i.error.ifBlank { "Failed" }
+            }
+            JSONObject().put("key", "nat:" + i.id).put("title", name).put("state", st).put("paused", i.paused && st == "run")
+                .put("pct", if (tot > 0) (rec.toDouble() / tot).coerceIn(0.0, 1.0) else 0.0).put("text", text)
+                .put("url", i.url).put("native", true).put("updated", if (st == "run") System.currentTimeMillis() else maxOf(i.start, i.end))
+        }
+    }
+
+    /** 0.0.325: Pause / Resume / Cancel / Remove for a plain download row (same messages the V77 rows send). Main thread. */
+    fun plainControl(msg: JSONObject) {
+        val id = msg.optString("key").removePrefix("nat:").toIntOrNull() ?: return
+        val i = synchronized(items) { items[id] } ?: return
+        when (msg.optString("type")) {
+            "job-pause" -> if (msg.optBoolean("on", true)) {
+                if (i.state == "in_progress" && !i.paused) { change(i) { paused = true }; Downloader.abort(i) }
+            } else if (i.state == "in_progress" && i.paused) {
+                change(i) { paused = false }; Downloader.start(i)
+            } else if (i.state == "interrupted" && i.canResume) {
+                change(i) { state = "in_progress"; paused = false; error = ""; end = 0L }; Downloader.start(i)
+            }
+            "job-cancel" -> if (i.state == "in_progress") {
+                change(i) { state = "interrupted"; error = "USER_CANCELED"; paused = false; canResume = false; end = System.currentTimeMillis() }
+                Downloader.abort(i)
+                Downloader.partFile(i.id).delete()
+            }
+            "job-remove" -> if (i.state != "in_progress") i.plain = false // leaves the queue only; file + chrome.downloads item stay
+        }
     }
 
     fun active(): List<DlItem> = synchronized(items) { items.values.filter { it.state == "in_progress" && !it.paused } }

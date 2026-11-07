@@ -23,6 +23,7 @@ object EngineApi {
     }
 
     fun send(msg: JSONObject) {
+        if (msg.optString("key").startsWith("nat:")) { DownloadsApi.plainControl(msg); return } // 0.0.325: plain download rows
         if (DlRules.hold(msg)) return // D2: rules checked before a download starts
         val c = engineCtx() ?: return
         ChromeBridge.request(c, msg, sender()) { }
@@ -31,9 +32,9 @@ object EngineApi {
     /** All jobs V77 knows (running, done, failed), newest first. */
     fun jobs(): List<JSONObject> {
         val o = try { ChromeBridge.session.get("mgJobs").optJSONObject("mgJobs") } catch (e: Exception) { null }
-            ?: return emptyList()
         val out = ArrayList<JSONObject>()
-        for (k in o.keys()) o.optJSONObject(k)?.let { out.add(it) }
+        if (o != null) for (k in o.keys()) o.optJSONObject(k)?.let { out.add(it) }
+        try { out.addAll(DownloadsApi.plainJobs()) } catch (e: Exception) { } // 0.0.325: tab link / blob downloads (not V77 jobs)
         return out.sortedByDescending { it.optLong("updated") }
     }
 
