@@ -52,7 +52,10 @@ object HowToUse {
                 "Open the 3-dot menu. The top part is for the app, the lower part is for the page you are on.",
                 "Page actions: Find on page, Desktop site, Reader view, Translate page, Text size, Page info, Save page.",
                 "Menu > Command Center: type a few letters to find an action, an open tab or a bookmark.",
-                "Menu > Customise menu lets you hide rows you never use."
+                "Menu > Customise menu lets you hide rows you never use.",
+                "The round icon bar at the bottom of the menu stays in place while the list scrolls. Hold one icon for 3 seconds, tap Edit shortcut and pick what that button does (15 actions, or Reset all 5 buttons). Picking an action that sits in another slot swaps the two. A short tap still runs the action.",
+                "Address bar: the shield sits inside the right end of the field, and the small tune icon at the start opens the Site sheet (soft green = https, red open lock = plain http).",
+                "Good to know: on a Social site the shield hides to give the address room, and it may come back only after the next page load or tab switch. On a small landscape screen the menu list is short but scrolls. The old green https lock is now the tune icon. Customise menu > Reset to default also resets the 5 buttons."
             ), "Command Center is the fastest way when you do not remember where something is.",
             listOf(
                 "In Command Center type: private - New private tab appears. Type: dark - Appearance appears. Type: help - this guide appears.",

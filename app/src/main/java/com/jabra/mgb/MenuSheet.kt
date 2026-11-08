@@ -34,10 +34,18 @@ object MenuSheet {
     private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
     private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 
+    /** 0.0.335: NestedScrollView that never grows past [maxH] (so the pinned icon bar below it always fits on screen). */
+    private class CapScroll(c: Context, val maxH: Int) : NestedScrollView(c) {
+        override fun onMeasure(w: Int, h: Int) {
+            val cap = if (View.MeasureSpec.getMode(h) == View.MeasureSpec.UNSPECIFIED) maxH else minOf(View.MeasureSpec.getSize(h), maxH)
+            super.onMeasure(w, View.MeasureSpec.makeMeasureSpec(cap, View.MeasureSpec.AT_MOST))
+        }
+    }
+
     fun show(
         ctx: Context, quick: List<Quick>, general: List<Item>,
         pageTitle: String, onShare: (() -> Unit)?, page: List<Item>,
-        acts: List<Act>, footer: String
+        acts: List<Act>, footer: String, reopen: (() -> Unit)? = null
     ) {
         val dlg = BottomSheetDialog(ctx)
         fun dp(v: Int) = Util.dp(ctx, v)
@@ -172,24 +180,7 @@ object MenuSheet {
         val showPage = pageTitle.isNotBlank() || page.isNotEmpty() // 0.0.126: Home passes blank title + no rows = only the icon row
         if (showPage) c2.addView(head, LinearLayout.LayoutParams(MATCH, dp(48)))
         for (m in page) c2.addView(itemRow(m), LinearLayout.LayoutParams(MATCH, dp(52)))
-        if (acts.isNotEmpty()) {
-            if (showPage) addDivider(c2)
-            val arow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
-            for (a in acts) {
-                arow.addView(ImageView(ctx).apply {
-                    setImageResource(a.icon)
-                    setColorFilter(cText)
-                    scaleType = ImageView.ScaleType.CENTER
-                    alpha = if (a.enabled) 1f else 0.35f
-                    isEnabled = a.enabled
-                    isClickable = a.enabled
-                    background = ripple?.constantState?.newDrawable()
-                    setOnClickListener { dlg.dismiss(); a.onClick() }
-                }, LinearLayout.LayoutParams(0, dp(52), 1f))
-            }
-            c2.addView(arow, LinearLayout.LayoutParams(MATCH, WRAP))
-        }
-        col.addView(c2, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
+        if (showPage) col.addView(c2, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) }) // 0.0.335: icon row moved out of the card (pinned below)
 
         col.addView(TextView(ctx).apply {
             text = footer
@@ -199,10 +190,47 @@ object MenuSheet {
             setPadding(dp(12), dp(14), dp(12), 0)
         })
 
-        val sv = NestedScrollView(ctx)
+        // 0.0.335: the list scrolls, the icon bar stays pinned at the bottom (like Brave). Hold an icon 3 s = Edit shortcut (MenuBar).
+        val hPx = ctx.resources.displayMetrics.heightPixels
+        val sbId = ctx.resources.getIdentifier("status_bar_height", "dimen", "android")
+        val sbPx = if (sbId > 0) ctx.resources.getDimensionPixelSize(sbId) else dp(24)
+        // 0.0.336: real free height (screen minus status bar), never below 140 dp, so a small landscape screen still scrolls the list
+        val maxH = (minOf((hPx * 0.88f).toInt(), hPx - sbPx - dp(16)) - (if (acts.isNotEmpty()) dp(80) else 0)).coerceAtLeast(dp(140))
+        val sv = CapScroll(ctx, maxH)
         sv.overScrollMode = View.OVER_SCROLL_NEVER // S88: no stretch/glow fighting the sheet drag
         sv.addView(col, ViewGroup.LayoutParams(MATCH, WRAP))
-        dlg.setContentView(sv)
+        val root = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        root.addView(sv, LinearLayout.LayoutParams(MATCH, WRAP))
+        if (acts.isNotEmpty()) {
+            root.addView(View(ctx).apply { setBackgroundColor(cLine) }, LinearLayout.LayoutParams(MATCH, dp(1)))
+            val bar = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(12), dp(8), dp(12), dp(10))
+                setBackgroundColor(ctx.getColor(R.color.mg_bg))
+            }
+            acts.forEachIndexed { i, a ->
+                val slot = FrameLayout(ctx)
+                val b = ImageView(ctx).apply {
+                    setImageResource(a.icon)
+                    setColorFilter(cText)
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                    setPadding(dp(11), dp(11), dp(11), dp(11))
+                    background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(cTile) }
+                    if (android.os.Build.VERSION.SDK_INT >= 23) foreground = ripple?.constantState?.newDrawable()
+                    alpha = if (a.enabled) 1f else 0.35f
+                    isClickable = true // not isEnabled=false: a disabled view would not get the 3 s hold
+                    isFocusable = true
+                    contentDescription = MenuBar.entry(MenuBar.ids(ctx).getOrElse(i) { "" }).label
+                    setOnClickListener { if (a.enabled) { dlg.dismiss(); a.onClick() } }
+                }
+                if (reopen != null) MenuBar.attachEdit(b, i) { dlg.dismiss(); reopen() }
+                slot.addView(b, FrameLayout.LayoutParams(dp(44), dp(44), Gravity.CENTER))
+                bar.addView(slot, LinearLayout.LayoutParams(0, dp(52), 1f))
+            }
+            root.addView(bar, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+        dlg.setContentView(root)
         dlg.setOnShowListener { // quiet sheet colour with rounded top
             val ease = android.view.animation.DecelerateInterpolator(1.6f)
             tiles.forEachIndexed { i, tv -> // S71: tiles pop in one after the other
@@ -217,6 +245,7 @@ object MenuSheet {
                 }
         }
         dlg.behavior.skipCollapsed = true
+        dlg.behavior.maxWidth = dp(560) // 0.0.336: width cap (design rules)
         dlg.behavior.state = BottomSheetBehavior.STATE_EXPANDED
         dlg.show()
     }

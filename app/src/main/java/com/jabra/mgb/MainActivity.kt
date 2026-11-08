@@ -206,7 +206,6 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         if (savedInstanceState == null) { SocialLinks.sync(this); SocialLinks.fromIntent(this, tabs, intent) } // 0.0.246 (A6): link from another app
         UpdateManager.autoCheck(this)
         CrashLog.showLast(this) // FIX
-        CrashHint.maybeShow(this) // 0.0.334: "keeps crashing, revert?" dialog
         AppLock.onCreate(this) // S45: lock screen at cold start (if ON)
         window.decorView.post { PlayerScreen.reopenPending(this) } // S35: player comes back if the Activity was recreated
         window.decorView.post { AppearanceScreen.reopenPending(this) } // APPEARANCE A2: Appearance screen comes back after a theme change
@@ -279,13 +278,26 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Quick(R.drawable.ic_download, "Downloads") { DownloadsScreen.open(this) },
             MenuSheet.Quick(R.drawable.ic_play, "Grabber") { if (V77Alt.on(this)) openExt("popup.html") else floating.openSheet() } // S65: V77 only when the backup switch is ON
         )
-        val acts = listOf(
-            MenuSheet.Act(R.drawable.ic_back, cur != null && tabs.canBack(cur)) { cur?.let { tabs.back(it) } },
-            MenuSheet.Act(R.drawable.ic_forward, cur != null && tabs.canFwd(cur)) { cur?.let { tabs.fwd(it) } },
-            MenuSheet.Act(if (marked) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border, canMark) { toggleBookmark() },
-            MenuSheet.Act(R.drawable.ic_ext, true) { ExtTray.show(this) }, // S10: Thazir Extensions tray
-            MenuSheet.Act(if (cur?.loading == true) R.drawable.ic_close else R.drawable.ic_reload, cur != null) { reloadOrStop() }
-        )
+        val canPage = cur != null && !cur.home && !cur.isExt
+        fun barAct(id: String): MenuSheet.Act = when (id) { // 0.0.335: the 5 pinned icons come from MenuBar (hold one 3 s = Edit shortcut)
+            "back" -> MenuSheet.Act(R.drawable.ic_back, cur != null && tabs.canBack(cur)) { cur?.let { tabs.back(it) } }
+            "forward" -> MenuSheet.Act(R.drawable.ic_forward, cur != null && tabs.canFwd(cur)) { cur?.let { tabs.fwd(it) } }
+            "bookmark" -> MenuSheet.Act(if (marked) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border, canMark) { toggleBookmark() }
+            "ext" -> MenuSheet.Act(R.drawable.ic_ext, true) { ExtTray.show(this) } // S10: Thazir Extensions tray
+            "reload" -> MenuSheet.Act(if (cur?.loading == true) R.drawable.ic_close else R.drawable.ic_reload, cur != null) { reloadOrStop() }
+            "home" -> MenuSheet.Act(R.drawable.ic_home, true) { tabs.goHome() }
+            "share" -> MenuSheet.Act(R.drawable.ic_share, canMark) { tabs.active?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) } }
+            "downloads" -> MenuSheet.Act(R.drawable.ic_download, true) { DownloadsScreen.open(this) }
+            "history" -> MenuSheet.Act(R.drawable.ic_history, true) { BookmarksScreen.open(this, BookmarksScreen.Mode.HISTORY, tabs) }
+            "bookmarks" -> MenuSheet.Act(R.drawable.ic_bookmark, true) { BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs) }
+            "newtab" -> MenuSheet.Act(R.drawable.ic_add, true) { tabs.newTab(TabManager.HOME_PAGE) }
+            "private" -> MenuSheet.Act(R.drawable.ic_lock, true) { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }
+            "find" -> MenuSheet.Act(R.drawable.ic_search, canMark) { FindBar.open(this, tabs.active?.web) }
+            "desktop" -> MenuSheet.Act(R.drawable.ic_desktop, canPage) { tabs.active?.let { tabs.setDesktop(it, !it.desktop) } }
+            "settings" -> MenuSheet.Act(R.drawable.ic_settings, true) { SettingsScreen.open(this) }
+            else -> MenuSheet.Act(R.drawable.ic_reload, cur != null) { reloadOrStop() }
+        }
+        val acts = MenuBar.ids(this).map { barAct(it) }
         // S27: general card (app level) and page card (this page)
         val generalTop = listOf(
             MenuSheet.Item("Command Center", R.drawable.ic_search, true, "Actions · tabs · bookmarks") { CommandCenter.show(this, tabs) }, // S7
@@ -338,7 +350,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         val general = generalTop.filter { MenuCustom.on(this, it.key) } + MenuCustom.pinnedRows(this) + generalEnd
         val page = if (onHome) emptyList() else pageAll.filter { MenuCustom.on(this, it.key) }
         val share: (() -> Unit)? = if (canMark) ({ tabs.active?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) } }) else null
-        MenuSheet.show(this, quick, general, title, share, page, acts, "Thazir ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
+        MenuSheet.show(this, quick, general, title, share, page, acts, "Thazir ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})") { showMenu() } // 0.0.335: reopen after Edit shortcut
     }
 
     /** S40: open a site in a new tab (Passwords > Open site). */
@@ -415,15 +427,15 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     /** S3: small connection cue at the start of the address field: lock = https, open lock (red) = plain http, none = home / other. */
     private fun setUrlLock(secure: Boolean?) {
         val res: Int? = when (secure) { // S3 FIX: explicit types (no platform-type inference)
-            true -> R.drawable.ic_lock
+            true -> R.drawable.ic_tune // 0.0.335: https = site tune icon (Brave style); plain http keeps the red open lock
             false -> R.drawable.ic_pl_lock_open
             null -> null
         }
         val d: android.graphics.drawable.Drawable? = res?.let { androidx.core.content.ContextCompat.getDrawable(this, it)?.mutate() }
         if (d != null) {
-            val sz = Util.dp(this, 14)
+            val sz = Util.dp(this, if (secure == false) 14 else 18)
             d.setBounds(0, 0, sz, sz)
-            d.setTint(getColor(if (secure == false) R.color.mg_error else R.color.mg_success)) // 0.0.281: https lock = green
+            d.setTint(if (secure == false) getColor(R.color.mg_error) else androidx.core.graphics.ColorUtils.blendARGB(getColor(R.color.mg_text_dim), getColor(R.color.mg_success), 0.6f)) // 0.0.336: https tune icon = soft green (security cue kept)
         }
         urlBar.setCompoundDrawablesRelative(d, null, null, null)
     }
@@ -439,9 +451,9 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         if (!priv) { urlBgNormal?.let { urlBar.background = it.newDrawable().mutate() }; return }
         val plum = androidx.core.graphics.ColorUtils.blendARGB(getColor(R.color.mg_primary), getColor(R.color.mg_error), 0.5f)
         fun shape(fill: Int, w: Int, stroke: Int) = android.graphics.drawable.GradientDrawable().apply {
-            setColor(fill); cornerRadius = Util.dp(this@MainActivity, 20).toFloat() // 0.0.333: same capsule as bg_url_field; setStroke(Util.dp(this@MainActivity, w), stroke)
+            setColor(fill); cornerRadius = Util.dp(this@MainActivity, 19).toFloat(); setStroke(Util.dp(this@MainActivity, w), stroke)
         }
-        val ink = Util.dp(this, 2) // 0.0.333: 2dp inset like bg_url_field
+        val ink = Util.dp(this, 3)
         val rest = shape(androidx.core.graphics.ColorUtils.blendARGB(getColor(R.color.mg_surface_variant), plum, 0.22f), 1, androidx.core.graphics.ColorUtils.blendARGB(getColor(R.color.mg_outline), plum, 0.8f))
         val focus = shape(getColor(R.color.mg_surface), 2, plum)
         val sl = android.graphics.drawable.StateListDrawable()
@@ -473,20 +485,29 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         applyNavArrows() // A1: arrows follow tab switch, page load and history changes
     }
 
+    /** 0.0.336: the shield sits inside the field only when there is room: no Social chip and the field is at least 140 dp wide (0 = not measured yet = ok). */
+    private fun shieldRoom(): Boolean =
+        findViewById<View>(R.id.btn_social).visibility != View.VISIBLE && (urlBar.width == 0 || urlBar.width >= Util.dp(this, 140))
+
     /** S68: shield shows on web pages only (not while typing); rose = guarding, grey = blocker off here. */
     private fun refreshShield() {
         val st = PrivacyGuard.state(tabs.active)
-        val show = st != 0 && !urlBar.hasFocus()
+        val show = st != 0 && !urlBar.hasFocus() && shieldRoom()
         if (show && btnShield.visibility != View.VISIBLE) {
             btnShield.alpha = 0f; btnShield.visibility = View.VISIBLE
             btnShield.animate().alpha(1f).setDuration(160).start()
         } else if (!show) btnShield.visibility = View.GONE
         btnShield.setColorFilter(getColor(if (st == 2) R.color.mg_text_dim else R.color.mg_primary))
+        urlBar.setPaddingRelative(urlBar.paddingStart, urlBar.paddingTop, Util.dp(this, if (show) 40 else 12), urlBar.paddingBottom) // 0.0.335: shield sits inside the field, keep the text clear of it
         // S69: engine badge on the home page and while typing (where the shield is not shown)
         val eng = (tabs.active?.home == true || urlBar.hasFocus()) && !navTight() // A1: no badge when both arrows squeeze the bar
         btnEngine.visibility = if (eng) View.VISIBLE else View.GONE
         if (eng) EnginePicker.styleBadge(this, btnEngine)
         SocialChip.update(this, tabs, urlBar.hasFocus()) // 0.0.286: social chip at the end of the address bar
+        if (btnShield.visibility == View.VISIBLE && !shieldRoom()) { // 0.0.336: chip appeared after the shield was decided: shield steps aside
+            btnShield.visibility = View.GONE
+            urlBar.setPaddingRelative(urlBar.paddingStart, urlBar.paddingTop, Util.dp(this, 12), urlBar.paddingBottom)
+        }
         // 0.0.319: "+" hides while typing, on a squeezed bar and when the Social chip is shown, so the address field keeps its room
         val showNew = shared && AppearancePrefs.newTabBtn(this) && !urlBar.hasFocus() && !navTight() && findViewById<View>(R.id.btn_social).visibility != View.VISIBLE
         btnNewTab.visibility = if (showNew) View.VISIBLE else View.GONE
@@ -502,7 +523,10 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         AppLock.privateOpen = any
         if (any == privSecure) return
         privSecure = any
-        AppLock.previewHidden(this, any || AppLock.on(this)) // 0.0.333: blank Recents picture only, screenshots / screen recording allowed (was FLAG_SECURE)
+        try {
+            if (any) window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
+            else if (!AppLock.on(this)) window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE) // 0.0.331: App lock keeps its own secure window
+        } catch (e: Exception) { }
     }
 
     override fun onTabsChanged() {
