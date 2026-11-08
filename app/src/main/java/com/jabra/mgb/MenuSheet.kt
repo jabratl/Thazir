@@ -36,6 +36,17 @@ object MenuSheet {
 
     /** 0.0.335: NestedScrollView that never grows past [maxH] (so the pinned icon bar below it always fits on screen). */
     private class CapScroll(c: Context, val maxH: Int) : NestedScrollView(c) {
+        init {
+            // 0.0.338: scrolled rows used to be cut by a hard square edge that stuck out of the rounded sheet corners.
+            // Clip to the sheet's rounded top (28 dp) and fade the rows out softly under the top / bottom edge.
+            val r = 28f * c.resources.displayMetrics.density
+            clipToOutline = true
+            outlineProvider = object : android.view.ViewOutlineProvider() {
+                override fun getOutline(v: View, o: android.graphics.Outline) { o.setRoundRect(0, 0, v.width, v.height + r.toInt(), r) }
+            }
+            isVerticalFadingEdgeEnabled = true
+            setFadingEdgeLength((22f * c.resources.displayMetrics.density).toInt())
+        }
         override fun onMeasure(w: Int, h: Int) {
             val cap = if (View.MeasureSpec.getMode(h) == View.MeasureSpec.UNSPECIFIED) maxH else minOf(View.MeasureSpec.getSize(h), maxH)
             super.onMeasure(w, View.MeasureSpec.makeMeasureSpec(cap, View.MeasureSpec.AT_MOST))

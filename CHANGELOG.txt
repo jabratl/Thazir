@@ -1,3 +1,10 @@
+0.0.338 (FIX: 3-dot menu list had square cut corners when scrolled)
+- Seen: after scrolling the menu, the rows were cut by a hard square edge at the top that stuck out of the rounded sheet corners (screenshot with 2 arrows).
+- Root cause: the scroll area (CapScroll, 0.0.335) clipped its rows to a plain rectangle, but the sheet above it has 28 dp rounded top corners and the cards are inset 12 dp.
+- Fix (MenuSheet.kt, CapScroll only): clipToOutline with a 28 dp rounded top, plus a 22 dp fading edge so rows fade softly under the top and bottom edge while scrolling. At rest (not scrolled) nothing changes.
+- Could break: fade looks too strong on very slow phones (hardware layer); bottom fade sits just above the pinned icon bar.
+- NOT tested: Gradle build (CI), device, dark + light, landscape.
+
 0.0.337 (MODIFY: AI picture check removed, app is lighter)
 - Why: the on-device NSFW picture check (24 MB model.tflite + TensorFlow Lite library) made the app heavy and users complained.
 - SocialNsfw.kt is now a no-op with the same names (no model, no picture download, intercept() = null, switch always OFF), so TabManager / SocialScreen / SettingsScreen still compile unchanged.
