@@ -15,21 +15,11 @@
         <item name="colorSurfaceContainer">@color/mg_surface</item>
         <item name="colorSurfaceContainerHigh">@color/mg_surface_variant</item>
         <item name="colorSurfaceContainerHighest">@color/mg_surface_variant</item>
-        <!-- 0.0.345: dialogs use our own list rows (see styles below) -->
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.MGB.MaterialAlertDialog</item>
         <item name="android:colorBackground">@color/mg_bg</item>
         <item name="android:windowBackground">@color/mg_bg</item>
         <item name="android:statusBarColor">@color/mg_bg</item>
         <item name="android:navigationBarColor">@color/mg_bg</item>
         <item name="android:windowLightStatusBar">@bool/mg_light_bars</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">@bool/mg_light_bars</item>
-    </style>
-    <style name="ThemeOverlay.MGB.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
-        <item name="alertDialogStyle">@style/MGB.AlertDialog</item>
-    </style>
-    <style name="MGB.AlertDialog" parent="MaterialAlertDialog.Material3">
-        <item name="listItemLayout">@layout/mg_dialog_item</item>
-        <item name="singleChoiceItemLayout">@layout/mg_dialog_singlechoice</item>
-        <item name="multiChoiceItemLayout">@layout/mg_dialog_multichoice</item>
     </style>
 </resources>

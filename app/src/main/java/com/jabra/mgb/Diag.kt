@@ -24,7 +24,7 @@ object Diag {
     const val MAX = 500
     private const val FILE = "mgb_diag.jsonl"
     private const val MAX_MSG = 400
-    private const val MAX_EXTRA = 1500 // 0.0.346: was 800, the "Caused by" lines were cut off
+    private const val MAX_EXTRA = 800
     private const val DUP_WINDOW_MS = 5000L
 
     data class Event(
@@ -103,7 +103,7 @@ object Diag {
     /** Uncaught exception: written to disk right now (the process is about to die). Used by CrashLog. */
     fun crash(threadName: String, t: Throwable) {
         try {
-            log("E", "crash", "uncaught on $threadName: " + t.javaClass.simpleName + " " + (t.message ?: ""), causeChain(t) + stackTop(t, 12))
+            log("E", "crash", "uncaught on $threadName: " + t.javaClass.simpleName + " " + (t.message ?: ""), stackTop(t, 12))
             flushNow()
         } catch (_: Throwable) { }
     }
@@ -194,24 +194,6 @@ object Diag {
     } catch (_: Throwable) { null }
 
     // ---------------------------------------------------------------- stack
-
-    /** 0.0.346: "Caused by: Class: message" for every cause (max 6), put FIRST in a crash event so the 1500 char limit never cuts it. */
-    private fun causeChain(t: Throwable): String {
-        val sb = StringBuilder()
-        var c: Throwable? = t.cause
-        var n = 0
-        while (c != null && n < 6) {
-            sb.append("Caused by: ").append(c.javaClass.name).append(": ").append((c.message ?: "").take(220)).append('\n')
-            if (c.cause == null) { // root cause: its first app / top frames show where it really failed
-                val st = c.stackTrace
-                var k = 0
-                for (f in st) { if (k < 3 || f.className.startsWith("com.jabra.mgb")) { sb.append("at ").append(f.toString()).append('\n'); k++ }; if (k >= 6) break }
-            }
-            c = c.cause
-            n++
-        }
-        return sb.toString()
-    }
 
     private fun stackTop(t: Throwable, lines: Int = 8): String {
         val sb = StringBuilder()
