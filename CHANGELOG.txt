@@ -1,3 +1,13 @@
+0.0.337 (MODIFY: AI picture check removed, app is lighter)
+- Why: the on-device NSFW picture check (24 MB model.tflite + TensorFlow Lite library) made the app heavy and users complained.
+- SocialNsfw.kt is now a no-op with the same names (no model, no picture download, intercept() = null, switch always OFF), so TabManager / SocialScreen / SettingsScreen still compile unchanged.
+- app/build.gradle.kts: dependency org.tensorflow:tensorflow-lite removed (smaller APK, no native TFLite libs).
+- SocialScreen.kt: the "AI picture check (experimental)" card is gone from Social sites. HowToUse.kt: both AI picture check lines removed.
+- NOT touched: "Sensitive media" blur (SocialBlur, CSS / JS, light, per site, default OFF) stays.
+- TODO BY HAND (a zip cannot delete): delete app/src/main/assets/nsfw/model.tflite from the GitHub repo (this is what removes ~24 MB). README.txt / labels.txt in that folder can go too.
+- Could break: nothing should call the removed library; old saved prefs sm_nsfw* are ignored and cleared by Reset.
+- NOT tested: Gradle build (CI), device.
+
 0.0.336 (FIX: the 3 "could break" points of 0.0.335, + How to use text)
 - Menu height: scroll area cap = free screen height (minus status bar), never below 140 dp, sheet width cap 560 dp (MenuSheet.kt). Small landscape screens still scroll the list above the pinned bar.
 - Shield inside the address field only when there is room: no Social chip showing and field >= 140 dp wide; otherwise it hides and the text padding goes back to 12 dp (MainActivity.shieldRoom, refreshShield).

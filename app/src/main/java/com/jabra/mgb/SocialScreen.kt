@@ -152,10 +152,7 @@ object SocialScreen {
             col.addView(blur, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(blur)
 
-            col.addView(sectionLabel("AI picture check (experimental)")) // 0.0.233 (P8b)
-            val ai = aiCard()
-            col.addView(ai, LinearLayout.LayoutParams(MATCH, WRAP))
-            siteRows.add(ai)
+            // 0.0.337: the AI picture check card was removed (heavy app, SocialNsfw is a no-op now)
 
             grp(2)
             col.addView(sectionLabel("Tabs and data")) // 0.0.231 (P7)
