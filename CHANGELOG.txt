@@ -1,3 +1,10 @@
+0.0.343 (FIX: Command Center, Media Library and Vault rows missing from the 3-dot menu)
+- Seen: Command Center (and Media Library, Vault) not in the menu after 0.0.341 / 0.0.342.
+- Root cause: 0.0.341 builds the main list from MenuCustom's own key list, and these 3 rows were never in that list (before, they were not hideable, so they just always showed).
+- Fix: Command Center, Media Library, Vault are now locked (always shown) entries of MenuCustom.GENERAL, so they sit in the menu and can be dragged like other rows. MainActivity.showMenu also keeps any row MenuCustom does not know on top (main list) / before the others (page list), so a new row can never vanish again.
+- Could break: if you already dragged rows in 0.0.341 / 0.0.342, the saved order puts the 3 rows at the end; Customise menu > Reset to default (or drag them up) fixes that.
+- NOT tested: Gradle build (CI), device. Apply after 0.0.342.
+
 0.0.342 (MODIFY: screenshots in private tabs, WhatsApp Web never FLAG_SECURE, address field edge padding)
 - Private tabs used FLAG_SECURE: blank Recents picture but also NO screenshots / recording. Now (new switch Settings > Private tabs > "Allow screenshots in private tabs", default ON): no FLAG_SECURE; Recents picture is still blank (Android 13+: setRecentsScreenshotEnabled(false); Android 12 and older: FLAG_SECURE only while the app is paused, cleared on resume). Switch OFF = old behaviour (FLAG_SECURE).
 - WhatsApp Web (whatsapp.com) in front = FLAG_SECURE always off, so screenshots work there even with the switch OFF. Re-checked on tab switch and page change.

@@ -355,11 +355,12 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                 MenuSheet.Quick(itm.icon, itm.label, k) { if (itm.enabled && !(onHome && k in pageKeys)) itm.onClick() else Util.toast(this, "Open a web page first") }
             }
         }
-        val gItems = MenuCustom.menuKeys(this, 'G').mapNotNull { byKey[it] }
+        // 0.0.343: a row MenuCustom does not know (new menu row) is never lost: it stays on top, always shown
+        val gItems = generalTop.filter { MenuCustom.entryOf(it.key) == null } + MenuCustom.menuKeys(this, 'G').mapNotNull { byKey[it] }
         var tail = gItems.size // Settings / Customise menu at the end keep the pinned extension rows above them
         while (tail > 0 && (gItems[tail - 1].key == "Settings" || gItems[tail - 1].key == MenuCustom.CUSTOMISE)) tail--
         val general = gItems.take(tail) + MenuCustom.pinnedRows(this) + gItems.drop(tail)
-        val page = if (onHome) emptyList() else MenuCustom.menuKeys(this, 'P').mapNotNull { byKey[it] }
+        val page = if (onHome) emptyList() else pageAll.filter { MenuCustom.entryOf(it.key) == null } + MenuCustom.menuKeys(this, 'P').mapNotNull { byKey[it] }
         val share: (() -> Unit)? = if (canMark) ({ tabs.active?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) } }) else null
         MenuSheet.show(this, quick, general, title, share, page, acts, "Thazir ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})") { showMenu() } // 0.0.335: reopen after Edit shortcut
     }
