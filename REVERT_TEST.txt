@@ -1,0 +1,3 @@
+This file exists ONLY in the 0.0.334-test build (revert test).
+After a successful revert to the previous release this file must be GONE
+and the app version must show 0.0.333 again.
