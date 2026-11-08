@@ -2,12 +2,15 @@ package com.jabra.mgb
 
 import android.app.Activity
 import android.app.Dialog
+import android.content.ClipData
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
+import android.view.DragEvent
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.View
@@ -28,6 +31,7 @@ import androidx.core.view.WindowInsetsCompat
  *  - The key of a row is its label (MenuSheet.Item.key / Quick.key). Hidden keys are saved in prefs mgb_menu_custom "off".
  *    Pinned extension ids are saved in "pin". Default = everything shown, no extension pinned (the menu looks as before the update).
  *  - Only Customise menu can not be hidden (locked ON), so the user can never lock himself out. 0.0.339: Settings + How to use can be hidden (Settings stays in the pinned bar by default).
+ *  - 0.0.341: rows can be dragged (hold a row): up / down = order (prefs ordG / ordP), onto a quick tile = replaces that tile (prefs qt). "Show quick tiles" switch = qoff.
  *  - A switch saves at once and does not rebuild the screen (smooth). The menu reads the prefs each time it opens.
  */
 object MenuCustom {
@@ -83,6 +87,71 @@ object MenuCustom {
         save(c, K_PIN, s)
     }
     fun reset(c: Context) { sp(c).edit().clear().apply() }
+
+    // ---------- 0.0.341: row order + the 4 quick tile slots ----------
+    // Any row of Main menu / Page actions can sit in a tile (tile = slot key). The key leaves the list while it is in a tile,
+    // and comes back to its own list (same place when both swap inside one list) when another key takes the tile.
+    private const val K_QT = "qt"
+    private const val K_QOFF = "qoff"
+    private fun ordKey(id: Char) = if (id == 'P') "ordP" else "ordG"
+    private fun allG(): List<Entry> = QUICK + GENERAL // QUICK first: the 4 old tiles have no row of their own until a tile gives them up
+    private fun defaultOrder(id: Char): List<String> = if (id == 'P') PAGE.map { it.key } else allG().map { it.key }
+    fun entryOf(key: String): Entry? = allG().firstOrNull { it.key == key } ?: PAGE.firstOrNull { it.key == key }
+    fun homeOf(key: String): Char = if (PAGE.any { it.key == key }) 'P' else 'G'
+    fun tileable(key: String): Boolean = key != CUSTOMISE && entryOf(key) != null
+
+    /** the 4 keys in the tile slots; anything invalid (size, duplicate, unknown) = the 4 old tiles. */
+    fun quickKeys(c: Context): List<String> {
+        val l = sp(c).getString(K_QT, "").orEmpty().split(SEP).filter { it.isNotEmpty() }
+        return if (l.size == 4 && l.toSet().size == 4 && l.all { tileable(it) }) l else QUICK.map { it.key }
+    }
+    fun quickShown(c: Context): Boolean = !sp(c).getBoolean(K_QOFF, false)
+    fun setQuickShown(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_QOFF, !on).apply() }
+
+    /** all keys of list [id] ('G' main menu, 'P' page actions) in the saved order; new keys of a later update go to the end. */
+    fun order(c: Context, id: Char): List<String> {
+        val def = defaultOrder(id)
+        val saved = sp(c).getString(ordKey(id), "").orEmpty().split(SEP).filter { it in def }.distinct()
+        return saved + def.filter { it !in saved }
+    }
+    private fun saveOrder(c: Context, id: Char, l: List<String>) { sp(c).edit().putString(ordKey(id), l.joinToString(SEP)).apply() }
+
+    /** keys the menu shows for list [id]: in order, not sitting in a tile, switched on. */
+    fun menuKeys(c: Context, id: Char): List<String> {
+        val q = quickKeys(c)
+        return order(c, id).filter { it !in q && on(c, it) }
+    }
+
+    /** [key] takes the place of [target] in list [id]. */
+    fun move(c: Context, id: Char, key: String, target: String) {
+        val l = order(c, id).toMutableList()
+        val t = l.indexOf(target)
+        val s = l.indexOf(key)
+        if (t < 0 || s < 0 || s == t) return
+        l.removeAt(s)
+        l.add(t.coerceAtMost(l.size), key)
+        saveOrder(c, id, l)
+    }
+
+    /** [key] goes into tile [slot]. A key that is already in a tile swaps the two tiles; a key from a list sends the old tile key back. */
+    fun toTile(c: Context, slot: Int, key: String) {
+        if (slot !in 0..3 || !tileable(key)) return
+        val q = quickKeys(c).toMutableList()
+        val at = q.indexOf(key)
+        if (at >= 0) { q[at] = q[slot]; q[slot] = key }
+        else {
+            val old = q[slot]
+            q[slot] = key
+            if (homeOf(old) == homeOf(key)) { // same list: the old tile key takes the place of the key that left
+                val id = homeOf(key)
+                val l = order(c, id).toMutableList()
+                val i = l.indexOf(old)
+                val j = l.indexOf(key)
+                if (i >= 0 && j >= 0) { l[i] = key; l[j] = old; saveOrder(c, id, l) }
+            }
+        }
+        sp(c).edit().putString(K_QT, q.joinToString(SEP)).apply()
+    }
 
     // ---------- extension rows for the menu ----------
     private val bmpCache = HashMap<String, Bitmap?>()
@@ -155,7 +224,7 @@ object MenuCustom {
 
         /** one row: icon / bitmap / letter + label (+ small line) + switch. get / set talk to the prefs. */
         fun row(c: LinearLayout, icon: Int, bmp: Bitmap?, letterOf: String?, label: String, small: String, locked: Boolean,
-                get: () -> Boolean, set: (Boolean) -> Unit) {
+                get: () -> Boolean, set: (Boolean) -> Unit, refs: MutableList<() -> Unit> = refreshers): LinearLayout {
             val sw = ThazirSwitch(act).apply { // APPEARANCE A1
                 isChecked = get()
                 isClickable = false
@@ -203,24 +272,148 @@ object MenuCustom {
             r.addView(t, LinearLayout.LayoutParams(0, WRAP, 1f))
             r.addView(sw, LinearLayout.LayoutParams(WRAP, WRAP))
             c.addView(r, LinearLayout.LayoutParams(MATCH, WRAP))
-            refreshers.add { busy = true; sw.isChecked = get(); busy = false }
-        }
-
-        fun entries(col: LinearLayout, l: List<Entry>) {
-            val c = card()
-            l.forEachIndexed { i, e ->
-                if (i > 0) divider(c)
-                row(c, e.icon, null, null, e.label, if (e.locked) "Always shown" else "", e.locked,
-                    { on(act, e.key) }, { setOn(act, e.key, it) })
-            }
-            col.addView(c, LinearLayout.LayoutParams(MATCH, WRAP))
+            refs.add { busy = true; sw.isChecked = get(); busy = false }
+            return r
         }
 
         val body = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, dp(12), dp(28)) }
-        section(body, "Main menu")
-        entries(body, GENERAL)
-        section(body, "Quick tiles", "The four round shortcuts at the top of the menu.")
-        entries(body, QUICK)
+        // ---- 0.0.341: drag and drop. Hold a row, drag it up / down (order) or onto a quick tile (replaces that tile).
+        class DragSt(val key: String, val list: Char, val tile: Int)
+        var scroller: ScrollView? = null
+        val rowRefs = ArrayList<() -> Unit>() // switches of the re-drawn lists (Reset re-reads them)
+        val tilesHost = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+        val gHost = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+        val pHost = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+
+        fun hl(v: View, on: Boolean, tile: Boolean) {
+            if (tile) v.background = round(if (on) ColorUtils.setAlphaComponent(cAccent, 0x40) else cVar, 18)
+            else v.background = if (on) round(ColorUtils.setAlphaComponent(cAccent, 0x2A), 14) else ripple?.constantState?.newDrawable()
+        }
+        // auto scroll while a finger is near the top / bottom edge of the list
+        var dragY = -1f
+        var ticking = false
+        val tick = object : Runnable {
+            override fun run() {
+                val s = scroller
+                if (s == null || dragY < 0f) { ticking = false; return }
+                val loc = IntArray(2)
+                s.getLocationOnScreen(loc)
+                val top = loc[1].toFloat()
+                val bot = top + s.height
+                val zone = dp(80).toFloat()
+                val step = dp(16).toFloat()
+                val dy = when {
+                    dragY < top + zone -> -(((top + zone - dragY) / zone).coerceAtMost(1f) * step)
+                    dragY > bot - zone -> ((dragY - (bot - zone)) / zone).coerceAtMost(1f) * step
+                    else -> 0f
+                }
+                if (dy != 0f) s.scrollBy(0, dy.toInt())
+                s.postDelayed(this, 16)
+            }
+        }
+        fun track(v: View, e: DragEvent) {
+            val l = IntArray(2)
+            v.getLocationOnScreen(l)
+            dragY = l[1] + e.y
+            if (!ticking) { ticking = true; scroller?.post(tick) }
+        }
+        var redraw: () -> Unit = {}
+
+        /** v can be picked up: long press starts the drag. */
+        fun dragSource(v: View, key: String, list: Char, tile: Int) {
+            v.setOnLongClickListener {
+                it.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                if (Build.VERSION.SDK_INT >= 24) it.startDragAndDrop(ClipData.newPlainText("k", key), View.DragShadowBuilder(it), DragSt(key, list, tile), 0)
+                true
+            }
+        }
+        /** v accepts a drop: tile >= 0 = quick tile slot, else the row [rowKey] of list [list]. */
+        fun dropTarget(v: View, tile: Int, rowKey: String?, list: Char) {
+            fun ok(st: DragSt): Boolean = if (tile >= 0) (if (st.tile >= 0) st.tile != tile else tileable(st.key))
+                else if (st.key == rowKey) false else if (st.tile >= 0) tileable(rowKey ?: "") else st.list == list
+            v.setOnDragListener { _, e ->
+                val st = e.localState as? DragSt
+                when (e.action) {
+                    DragEvent.ACTION_DRAG_STARTED -> {
+                        if (st != null && (st.key == rowKey || (tile >= 0 && st.tile == tile))) v.alpha = 0.35f
+                        st != null
+                    }
+                    DragEvent.ACTION_DRAG_ENTERED -> { if (st != null && ok(st)) hl(v, true, tile >= 0); true }
+                    DragEvent.ACTION_DRAG_LOCATION -> { track(v, e); true }
+                    DragEvent.ACTION_DRAG_EXITED -> { hl(v, false, tile >= 0); true }
+                    DragEvent.ACTION_DROP -> {
+                        hl(v, false, tile >= 0)
+                        dragY = -1f
+                        if (st != null && ok(st)) {
+                            if (tile >= 0) toTile(act, tile, st.key)
+                            else if (st.tile >= 0) toTile(act, st.tile, rowKey ?: "")
+                            else move(act, list, st.key, rowKey ?: "")
+                            v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                            body.post { redraw() }
+                            true
+                        } else false
+                    }
+                    DragEvent.ACTION_DRAG_ENDED -> { v.alpha = 1f; hl(v, false, tile >= 0); dragY = -1f; true }
+                    else -> true
+                }
+            }
+        }
+
+        fun listCard(host: LinearLayout, id: Char, q: List<String>) {
+            val c = card()
+            order(act, id).filter { it !in q }.mapNotNull { k -> entryOf(k) }.forEachIndexed { i, e ->
+                if (i > 0) divider(c)
+                val r = row(c, e.icon, null, null, e.label, if (e.locked) "Always shown" else "", e.locked,
+                    { on(act, e.key) }, { setOn(act, e.key, it) }, rowRefs)
+                dragSource(r, e.key, id, -1)
+                dropTarget(r, -1, e.key, id)
+            }
+            host.addView(c, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+
+        fun drawAll() {
+            dragY = -1f
+            rowRefs.clear()
+            tilesHost.removeAllViews(); gHost.removeAllViews(); pHost.removeAllViews()
+            val q = quickKeys(act)
+            val tc = card()
+            row(tc, R.drawable.ic_list, null, null, "Show quick tiles", "", false, { quickShown(act) }, { setQuickShown(act, it) }, rowRefs)
+            divider(tc)
+            val strip = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(8), dp(8), dp(8), dp(8)) }
+            q.forEachIndexed { slot, k ->
+                val e = entryOf(k)
+                val t = LinearLayout(act).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER
+                    background = round(cVar, 18)
+                    setPadding(dp(2), dp(12), dp(2), dp(10))
+                    isClickable = true
+                    setOnClickListener { Util.toast(act, "Hold a tile or a row, then drag") }
+                }
+                t.addView(ImageView(act).apply { setImageResource(e?.icon ?: R.drawable.ic_list); setColorFilter(cAccent) }, LinearLayout.LayoutParams(dp(24), dp(24)))
+                t.addView(TextView(act).apply {
+                    text = e?.label ?: k
+                    textSize = 12f
+                    setTextColor(cText)
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                    gravity = Gravity.CENTER
+                    setPadding(dp(4), dp(6), dp(4), 0)
+                }, LinearLayout.LayoutParams(MATCH, WRAP))
+                dragSource(t, k, homeOf(k), slot)
+                dropTarget(t, slot, null, homeOf(k))
+                strip.addView(t, LinearLayout.LayoutParams(0, WRAP, 1f).apply { marginStart = dp(3); marginEnd = dp(3) })
+            }
+            tc.addView(strip, LinearLayout.LayoutParams(MATCH, WRAP))
+            tilesHost.addView(tc, LinearLayout.LayoutParams(MATCH, WRAP))
+            listCard(gHost, 'G', q)
+            listCard(pHost, 'P', q)
+        }
+        redraw = { drawAll() }
+        section(body, "Quick tiles", "The four round shortcuts at the top of the menu. Hold a row below and drag it onto a tile to put it there; the old tile goes back to its list. Hold a tile to swap it with another.")
+        body.addView(tilesHost, LinearLayout.LayoutParams(MATCH, WRAP))
+        section(body, "Main menu", "Hold a row, then drag it up or down to change the order.")
+        body.addView(gHost, LinearLayout.LayoutParams(MATCH, WRAP))
 
         section(body, "Extensions", "Pin an installed extension to the menu. Tap it there to open its popup. Only turned-on extensions are listed.")
         val exts = listable(act)
@@ -240,8 +433,9 @@ object MenuCustom {
         }
         body.addView(ec, LinearLayout.LayoutParams(MATCH, WRAP))
 
-        section(body, "Page actions", "These rows only appear in the menu when the page that is open supports them.")
-        entries(body, PAGE)
+        section(body, "Page actions", "These rows only appear in the menu when the page that is open supports them. Hold a row and drag it to change the order.")
+        body.addView(pHost, LinearLayout.LayoutParams(MATCH, WRAP))
+        drawAll()
 
         body.addView(TextView(act).apply {
             text = "Reset to default"
@@ -256,6 +450,7 @@ object MenuCustom {
                 it.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                 reset(act)
                 refreshers.forEach { f -> f() }
+                drawAll()
                 Util.toast(act, "Menu reset")
             }
         }, LinearLayout.LayoutParams(MATCH, dp(48)).apply { topMargin = dp(24) })
@@ -295,6 +490,7 @@ object MenuCustom {
             isVerticalScrollBarEnabled = false
             clipToPadding = false
         }
+        scroller = sv
         sv.addView(body, ViewGroup.LayoutParams(MATCH, WRAP))
         val column = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
         column.addView(head, LinearLayout.LayoutParams(MATCH, dp(56)))
