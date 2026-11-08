@@ -1,2 +1,0 @@
-This file exists ONLY in the 0.0.335-test build (full APK revert test).
-After reverting it must be GONE and the app version must show 0.0.333.
