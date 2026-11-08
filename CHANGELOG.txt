@@ -1,3 +1,12 @@
+0.0.340 (MODIFY: sticky menu bar default = Settings, Settings + How to use can be hidden, hold time 1.5 s)
+- Why: the pinned icon bar of the 3-dot menu should start with Settings (not Extensions), the list should let you hide Settings / How to use like other rows, and the 3 s hold felt too long.
+- MenuBar.kt: DEFAULT bar = back, forward, bookmark, SETTINGS, reload (was ext). Extensions is still in the Edit shortcut picker. HOLD_MS 3000 -> 1500. Saved bars (pref "bar") are not touched, so a bar you already edited stays as it is.
+- MenuCustom.kt: How to use + Settings are no longer locked (switch works, "Always shown" text gone). Only Customise menu stays locked ON, so you can always get back to this screen.
+- MainActivity.kt (showMenu): the Settings row is now filtered by MenuCustom.on like the other rows (it was added unfiltered).
+- HowToUse.kt: "3 seconds" -> "1.5 seconds".
+- Could break: if Settings is hidden from the list AND removed from the bar, open Settings via Customise menu > switch it back on, or Command Center. 1.5 s hold may fire on a slow tap-and-rest (moving more than touch slop cancels it).
+- NOT tested: Gradle build (CI), device, dark + light. Apply together with / after 0.0.339.
+
 0.0.339 (FIX: app update stopped at "download HTTP 504")
 - Seen: Check for updates -> Download -> "Failed: download HTTP 504" (0.0.338 offered).
 - Root cause: 504 = GitHub / its download CDN timing out for a moment (not a repo file bug, not the 0.0.338 code). UpdateService.fetch treated every HTTP code except 200 / 206 as Fatal, so one temporary 5xx stopped the update with no retry.

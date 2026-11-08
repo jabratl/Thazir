@@ -27,7 +27,7 @@ import androidx.core.view.WindowInsetsCompat
  *  - Sections: Main menu, Quick tiles, Extensions (pin an installed extension into the menu), Page actions.
  *  - The key of a row is its label (MenuSheet.Item.key / Quick.key). Hidden keys are saved in prefs mgb_menu_custom "off".
  *    Pinned extension ids are saved in "pin". Default = everything shown, no extension pinned (the menu looks as before the update).
- *  - Settings and Customise menu can not be hidden (locked ON), so the user can never lock himself out.
+ *  - Only Customise menu can not be hidden (locked ON), so the user can never lock himself out. 0.0.339: Settings + How to use can be hidden (Settings stays in the pinned bar by default).
  *  - A switch saves at once and does not rebuild the screen (smooth). The menu reads the prefs each time it opens.
  */
 object MenuCustom {
@@ -49,7 +49,7 @@ object MenuCustom {
         Entry("New private tab", R.drawable.ic_lock), Entry("Bookmark all tabs", R.drawable.ic_bookmark_border),
         Entry("Passwords", R.drawable.ic_lock), Entry("Recently closed tabs", R.drawable.ic_history), Entry("Saved pages", R.drawable.ic_folder), // T3
         Entry("Novel grabber", R.drawable.ic_book), Entry("Queue", R.drawable.ic_list),
-        Entry("How to use", R.drawable.ic_info, true), Entry("Report center", R.drawable.ic_info), Entry("Settings", R.drawable.ic_settings, true),
+        Entry("How to use", R.drawable.ic_info), Entry("Report center", R.drawable.ic_info), Entry("Settings", R.drawable.ic_settings),
         Entry(CUSTOMISE, R.drawable.ic_edit, true)
     )
     val PAGE = listOf(

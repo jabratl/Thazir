@@ -347,7 +347,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             else -> Util.host(cur.url).ifBlank { "New tab" }
         }
         val quick = quickAll.filter { MenuCustom.on(this, it.key) }
-        val general = generalTop.filter { MenuCustom.on(this, it.key) } + MenuCustom.pinnedRows(this) + generalEnd
+        val general = generalTop.filter { MenuCustom.on(this, it.key) } + MenuCustom.pinnedRows(this) + generalEnd.filter { MenuCustom.on(this, it.key) } // 0.0.339: Settings can be hidden, Customise menu is locked ON
         val page = if (onHome) emptyList() else pageAll.filter { MenuCustom.on(this, it.key) }
         val share: (() -> Unit)? = if (canMark) ({ tabs.active?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) } }) else null
         MenuSheet.show(this, quick, general, title, share, page, acts, "Thazir ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})") { showMenu() } // 0.0.335: reopen after Edit shortcut

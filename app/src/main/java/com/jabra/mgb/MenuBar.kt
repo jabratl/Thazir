@@ -23,7 +23,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 /**
  * 0.0.335: the pinned icon bar at the bottom of the 3-dot menu (like Brave).
  *  - 5 slots. Each slot holds one action from CATALOG. Saved in prefs mgb_menu_custom key "bar" (ids joined by "|").
- *  - Hold a slot for 3 seconds -> small "Edit shortcut" pop up -> tap it -> picker with all actions.
+ *  - Hold a slot for 1.5 seconds -> small "Edit shortcut" pop up -> tap it -> picker with all actions.
  *    Picking an action that already sits in another slot swaps the two. "Reset buttons" restores DEFAULT.
  *  - Customise menu "Reset to default" clears the whole prefs file, so it also resets this bar.
  * The action code itself stays in MainActivity.showMenu (needs the tabs); here only id / label / icon.
@@ -32,7 +32,7 @@ object MenuBar {
     class Entry(val id: String, val label: String, val icon: Int)
 
     const val SLOTS = 5
-    const val HOLD_MS = 3000L
+    const val HOLD_MS = 1500L // 0.0.339: was 3000
     private const val PREFS = "mgb_menu_custom"
     private const val K_BAR = "bar"
 
@@ -46,7 +46,7 @@ object MenuBar {
         Entry("find", "Find on page", R.drawable.ic_search), Entry("desktop", "Desktop site", R.drawable.ic_desktop),
         Entry("settings", "Settings", R.drawable.ic_settings)
     )
-    val DEFAULT = listOf("back", "forward", "bookmark", "ext", "reload") // same 5 buttons as before 0.0.335
+    val DEFAULT = listOf("back", "forward", "bookmark", "settings", "reload") // 0.0.339: Settings in slot 4 (was Extensions); Extensions stays in the picker
 
     private fun sp(c: Context) = c.getSharedPreferences(PREFS, 0)
 
@@ -71,7 +71,7 @@ object MenuBar {
 
     fun resetBar(c: Context) { sp(c).edit().remove(K_BAR).apply() }
 
-    /** hold [v] for 3 s (not a normal long press) -> "Edit shortcut" pop up. A short tap keeps working. [onChanged] runs after a new action was picked. */
+    /** hold [v] for 1.5 s (not a normal long press) -> "Edit shortcut" pop up. A short tap keeps working. [onChanged] runs after a new action was picked. */
     fun attachEdit(v: View, slot: Int, onChanged: () -> Unit) {
         val h = Handler(Looper.getMainLooper())
         val slop = ViewConfiguration.get(v.context).scaledTouchSlop
