@@ -1,3 +1,10 @@
+0.0.339 (FIX: app update stopped at "download HTTP 504")
+- Seen: Check for updates -> Download -> "Failed: download HTTP 504" (0.0.338 offered).
+- Root cause: 504 = GitHub / its download CDN timing out for a moment (not a repo file bug, not the 0.0.338 code). UpdateService.fetch treated every HTTP code except 200 / 206 as Fatal, so one temporary 5xx stopped the update with no retry.
+- Fix (UpdateService.kt only): 408 / 429 / 500-599 now go to the existing retry loop (8 tries, resume with Range). For these the wait is longer (4 s, 8 s ... max 30 s) and the dialog says "Server busy, retrying (n/8)". Other codes (404, 403 ...) stay Fatal.
+- Could break: nothing else changed; a permanently broken 5xx now retries ~2 min before showing the failure (message "server busy (HTTP 504)").
+- NOT tested: Gradle build (CI), device. The fix only helps once this version is installed: until then tap Retry (keeps the .part) or download the APK from the GitHub Releases page.
+
 0.0.338 (FIX: 3-dot menu list had square cut corners when scrolled)
 - Seen: after scrolling the menu, the rows were cut by a hard square edge at the top that stuck out of the rounded sheet corners (screenshot with 2 arrows).
 - Root cause: the scroll area (CapScroll, 0.0.335) clipped its rows to a plain rectangle, but the sheet above it has 28 dp rounded top corners and the cards are inset 12 dp.

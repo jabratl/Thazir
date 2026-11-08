@@ -103,9 +103,11 @@ class UpdateService : Service() {
                     if (cancelled) throw Cancel()
                     attempt++
                     if (attempt > 8) throw e
-                    UpdState.progress(UpdState.done, UpdState.total, "Connection lost, retrying ($attempt/8)…")
+                    val busy = e.message?.startsWith("server busy") == true
+                    UpdState.progress(UpdState.done, UpdState.total, (if (busy) "Server busy, retrying" else "Connection lost, retrying") + " ($attempt/8)…")
                     var w = 0
-                    while (w < minOf(2000 * attempt, 15000)) { if (cancelled) throw Cancel(); Thread.sleep(500); w += 500 }
+                    val waitMs = if (busy) minOf(4000 * attempt, 30000) else minOf(2000 * attempt, 15000)
+                    while (w < waitMs) { if (cancelled) throw Cancel(); Thread.sleep(500); w += 500 }
                 }
             }
             if (size > 0 && part.length() != size) { part.delete(); throw Fatal("incomplete download") }
@@ -139,6 +141,8 @@ class UpdateService : Service() {
             if (have > 0) c.setRequestProperty("Range", "bytes=$have-")
             val code = c.responseCode
             if (code == 416) { part.delete(); throw IOException("restarting") }
+            // 0.0.339: GitHub / CDN hiccups (502 / 503 / 504, 429, 408) are temporary -> retry, not Fatal
+            if (code == 408 || code == 429 || code in 500..599) throw IOException("server busy (HTTP $code)")
             if (code != 200 && code != 206) throw Fatal("download HTTP $code")
             val append = code == 206 && have > 0
             var got = if (append) have else 0L
