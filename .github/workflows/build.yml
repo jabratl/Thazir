@@ -114,11 +114,40 @@ jobs:
             echo "TASK=assembleDebug" >> "$GITHUB_ENV"
           fi
       - name: Build
+        id: build
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: gradle "$TASK" --no-daemon --stacktrace
+      - name: Auto-revert main if the build failed
+        if: ${{ failure() && steps.build.outcome == 'failure' }}
+        run: |
+          set -euo pipefail
+          # Build (compile) failed: put main back to the source of the newest GOOD release.
+          # The failed commit stays in git history, nothing is lost.
+          git fetch --tags --force
+          T=$(git tag -l 'v*-b*' | sed -E 's/^.*-b([0-9]+)$/\1 &/' | sort -rn | head -n1 | cut -d' ' -f2)
+          if [ -z "$T" ]; then echo "::warning::No release to restore, main left as it is"; exit 0; fi
+          SHA=$(git rev-parse "${T}^{commit}")
+          FAILED=$(git rev-parse --short HEAD)
+          if [ -z "$(git diff --name-only "$SHA" HEAD -- . ':(exclude).github')" ]; then
+            echo "main already has the source of $T, nothing to revert"; exit 0
+          fi
+          rm -rf _old; mkdir _old
+          git archive "$SHA" | tar -x -C _old
+          rm -rf _old/.github
+          git ls-files -z | grep -zv '^\.github/' | xargs -0 -r rm -f --
+          cp -a _old/. .
+          rm -rf _old
+          git config user.name "mgb-bot"
+          git config user.email "mgb-bot@users.noreply.github.com"
+          git add -A
+          git commit -m "Auto-revert: build failed, source restored to $T (failed commit $FAILED)" || true
+          git push
+          MSG="Build FAILED. main was restored to the source of $T. The failed change is still in history as commit $FAILED (to bring it back: Run workflow with revert_to = $FAILED)."
+          echo "::error::$MSG"
+          echo "$MSG" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: MGB-apk
