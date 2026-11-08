@@ -1,3 +1,23 @@
+0.0.347 (FIX: build failed, AAPT "attribute android:checkMarkGravity is private")
+- Seen: CI processReleaseResources failed on mg_dialog_singlechoice.xml / mg_dialog_multichoice.xml line 18.
+- Root cause: my 0.0.345 layouts used android:checkMarkGravity, which is a private framework attribute (not usable in app XML).
+- Fix: removed that line from both layouts. The check mark now sits where Android puts it by default. Nothing else changed. Apply after 0.0.346 (0.0.345 + 0.0.346 never built).
+- NOT tested: Gradle build (CI), device. The other attributes used in the new layouts / drawables (checkMark, minHeight, padding*, ellipsize, maxLines, textColor, textSize, shape / stroke / corners / size) are all public.
+
+0.0.346 (MODIFY: diagnose report now shows the "Caused by" lines of a crash)
+- Seen: the report showed only "InflateException ... Error inflating class TextView", the real reason (the "Caused by" line) was missing, so the 0.0.345 crash could not be proven.
+- Root cause: Diag cut the saved crash text at 800 chars (the outer stack filled it up) and DiagReport printed only the "at ..." lines.
+- Fix: Diag.causeChain() puts "Caused by: Class: message" (up to 6 levels) + the root cause's first frames FIRST in the crash event; MAX_EXTRA 800 -> 1500; DiagReport.crashFrames() prints up to 4 "Caused by" lines before the frames. Still masked (Diag.mask). No UI / pref change.
+- Could break: nothing; only crash events are longer (log file a bit bigger).
+- NOT tested: Gradle build (CI), device. Needs a NEW crash to show the lines (old report entries have no cause text). Apply after 0.0.345.
+
+0.0.345 (FIX: native downloader dialogs crashed with InflateException)
+- Seen: diagnose report shows 3 crashes "InflateException ... mtrl_alert_select_dialog_item / CheckedTextView: Error inflating class TextView" (every list dialog of the downloader: Batch options, Video quality, Download all, subtitle format / language, quality pick).
+- Root cause (partly proven): the crash is inside Material's own list-row layouts (select_dialog_item / singlechoice / multichoice). The report has no "Caused by" line, so the exact attribute that fails is NOT proven.
+- Fix: Theme.MGB now points materialAlertDialogTheme to ThemeOverlay.MGB.MaterialAlertDialog, which uses 3 own row layouts (mg_dialog_item, mg_dialog_singlechoice, mg_dialog_multichoice) with plain colours (mg_text) and 2 tiny check drawables (mg_dlg_radio, mg_dlg_check). No theme attributes inside, so they cannot fail to resolve. Covers every setItems / setSingleChoiceItems / setMultiChoiceItems dialog in the app. No Kotlin changed.
+- Could break: list dialogs look a little different (24dp side padding, round radio / square check in the primary colour). Title / buttons unchanged.
+- NOT tested: Gradle build (CI), device. Not fixed (see HANDOFF NEXT): "Nothing detected" on animixplay.cz, engine "MediaSource-off" sync.
+
 0.0.344 (MODIFY: Command Center, Media Library, Vault can be switched off in Customise menu)
 - MenuCustom.kt: the three rows are no longer "Always shown": switch ON = shown in the 3-dot menu, OFF = hidden, like the other rows. Default stays ON, so nothing changes until you switch one off. They can still be dragged / put in a quick tile. Only Customise menu stays locked ON.
 - Could break: nothing else touched. If a row is hidden, open it from its own place (Command Center / Media Library: put it in a quick tile or turn the switch back on; Vault: switch back on).
