@@ -1,3 +1,11 @@
+0.0.341 (MODIFY: Customise menu rows drag to reorder, any row can replace a quick tile)
+- Why: tools / options in Customise menu could only be switched on / off; the 4 quick tiles were fixed.
+- MenuCustom.kt: hold a row (Main menu or Page actions) and drag it up / down = new order (saved in mgb_menu_custom ordG / ordP, the menu reads it). Drag a row onto one of the 4 quick tiles = it replaces that tile; the old tile goes back to its list (same place when both come from one list). Hold a tile and drop it on another tile = swap, or on a row = swap with that row. Still exactly 4 tiles. Edge of the screen auto scrolls while dragging. The 4 old tiles (Bookmarks, History, Downloads, Grabber) become normal rows when a tile gives them up. New "Show quick tiles" switch (the old per tile switches are replaced by this one). Quick tiles section is now on top (drop targets next to the list). Reset to default clears order + tiles too.
+- MainActivity.kt (showMenu): menu rows follow the saved order, tiles come from MenuCustom.quickKeys (any row, page rows show a toast on Home / when not usable), pinned extension rows stay above the trailing Settings / Customise menu rows.
+- HowToUse.kt: Menu topic line about dragging.
+- Could break: a tile that was hidden by the old per tile switch shows again (those switches are gone; use Show quick tiles or drop another row on it). Drag uses View.startDragAndDrop (API 24, same as minSdk). Customise menu row can be moved but never hidden or put in a tile.
+- NOT tested: Gradle build (CI), device, auto scroll feel, dark + light, landscape, 360dp. Apply after 0.0.340.
+
 0.0.340 (MODIFY: sticky menu bar default = Settings, Settings + How to use can be hidden, hold time 1.5 s)
 - Why: the pinned icon bar of the 3-dot menu should start with Settings (not Extensions), the list should let you hide Settings / How to use like other rows, and the 3 s hold felt too long.
 - MenuBar.kt: DEFAULT bar = back, forward, bookmark, SETTINGS, reload (was ext). Extensions is still in the Edit shortcut picker. HOLD_MS 3000 -> 1500. Saved bars (pref "bar") are not touched, so a bar you already edited stays as it is.

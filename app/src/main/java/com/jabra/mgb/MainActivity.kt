@@ -346,9 +346,20 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             onHome -> ""
             else -> Util.host(cur.url).ifBlank { "New tab" }
         }
-        val quick = quickAll.filter { MenuCustom.on(this, it.key) }
-        val general = generalTop.filter { MenuCustom.on(this, it.key) } + MenuCustom.pinnedRows(this) + generalEnd.filter { MenuCustom.on(this, it.key) } // 0.0.339: Settings can be hidden, Customise menu is locked ON
-        val page = if (onHome) emptyList() else pageAll.filter { MenuCustom.on(this, it.key) }
+        // 0.0.341: order + quick tile slots come from MenuCustom (Customise menu: hold a row, drag). Any row can sit in a tile.
+        val homeless = quickAll.map { q -> MenuSheet.Item(q.label, q.icon, true, "", q.key) { q.onClick() } } // the 4 old tiles as rows, shown when a tile gave them up
+        val byKey = (homeless + generalTop + generalEnd + pageAll).associateBy { it.key }
+        val pageKeys = pageAll.map { it.key }.toSet()
+        val quick = if (!MenuCustom.quickShown(this)) emptyList() else MenuCustom.quickKeys(this).mapNotNull { k ->
+            byKey[k]?.let { itm ->
+                MenuSheet.Quick(itm.icon, itm.label, k) { if (itm.enabled && !(onHome && k in pageKeys)) itm.onClick() else Util.toast(this, "Open a web page first") }
+            }
+        }
+        val gItems = MenuCustom.menuKeys(this, 'G').mapNotNull { byKey[it] }
+        var tail = gItems.size // Settings / Customise menu at the end keep the pinned extension rows above them
+        while (tail > 0 && (gItems[tail - 1].key == "Settings" || gItems[tail - 1].key == MenuCustom.CUSTOMISE)) tail--
+        val general = gItems.take(tail) + MenuCustom.pinnedRows(this) + gItems.drop(tail)
+        val page = if (onHome) emptyList() else MenuCustom.menuKeys(this, 'P').mapNotNull { byKey[it] }
         val share: (() -> Unit)? = if (canMark) ({ tabs.active?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) } }) else null
         MenuSheet.show(this, quick, general, title, share, page, acts, "Thazir ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})") { showMenu() } // 0.0.335: reopen after Edit shortcut
     }
