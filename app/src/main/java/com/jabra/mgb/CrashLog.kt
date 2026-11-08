@@ -24,6 +24,7 @@ object CrashLog {
         val prev = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { t, e ->
             Diag.crash(t.name, e) // S82: same crash also goes to the event log (masked, saved to disk now)
+            CrashHint.record(ctx) // 0.0.334: crash counter for the "keeps crashing, revert?" hint (never throws)
             try {
                 val sw = StringWriter()
                 e.printStackTrace(PrintWriter(sw))

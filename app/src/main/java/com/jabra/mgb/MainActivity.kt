@@ -206,6 +206,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         if (savedInstanceState == null) { SocialLinks.sync(this); SocialLinks.fromIntent(this, tabs, intent) } // 0.0.246 (A6): link from another app
         UpdateManager.autoCheck(this)
         CrashLog.showLast(this) // FIX
+        CrashHint.maybeShow(this) // 0.0.334: "keeps crashing, revert?" dialog
         AppLock.onCreate(this) // S45: lock screen at cold start (if ON)
         window.decorView.post { PlayerScreen.reopenPending(this) } // S35: player comes back if the Activity was recreated
         window.decorView.post { AppearanceScreen.reopenPending(this) } // APPEARANCE A2: Appearance screen comes back after a theme change

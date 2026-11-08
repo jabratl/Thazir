@@ -1,0 +1,58 @@
+THAZIR - HOW TO REVERT TO AN OLDER VERSION (GitHub + app)
+==========================================================
+
+WHAT IT DOES
+  Puts the whole source (code, CHANGELOG.txt, HANDOFF*.txt, version number) back to an older
+  release, commits that to main, builds a new APK and publishes it as a new release.
+  The in-app updater then shows it as a normal update, so the phone goes back to the old code.
+
+WHY A NEW BUILD NUMBER
+  Android refuses to install an APK with a LOWER versionCode over a higher one.
+  versionCode = GitHub run number, so the revert build gets a NEW, HIGHER number
+  but contains the OLD source. Nothing is deleted from history.
+
+ONE-TIME SETUP
+  Zip uploads never change .github, so do this by hand once:
+  1. GitHub repo > .github/workflows/build.yml > pencil (Edit) > paste the new build.yml > Commit.
+
+HOW TO REVERT
+  1. GitHub > Actions > "Build APK" > Run workflow (branch: main).
+  2. Fill the "revert_to" box with ONE of:
+       previous            source of the release before the newest one (most common)
+       latest              source of the newest SUCCESSFULLY built release
+                           (use when a new zip failed to build and main has broken code)
+       v0.0.331-b335       a specific release tag (see the Releases page)
+       a commit id         any commit
+     Leave it EMPTY for a normal build.
+  3. Run workflow. Wait for the green tick.
+  4. On the phone: Settings > Check for updates > Update > Install.
+     The release notes start with "REVERT: this build has the source of <tag>".
+
+AUTO REVERT WHEN A BUILD FAILS
+  If the Gradle build fails after a zip upload, the workflow puts main back to the source of the
+  newest good release by itself (commit "Auto-revert: build failed ...") and shows the failed
+  commit id in the run summary. No release is made, so installed apps are not affected.
+  The failed change stays in git history. To get it back: Run workflow, revert_to = <that commit id>.
+  If the failure was only a network / Gradle download hiccup, just upload the same zip again.
+
+FROM THE APP (0.0.334+)
+  First turn on developer mode: Settings > About > tap "Version" 7 times (same 7 taps turn it off).
+  Without it the list is read only and the crash notification / dialog are off.
+  Then: Settings > About > Version history > tap a version > Revert to this.
+  The tag is copied and the Build APK page opens on GitHub: Run workflow, paste into revert_to, Run.
+  If the app keeps crashing, a notification "Thazir keeps crashing" opens the same page (revert_to = previous).
+
+IF IT SAYS "not found"
+  The run prints the last 20 release tags. Use one of those exactly.
+
+GOOD TO KNOW
+  - Normal updates are unchanged: upload the zip to main as before.
+  - A failed build makes NO release, so installed apps are never affected by it.
+  - After a revert, do NOT upload a zip made from the newer version, it brings the change back.
+    Make the next zip from the reverted version.
+  - If the newer version changed how app data is saved, the old version may not read it.
+    Make a Backup in the app before a big revert.
+  - To go forward again (undo a revert): run again with the tag of the version you want.
+    Note: right after a revert, "previous" means the release before the revert release,
+    i.e. the version you just left. Use a tag if you want something else.
+  - The revert always keeps the CURRENT .github/workflows/build.yml.

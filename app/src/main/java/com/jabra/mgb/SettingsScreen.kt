@@ -154,6 +154,7 @@ object SettingsScreen {
             "Create email alias" to "New hidden email address",
             "My email aliases" to "List, edit or delete aliases",
             "Check for updates" to "Look for a newer version",
+            "Version history" to "What changed in each version",
             "Engine status" to "Shows the web engine state"
         )
         /** S21f: hidden search words per row label (the row is found by these too). */
@@ -216,6 +217,7 @@ object SettingsScreen {
             "Extensions" to "addons plugins chrome crx zip",
             "How to use" to "help guide tutorial tour start new user learn",
             "Check for updates" to "upgrade version new release",
+            "Version history" to "revert rollback downgrade older previous release",
             "Novel grabber" to "epub docx web2epub book",
             "Report center" to "diagnose problem error crash log"
         )
@@ -1300,8 +1302,9 @@ object SettingsScreen {
             category("about", R.drawable.ic_info, "About", "Updates, engine, version", listOf(
                 Row(R.drawable.ic_info, "How to use", "", "A short guide for new users") { HowToUse.open(act) }, // V14, V18
                 Row(R.drawable.ic_reload, "Check for updates") { UpdateManager.check(act, false) },
+                Row(R.drawable.ic_reload, "Version history", "", "What changed in each version") { VersionHistory.open(act) }, // 0.0.334
                 Row(R.drawable.ic_info, "Engine status") { EngineHost.showStatus(act) },
-                Row(R.drawable.ic_info, "Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+                Row(R.drawable.ic_info, "Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})") { DevMode.tap(act) } // 0.0.334: 7 taps = developer mode
             ))
             if (query.isNotBlank() && col.childCount == 0) { // S48
                 col.addView(TextView(act).apply {
