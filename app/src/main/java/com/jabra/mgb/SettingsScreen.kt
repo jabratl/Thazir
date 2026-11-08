@@ -1200,7 +1200,7 @@ object SettingsScreen {
                     fill()
                 },
                 Sub("Private tabs"), // 0.0.331
-                Row(R.drawable.ic_lock, "Hide private tabs in app preview", if (PrivateTabs.secureOn(act)) "ON" else "OFF", "Blank picture in Recents and no screenshots while a private tab is open") {
+                Row(R.drawable.ic_lock, "Hide private tabs in app preview", if (PrivateTabs.secureOn(act)) "ON" else "OFF", "Blank picture in Recents while a private tab is open (Android 13+). Screenshots and screen recording stay allowed") {
                     PrivateTabs.setSecure(act, !PrivateTabs.secureOn(act))
                     (act as? MainActivity)?.syncPrivateSecure()
                     fill()

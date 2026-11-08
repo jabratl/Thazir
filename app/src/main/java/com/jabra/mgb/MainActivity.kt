@@ -438,9 +438,9 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         if (!priv) { urlBgNormal?.let { urlBar.background = it.newDrawable().mutate() }; return }
         val plum = androidx.core.graphics.ColorUtils.blendARGB(getColor(R.color.mg_primary), getColor(R.color.mg_error), 0.5f)
         fun shape(fill: Int, w: Int, stroke: Int) = android.graphics.drawable.GradientDrawable().apply {
-            setColor(fill); cornerRadius = Util.dp(this@MainActivity, 19).toFloat(); setStroke(Util.dp(this@MainActivity, w), stroke)
+            setColor(fill); cornerRadius = Util.dp(this@MainActivity, 20).toFloat() // 0.0.333: same capsule as bg_url_field; setStroke(Util.dp(this@MainActivity, w), stroke)
         }
-        val ink = Util.dp(this, 3)
+        val ink = Util.dp(this, 2) // 0.0.333: 2dp inset like bg_url_field
         val rest = shape(androidx.core.graphics.ColorUtils.blendARGB(getColor(R.color.mg_surface_variant), plum, 0.22f), 1, androidx.core.graphics.ColorUtils.blendARGB(getColor(R.color.mg_outline), plum, 0.8f))
         val focus = shape(getColor(R.color.mg_surface), 2, plum)
         val sl = android.graphics.drawable.StateListDrawable()
@@ -501,10 +501,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         AppLock.privateOpen = any
         if (any == privSecure) return
         privSecure = any
-        try {
-            if (any) window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
-            else if (!AppLock.on(this)) window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE) // 0.0.331: App lock keeps its own secure window
-        } catch (e: Exception) { }
+        AppLock.previewHidden(this, any || AppLock.on(this)) // 0.0.333: blank Recents picture only, screenshots / screen recording allowed (was FLAG_SECURE)
     }
 
     override fun onTabsChanged() {

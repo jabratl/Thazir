@@ -1,3 +1,14 @@
+0.0.333 (MODIFY: screenshots + screen recording allowed again; search bar text kept inside the field, field redrawn as a full capsule)
+- Why 1: FLAG_SECURE was set on the whole window while the App lock was ON (so also in normal tabs) and while a private tab was open (switch "Hide private tabs in app preview", default ON). FLAG_SECURE blocks screenshots AND screen recording, and blanks Recents.
+- Now 1: AppLock.previewHidden(act, on) = window.clearFlags(FLAG_SECURE) + Activity.setRecentsScreenshotEnabled(!on) on Android 13+ (blank Recents picture, screenshots / recording allowed). Used by AppLock.secure() and MainActivity.syncPrivateSecure(). Android 12 and older: no way to blank Recents without FLAG_SECURE, so the normal Recents picture is shown (assumption: screenshots matter more). Settings hint of "Hide private tabs in app preview" updated. Still FLAG_SECURE on purpose: the App lock page itself, Vault screens / dialogs, saved-password list and Show password dialog.
+- Why 2: the address field (url_bar) text sat with 12dp padding in a 38dp capsule (radius 19dp), no explicit vertical gravity, font padding on: text / lock icon looked pushed against or past the rounded edge.
+- Now 2 (activity_main.xml url_bar + bg_url_field.xml + MainActivity.tintUrlBar): text padding 16dp both sides, icon gap 8dp, gravity center_vertical|start, includeFontPadding false, textAlignment viewStart; capsule 40dp visual (2dp inset in the 44dp touch area), radius 20dp, same 1dp outline / 2dp focus ring tokens (light + dark); the plum private-tab field uses the same radius + inset.
+- Not changed: all IDs, listeners, url text logic, lock icon logic, bottom bar size (52dp), other buttons.
+- Could break: Android 12 and older show the Recents picture of a private tab (setting text says Android 13+). A very narrow bar (many buttons at 360dp) has 8dp less text width.
+- Checked: XML parses, braces balanced, url_bar id once.
+- Files: app/src/main/java/com/jabra/mgb/AppLock.kt, MainActivity.kt, SettingsScreen.kt, app/src/main/res/layout/activity_main.xml, app/src/main/res/drawable/bg_url_field.xml, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.333.txt.
+- NOT tested: Gradle build (CI), device, 360 / 1280 dp, dark + light, screenshot / recording on a real phone.
+
 0.0.332 (MODIFY: Undo bar after deleting bookmarks / folders / history / vault entries, Sort for bookmarks)
 - Why: removing a bookmark, a folder or history was final at once.
 - Undo bar (new BmUndo.kt): "Bookmark removed  Undo" bar at the bottom for 6 s, theme colours, swipe it away. Where: Bookmarks list Select > Remove (one or many), Delete folder (long press; the folder, its sub folders and the bookmarks inside it come back), History Remove and Clear history, Home folder tile > Remove bookmark, star button (remove bookmark), link long press > Remove bookmark.

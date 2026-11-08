@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- S3 + 0.0.281: address field inside the bar pill. Visual height 38dp (3dp inset) inside a 44dp touch area.
+<!-- S3 + 0.0.281: address field inside the bar pill. 0.0.333: visual height 40dp (2dp inset) inside a 44dp touch area, full capsule (radius 20dp), text padding 16dp so text and the lock never touch the curve, text centred (gravity + no font padding).
      Resting = inset capsule WITH a 1dp outline (more defined); focused = surface + 2dp violet ring. Theme tokens only (light + dark). -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_focused="true">
-        <inset android:insetTop="3dp" android:insetBottom="3dp">
+        <inset android:insetTop="2dp" android:insetBottom="2dp">
             <shape android:shape="rectangle">
                 <solid android:color="@color/mg_surface" />
                 <stroke android:width="2dp" android:color="?attr/colorPrimary" />
-                <corners android:radius="19dp" />
+                <corners android:radius="20dp" />
             </shape>
         </inset>
     </item>
     <item>
-        <inset android:insetTop="3dp" android:insetBottom="3dp">
+        <inset android:insetTop="2dp" android:insetBottom="2dp">
             <shape android:shape="rectangle">
                 <solid android:color="@color/mg_surface_variant" />
                 <stroke android:width="1dp" android:color="@color/mg_outline" />
-                <corners android:radius="19dp" />
+                <corners android:radius="20dp" />
             </shape>
         </inset>
     </item>

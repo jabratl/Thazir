@@ -25,8 +25,8 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 /**
  * S45: app lock. Settings > Privacy > App lock (fingerprint / face / screen lock, same system prompt as passwords).
  * A full-screen Dialog (own window, so it also covers Settings / Bookmarks / other dialogs) is shown at cold start
- * and when the app comes back after the chosen delay. While the lock is ON the window has FLAG_SECURE:
- * the recent-apps picture is blank and screenshots are blocked. No screen lock on the phone = lock cannot be turned on.
+ * and when the app comes back after the chosen delay. While the lock is ON the recent-apps picture is blank (0.0.333: Android 13+,
+ * screenshots and screen recording stay allowed; the lock page itself is still FLAG_SECURE). No screen lock on the phone = lock cannot be turned on.
  */
 object AppLock {
     private const val PREFS = "mgb_lock"
@@ -136,10 +136,16 @@ object AppLock {
     /** 0.0.330: true while a private tab is open; MainActivity keeps FLAG_SECURE on (blank app preview) and the lock must not clear it. */
     @Volatile var privateOpen = false
 
-    private fun secure(act: FragmentActivity, on: Boolean) {
+    private fun secure(act: FragmentActivity, on: Boolean) = previewHidden(act, on || privateOpen)
+
+    /**
+     * 0.0.333: blank picture in Recents WITHOUT blocking screenshots / screen recording (FLAG_SECURE blocked both, also in normal tabs while
+     * the App lock was ON). Android 13+: setRecentsScreenshotEnabled. Older phones: normal Recents picture (screenshots stay allowed).
+     */
+    fun previewHidden(act: android.app.Activity, on: Boolean) {
         try {
-            if (on || privateOpen) act.window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
-            else act.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            act.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            if (android.os.Build.VERSION.SDK_INT >= 33) act.setRecentsScreenshotEnabled(!on)
         } catch (e: Exception) { }
     }
 
