@@ -3,6 +3,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      revert_to:
+        description: 'REVERT (leave empty for a normal build). Type: previous | latest | a release tag like v0.0.331-b335 | a commit id'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -16,7 +21,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history + tags, needed to revert to an older release
+      - name: Revert source to an older release (only when revert_to is filled)
+        if: ${{ github.event.inputs.revert_to != '' }}
+        env:
+          REVERT_TO: ${{ github.event.inputs.revert_to }}
+        run: |
+          set -euo pipefail
+          git fetch --tags --force
+          # release tags newest build first, e.g. "335 v0.0.332-b335"
+          TAGS=$(git tag -l 'v*-b*' | sed -E 's/^.*-b([0-9]+)$/\1 &/' | sort -rn | cut -d' ' -f2)
+          T="$(echo "$REVERT_TO" | tr -d '[:space:]')"
+          case "$T" in
+            latest)   T=$(echo "$TAGS" | sed -n 1p) ;;   # source of the newest built release (drops a zip that failed to build)
+            previous) T=$(echo "$TAGS" | sed -n 2p) ;;   # source of the release before the newest one
+          esac
+          if [ -z "$T" ] || ! git rev-parse -q --verify "${T}^{commit}" >/dev/null; then
+            echo "::error::'$REVERT_TO' not found. Releases you can revert to:"
+            echo "$TAGS" | head -20
+            exit 1
+          fi
+          SHA=$(git rev-parse "${T}^{commit}")
+          echo "Reverting source to $T ($SHA)"
+          rm -rf _old; mkdir _old
+          git archive "$SHA" | tar -x -C _old
+          rm -rf _old/.github                      # keep the CURRENT workflow, never an old one
+          git ls-files -z | grep -zv '^\.github/' | xargs -0 -r rm -f --
+          cp -a _old/. .
+          rm -rf _old
+          git config user.name "mgb-bot"
+          git config user.email "mgb-bot@users.noreply.github.com"
+          git add -A
+          git commit -m "Revert source to $T (${SHA:0:7})" || echo "source already identical, nothing to commit"
+          git push
+          echo "MGB_REVERTED_FROM=$T" >> "$GITHUB_ENV"
       - name: Apply uploaded zip(s)
+        if: ${{ github.event.inputs.revert_to == '' }}
         run: |
           shopt -s nullglob
           LIST=$(for Z in *.zip; do echo "$(echo "$Z" | grep -oP '_v\K[0-9_]+(?=\.zip)' || echo 0) $Z"; done | sort -V | cut -d' ' -f2-)
@@ -100,7 +141,13 @@ jobs:
           fi
           awk 'NR==1{next} /^[[:space:]]*$/{exit} {print}' CHANGELOG.txt > notes.txt || true
           [ -s notes.txt ] || echo "Build ${GITHUB_RUN_NUMBER}" > notes.txt
+          TITLE="MGB ${VER} (build ${GITHUB_RUN_NUMBER})"
+          if [ -n "${MGB_REVERTED_FROM:-}" ]; then
+            # same code as the old release, but a NEW higher build number so Android / the in-app updater accept it as an update
+            { echo "REVERT: this build has the source of ${MGB_REVERTED_FROM}"; cat notes.txt; } > notes2.txt && mv notes2.txt notes.txt
+            TITLE="${TITLE} - revert to ${MGB_REVERTED_FROM}"
+          fi
           gh release create "$TAG" "MGB-${TAG}.apk" $EXT \
-            --title "MGB ${VER} (build ${GITHUB_RUN_NUMBER})" \
+            --title "$TITLE" \
             --notes-file notes.txt \
             --target "$(git rev-parse HEAD)"
