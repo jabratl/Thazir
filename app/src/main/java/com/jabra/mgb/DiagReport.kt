@@ -289,9 +289,11 @@ object DiagReport {
     /** 0.0.222: a crash event carries its stack in e.extra; the report now shows the first frame(s) + the app frames, so the crash can be found. */
     private fun crashFrames(e: Diag.Event): List<String> {
         if (e.tag != "crash") return emptyList()
-        val at = e.extra.lines().map { it.trim() }.filter { it.startsWith("at ") }
+        val lines = e.extra.lines().map { it.trim() }
+        val cause = lines.filter { it.startsWith("Caused by:") }.take(4) // 0.0.346: the real reason of a crash
+        val at = lines.filter { it.startsWith("at ") }
         val keep = at.withIndex().filter { (i, l) -> i < 2 || l.contains("com.jabra.mgb") }.map { it.value }.take(6)
-        return keep.map { "      " + Diag.mask(it.take(160)) }
+        return (cause.map { "      " + Diag.mask(it.take(260)) }) + keep.map { "      " + Diag.mask(it.take(160)) }
     }
 
     private fun fmtEvent(e: Diag.Event): String {
