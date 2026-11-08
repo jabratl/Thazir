@@ -135,6 +135,8 @@ object AppLock {
 
     /** 0.0.330: true while a private tab is open; MainActivity keeps FLAG_SECURE on (blank app preview) and the lock must not clear it. */
     @Volatile var privateOpen = false
+    /** 0.0.342: true while MainActivity keeps FLAG_SECURE on (private tab + "Allow screenshots in private tabs" OFF); previewHidden must not clear it. */
+    @Volatile var blockShots = false
 
     private fun secure(act: FragmentActivity, on: Boolean) = previewHidden(act, on || privateOpen)
 
@@ -144,7 +146,7 @@ object AppLock {
      */
     fun previewHidden(act: android.app.Activity, on: Boolean) {
         try {
-            act.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            if (!blockShots) act.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
             if (android.os.Build.VERSION.SDK_INT >= 33) act.setRecentsScreenshotEnabled(!on)
         } catch (e: Exception) { }
     }

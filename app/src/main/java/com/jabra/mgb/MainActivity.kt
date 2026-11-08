@@ -509,7 +509,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             btnShield.animate().alpha(1f).setDuration(160).start()
         } else if (!show) btnShield.visibility = View.GONE
         btnShield.setColorFilter(getColor(if (st == 2) R.color.mg_text_dim else R.color.mg_primary))
-        urlBar.setPaddingRelative(urlBar.paddingStart, urlBar.paddingTop, Util.dp(this, if (show) 40 else 12), urlBar.paddingBottom) // 0.0.335: shield sits inside the field, keep the text clear of it
+        urlBar.setPaddingRelative(urlBar.paddingStart, urlBar.paddingTop, Util.dp(this, if (show) 40 else 16), urlBar.paddingBottom) // 0.0.335: shield sits inside the field, keep the text clear of it
         // S69: engine badge on the home page and while typing (where the shield is not shown)
         val eng = (tabs.active?.home == true || urlBar.hasFocus()) && !navTight() // A1: no badge when both arrows squeeze the bar
         btnEngine.visibility = if (eng) View.VISIBLE else View.GONE
@@ -517,7 +517,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         SocialChip.update(this, tabs, urlBar.hasFocus()) // 0.0.286: social chip at the end of the address bar
         if (btnShield.visibility == View.VISIBLE && !shieldRoom()) { // 0.0.336: chip appeared after the shield was decided: shield steps aside
             btnShield.visibility = View.GONE
-            urlBar.setPaddingRelative(urlBar.paddingStart, urlBar.paddingTop, Util.dp(this, 12), urlBar.paddingBottom)
+            urlBar.setPaddingRelative(urlBar.paddingStart, urlBar.paddingTop, Util.dp(this, 16), urlBar.paddingBottom)
         }
         // 0.0.319: "+" hides while typing, on a squeezed bar and when the Social chip is shown, so the address field keeps its room
         val showNew = shared && AppearancePrefs.newTabBtn(this) && !urlBar.hasFocus() && !navTight() && findViewById<View>(R.id.btn_social).visibility != View.VISIBLE
@@ -527,16 +527,31 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     // ---------- TabManager.Listener ----------
 
-    /** 0.0.330: while any private tab is open the window is FLAG_SECURE: blank / dark app preview in Recents (no screenshots either). Goes away when the last private tab is closed. */
-    private var privSecure = false
+    /**
+     * 0.0.330 / 0.0.342: private tab = blank picture in Recents. FLAG_SECURE also blocks screenshots, so it is only used when
+     * Settings > Private tabs > "Allow screenshots" is OFF, and never while a WhatsApp Web tab is in front.
+     * Otherwise: Android 13+ setRecentsScreenshotEnabled(false); older phones: FLAG_SECURE only while the app is paused (onPause / onResume).
+     */
+    private var privSecure = false // FLAG_SECURE is set on the window now
+    private var privHide = false   // Recents picture is hidden through setRecentsScreenshotEnabled
+    private fun isWhatsApp(t: TabManager.Tab?): Boolean { val h = t?.let { Util.host(it.pending ?: it.url) } ?: return false; return h == "whatsapp.com" || h.endsWith(".whatsapp.com") }
     fun syncPrivateSecure() { // 0.0.331: public (Settings calls it), follows the switch Hide private tabs in app preview
         val any = PrivateTabs.secureOn(this) && (try { tabs.allTabs().any { it.priv } } catch (e: Exception) { false })
         AppLock.privateOpen = any
-        if (any == privSecure) return
-        privSecure = any
+        val block = any && !PrivateTabs.shotsOn(this) && !isWhatsApp(tabs.active)
+        AppLock.blockShots = block
         try {
-            if (any) window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
-            else if (!AppLock.on(this)) window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE) // 0.0.331: App lock keeps its own secure window
+            if (block != privSecure) {
+                privSecure = block
+                if (block) window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
+                else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE) // App lock never keeps FLAG_SECURE on this window since 0.0.333
+            }
+            if (any != privHide) {
+                privHide = any
+                if (android.os.Build.VERSION.SDK_INT >= 33) {
+                    if (any) setRecentsScreenshotEnabled(false) else if (!AppLock.on(this)) setRecentsScreenshotEnabled(true)
+                }
+            }
         } catch (e: Exception) { }
     }
 
@@ -562,6 +577,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         SettingsScreen.closeAll() // V18: a tab was opened / switched (e.g. from Saved pages or Recently closed): Settings underneath closes
         FindBar.close() // S21
         BarGestures.exit(this) // A6: a tab change leaves page fullscreen
+        syncPrivateSecure() // 0.0.342: WhatsApp tab in front = no FLAG_SECURE
         findViewById<View>(R.id.bottom_bar).visibility = View.VISIBLE // S33
         refreshAll(tab)
         SocialFull.sync(this, tab) // 0.0.238 (A1)
@@ -574,6 +590,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     override fun onPageInfo(tab: TabManager.Tab) {
         if (tab === tabs.active) {
+            syncPrivateSecure() // 0.0.342: the tab may have navigated to / away from WhatsApp Web
             refreshAll(tab)
             SocialFull.sync(this, tab) // 0.0.238 (A1): returns at once when the switch is OFF
             SocialBars.sync(this, tab) // 0.0.240 (A2)
@@ -629,6 +646,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     override fun onResume() {
         super.onResume()
         syncPrivateSecure() // 0.0.330
+        if (!privSecure) try { window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE) } catch (e: Exception) { } // 0.0.342: pre-Android 13 pause flag off again
         backCb.isEnabled = true
         if (siteWin || SiteWindow.used) bindWindow() // 0.0.248 (A7b): the window in front owns the shared helpers
         tabs.active?.web?.onResume()
@@ -650,6 +668,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         floating.stop() // S11
         if (!(MediaPrefs.bg(this) && MediaPrefs.audible(this))) tabs.active?.web?.onPause() // 0.0.296: Media > Background play: a playing page is not paused
         MediaPrefs.onPause(this)
+        // 0.0.342: Android 12 and older: blank Recents picture of private tabs only while the app is away (screenshots stay allowed in the app)
+        if (android.os.Build.VERSION.SDK_INT < 33 && privHide && !privSecure) try { window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE) } catch (e: Exception) { }
         if (MediaPrefs.away) tabs.active?.web?.let { w -> w.post { try { w.onResume(); w.resumeTimers() } catch (_: Exception) { } } } // 0.0.302
         if (!siteWin) tabs.saveSession() // 0.0.247 (A7): a site window never overwrites the saved tabs
         super.onPause()

@@ -1202,8 +1202,13 @@ object SettingsScreen {
                     fill()
                 },
                 Sub("Private tabs"), // 0.0.331
-                Row(R.drawable.ic_lock, "Hide private tabs in app preview", if (PrivateTabs.secureOn(act)) "ON" else "OFF", "Blank picture in Recents while a private tab is open (Android 13+). Screenshots and screen recording stay allowed") {
+                Row(R.drawable.ic_lock, "Hide private tabs in app preview", if (PrivateTabs.secureOn(act)) "ON" else "OFF", "Blank picture in Recents while a private tab is open (Android 12 and older: after you leave the app)") {
                     PrivateTabs.setSecure(act, !PrivateTabs.secureOn(act))
+                    (act as? MainActivity)?.syncPrivateSecure()
+                    fill()
+                },
+                Row(R.drawable.ic_lock, "Allow screenshots in private tabs", if (PrivateTabs.shotsOn(act)) "ON" else "OFF", "Screenshots and screen recording work in private tabs. OFF = blocked. WhatsApp Web always allows them") { // 0.0.342
+                    PrivateTabs.setShots(act, !PrivateTabs.shotsOn(act))
                     (act as? MainActivity)?.syncPrivateSecure()
                     fill()
                 },

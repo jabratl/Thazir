@@ -6,7 +6,7 @@ import androidx.fragment.app.FragmentActivity
 
 /**
  * 0.0.331: private tab settings (Settings > Privacy and security > Private tabs), like Brave / Chrome private mode.
- *  - priv_secure (mgb_ui, default ON): while a private tab is open the window is FLAG_SECURE = blank Recents picture, no screenshots.
+ *  - priv_secure (mgb_ui, default ON): while a private tab is open the Recents picture is blank. 0.0.342: screenshots stay allowed unless priv_shots is OFF (then FLAG_SECURE like before). WhatsApp Web never gets FLAG_SECURE.
  *  - priv_lock (mgb_lock, default OFF): coming back to the app with a private tab in front asks fingerprint / PIN first
  *    (same prompt + lock page as the App lock; not used while the App lock itself is ON, it already covers everything).
  * Logic that touches the window stays in MainActivity.syncPrivateSecure and AppLock.privStart / privStop.
@@ -17,6 +17,10 @@ object PrivateTabs {
 
     fun secureOn(c: Context): Boolean = ui(c).getBoolean("priv_secure", true)
     fun setSecure(c: Context, v: Boolean) { ui(c).edit().putBoolean("priv_secure", v).apply() }
+
+    /** 0.0.342 (priv_shots, mgb_ui, default ON): screenshots / screen recording work in private tabs. The Recents picture stays blank (see MainActivity.syncPrivateSecure). OFF = old FLAG_SECURE behaviour. */
+    fun shotsOn(c: Context): Boolean = ui(c).getBoolean("priv_shots", true)
+    fun setShots(c: Context, v: Boolean) { ui(c).edit().putBoolean("priv_shots", v).apply() }
 
     fun lockOn(c: Context): Boolean = lk(c).getBoolean("priv_lock", false)
 

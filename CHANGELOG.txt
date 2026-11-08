@@ -1,3 +1,12 @@
+0.0.342 (MODIFY: screenshots in private tabs, WhatsApp Web never FLAG_SECURE, address field edge padding)
+- Private tabs used FLAG_SECURE: blank Recents picture but also NO screenshots / recording. Now (new switch Settings > Private tabs > "Allow screenshots in private tabs", default ON): no FLAG_SECURE; Recents picture is still blank (Android 13+: setRecentsScreenshotEnabled(false); Android 12 and older: FLAG_SECURE only while the app is paused, cleared on resume). Switch OFF = old behaviour (FLAG_SECURE).
+- WhatsApp Web (whatsapp.com) in front = FLAG_SECURE always off, so screenshots work there even with the switch OFF. Re-checked on tab switch and page change.
+- AppLock.previewHidden no longer clears a FLAG_SECURE that private tabs keep on (AppLock.blockShots).
+- Address field (activity_main.xml, MainActivity): text start padding 12 -> 18dp (was shorter than the 20dp corner, so the cursor / text dug into the curve on Home and while typing, next to the engine badge), end padding 12 -> 16dp, 4dp gap to the engine badge.
+- Files: MainActivity.kt, AppLock.kt, PrivateTabs.kt, SettingsScreen.kt, res/layout/activity_main.xml.
+- Could break: Android 12 and older Recents picture may still show for a moment (flag is set in onPause); App lock page / Vault / Passwords keep their own FLAG_SECURE (unchanged). The 6dp narrower text area of the field.
+- NOT tested: Gradle build (CI), device (screenshot in private tab, Recents blank, WhatsApp Web tab), 360 / 1280dp, dark + light. Apply after 0.0.341.
+
 0.0.341 (MODIFY: Customise menu rows drag to reorder, any row can replace a quick tile)
 - Why: tools / options in Customise menu could only be switched on / off; the 4 quick tiles were fixed.
 - MenuCustom.kt: hold a row (Main menu or Page actions) and drag it up / down = new order (saved in mgb_menu_custom ordG / ordP, the menu reads it). Drag a row onto one of the 4 quick tiles = it replaces that tile; the old tile goes back to its list (same place when both come from one list). Hold a tile and drop it on another tile = swap, or on a row = swap with that row. Still exactly 4 tiles. Edge of the screen auto scrolls while dragging. The 4 old tiles (Bookmarks, History, Downloads, Grabber) become normal rows when a tile gives them up. New "Show quick tiles" switch (the old per tile switches are replaced by this one). Quick tiles section is now on top (drop targets next to the list). Reset to default clears order + tiles too.
