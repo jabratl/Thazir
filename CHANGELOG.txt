@@ -1,3 +1,8 @@
+0.0.344 (MODIFY: Command Center, Media Library, Vault can be switched off in Customise menu)
+- MenuCustom.kt: the three rows are no longer "Always shown": switch ON = shown in the 3-dot menu, OFF = hidden, like the other rows. Default stays ON, so nothing changes until you switch one off. They can still be dragged / put in a quick tile. Only Customise menu stays locked ON.
+- Could break: nothing else touched. If a row is hidden, open it from its own place (Command Center / Media Library: put it in a quick tile or turn the switch back on; Vault: switch back on).
+- NOT tested: Gradle build (CI), device. Apply after 0.0.343.
+
 0.0.343 (FIX: Command Center, Media Library and Vault rows missing from the 3-dot menu)
 - Seen: Command Center (and Media Library, Vault) not in the menu after 0.0.341 / 0.0.342.
 - Root cause: 0.0.341 builds the main list from MenuCustom's own key list, and these 3 rows were never in that list (before, they were not hideable, so they just always showed).
