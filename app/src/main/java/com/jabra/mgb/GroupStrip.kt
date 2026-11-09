@@ -27,8 +27,16 @@ object GroupStrip {
     private var sig = ""
     private val collapsed = HashSet<String>()
     private var lastCur = -1 // S15: pop animation when the active chip changes
+    private var lastGroup = "" // 0.0.364 (P3): chips that are new since the last build slide in
+    private var lastIds: Set<Int> = emptySet()
+    private var animNext = false // 0.0.364: collapse / expand = chips pop in
+    private fun still() = act?.let { TabPrefs.reduce(it) } ?: true
+    private val POP = android.view.animation.PathInterpolator(0.05f, 0.7f, 0.1f, 1f)
 
     private fun dp(v: Int) = Util.dp(act!!, v)
+
+    /** 0.0.363 (P2): the visible strip row (UndoBar sits above it), null when hidden. */
+    fun topView(): View? = row?.takeIf { it.visibility == View.VISIBLE }
 
     fun attach(a: Activity, t: TabManager) {
         act = a; tm = t; sig = ""; hasInfo = false
@@ -95,7 +103,7 @@ object GroupStrip {
         val v = if (hasInfo && barOn) View.VISIBLE else View.GONE
         if (r.visibility != v) {
             r.visibility = v
-            if (v == View.VISIBLE) { // S15: strip slides up softly
+            if (v == View.VISIBLE && !TabPrefs.reduce(a)) { // S15: strip slides up softly (0.0.364: not with Reduce motion)
                 r.alpha = 0f; r.translationY = dp(14).toFloat()
                 r.animate().alpha(1f).translationY(0f).setInterpolator(android.view.animation.PathInterpolator(0.05f, 0.7f, 0.1f, 1f)).setDuration(260).start()
             }
@@ -114,8 +122,14 @@ object GroupStrip {
     private fun toggle() {
         val cur = tm?.active ?: return
         val info = TabSwitcher.groupInfoOf(cur.id) ?: return
-        if (!collapsed.remove(info.name)) collapsed.add(info.name)
-        sig = ""; refresh()
+        val go = { if (!collapsed.remove(info.name)) collapsed.add(info.name); animNext = true; sig = ""; refresh() }
+        val b = chips
+        if (b != null && b.childCount > 0 && !still()) { // 0.0.364 (P3): old chips shrink away, then the new state pops in
+            b.animate().alpha(0f).scaleX(0.85f).setDuration(110).setInterpolator(android.view.animation.AccelerateInterpolator(1.2f)).withEndAction {
+                b.alpha = 1f; b.scaleX = 1f
+                go()
+            }.start()
+        } else go()
     }
 
     private fun addTab() {
@@ -123,7 +137,7 @@ object GroupStrip {
         val cur = m.active ?: return
         if (TabSwitcher.groupInfoOf(cur.id) == null) return
         val t = m.newTab(TabManager.HOME_PAGE) ?: return
-        TabSwitcher.joinGroupOf(t.id, cur.id)
+        TabSwitcher.joinGroupOf(t.id, cur.id) // 0.0.364: the new chip slides in (build() sees a new id)
         sig = ""; refresh()
     }
 
@@ -141,7 +155,12 @@ object GroupStrip {
         val isCollapsed = info.name in collapsed
         arrow?.rotation = if (isCollapsed) 90f else -90f
         arrow?.contentDescription = if (isCollapsed) "Expand group" else "Collapse group"
+        val anim = !still()
+        val grow = animNext
+        animNext = false
+        val same = lastGroup == info.name
         if (isCollapsed) {
+            lastGroup = info.name; lastIds = tabsIn.map { it.id }.toSet()
             val p = TextView(a).apply {
                 text = info.name + " \u00B7 " + tabsIn.size
                 setTextColor(0xFFFFFFFF.toInt()); textSize = 13f; maxLines = 1
@@ -150,6 +169,7 @@ object GroupStrip {
                 setOnClickListener { toggle() }
             }
             box.addView(p, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(32)))
+            if (anim && grow) { p.alpha = 0f; p.scaleX = 0.6f; p.scaleY = 0.6f; p.animate().alpha(1f).scaleX(1f).scaleY(1f).setInterpolator(POP).setDuration(280).start() }
             return
         }
         var activeChip: View? = null
@@ -176,14 +196,24 @@ object GroupStrip {
                     text = "\u00D7"; setTextColor(0xFFFFFFFF.toInt()); textSize = 11f; gravity = Gravity.CENTER
                     background = disc(a.getColor(R.color.mg_error), false, dp(16))
                     contentDescription = "Close tab"
-                    setOnClickListener { tm?.close(t) }
+                    setOnClickListener { // 0.0.363 (P2): Undo bar; 0.0.364 (P3): the chip shrinks out first
+                        val go = { tm?.let { m -> TabSwitcher.closeWithUndo(a, m, t) }; Unit }
+                        if (still()) go() else { isEnabled = false; f.animate().alpha(0f).scaleX(0.3f).scaleY(0.3f).setDuration(150).setInterpolator(android.view.animation.AccelerateInterpolator(1.2f)).withEndAction { go() }.start() }
+                    }
                 }
                 f.addView(x, FrameLayout.LayoutParams(dp(16), dp(16), Gravity.TOP or Gravity.END))
             }
             box.addView(f, LinearLayout.LayoutParams(dp(40), dp(40)))
+            if (anim && (grow || (same && t.id !in lastIds)) && !on) { // 0.0.364: new chip slides in; expand = chips pop one by one
+                val i = box.childCount - 1
+                f.alpha = 0f; f.scaleX = 0.5f; f.scaleY = 0.5f
+                if (!grow) f.translationX = dp(24).toFloat()
+                f.animate().alpha(1f).scaleX(1f).scaleY(1f).translationX(0f).setStartDelay(if (grow) minOf(i, 8) * 25L else 0L).setInterpolator(POP).setDuration(300).start()
+            }
         }
+        lastGroup = info.name; lastIds = tabsIn.map { it.id }.toSet()
         val ac = activeChip
-        if (ac != null && lastCur != cur.id) { // S15: ring pops when another tab of the group becomes active
+        if (ac != null && lastCur != cur.id && anim) { // S15: ring pops when another tab of the group becomes active
             ac.scaleX = 0.7f; ac.scaleY = 0.7f
             ac.animate().scaleX(1f).scaleY(1f).setInterpolator(android.view.animation.OvershootInterpolator(2.2f)).setDuration(280).start()
         }

@@ -156,6 +156,7 @@ object TabSwitcher {
 
     fun show(act: Activity, tm: TabManager) {
         if (act.isFinishing || act.isDestroyed) return
+        UndoBar.hide(false)
         try { current?.dismiss() } catch (_: Exception) { }
         try {
             tm.active?.let { snap(it) }
@@ -177,7 +178,81 @@ object TabSwitcher {
         val e = groups.entries.firstOrNull { id in it.value } ?: return null
         return GroupInfo(e.key, colorOf(e.key), e.value.toList())
     }
-    fun joinGroupOf(newId: Int, refId: Int) { groups.entries.firstOrNull { refId in it.value }?.value?.add(newId) }
+    /** 0.0.363 (P2, Chrome): a new tab of a group goes right after the tab it was opened from, not at the end. */
+    fun joinGroupOf(newId: Int, refId: Int) {
+        val e = groups.entries.firstOrNull { refId in it.value } ?: return
+        addAfter(e.key, newId, refId)
+    }
+
+    /** 0.0.363: put [newId] into the existing group [name] right after [afterId] (end when null / not in the group). */
+    fun addAfter(name: String, newId: Int, afterId: Int?) {
+        val g = groups[name] ?: return
+        val l = ArrayList<Int>(g)
+        l.remove(newId)
+        val at = if (afterId == null) -1 else l.indexOf(afterId)
+        l.add(if (at < 0) l.size else at + 1, newId)
+        g.clear(); g.addAll(l)
+    }
+
+    /** 0.0.363 (P2): one group saved whole (name, colour, tab order). Shared by the switcher Undo and the main browser Undo. */
+    class GroupSnap(val name: String, val color: Int?, val ids: List<Int>)
+
+    /** Every group that holds one of [ids] (plus group [plus] when it exists), with order + colour. */
+    private fun snapGroups(ids: Set<Int>, plus: String? = null): List<GroupSnap> =
+        groups.entries.filter { e -> e.key == plus || e.value.any { it in ids } }.map { GroupSnap(it.key, colors[it.key], it.value.toList()) }
+
+    /** Puts the saved groups back exactly (order + colour). [removeName] = a group that did not exist before and must go. */
+    private fun restoreGroups(list: List<GroupSnap>, removeName: String?, alive: (Int) -> Boolean) {
+        val names = list.map { it.name }.toSet()
+        val all = HashSet<Int>()
+        for (s in list) all.addAll(s.ids)
+        for ((n, g) in groups) if (n !in names) g.removeAll(all)
+        for (s in list) {
+            val keep = s.ids.filter(alive)
+            if (keep.isEmpty()) { groups.remove(s.name); continue }
+            groups[s.name] = LinkedHashSet<Int>(keep)
+            s.color?.let { colors[s.name] = it }
+        }
+        if (removeName != null && removeName !in names) { groups.remove(removeName); colors.remove(removeName) }
+        onChanged?.invoke()
+    }
+
+    /**
+     * 0.0.363 (P2): close one tab from the main browser (group strip x, Back) with an Undo bar.
+     * Undo opens the page again, same place in the tab list, same group, same place in the group, same colour.
+     * Private / home / extension tabs close as before (no bar: nothing to reopen).
+     */
+    fun closeWithUndo(act: Activity, tm: TabManager, t: TabManager.Tab) {
+        val url = t.web.url ?: t.url
+        val keep = !t.priv && !t.isExt && !t.home && url.startsWith("http")
+        val idx = tm.allTabs().indexOf(t)
+        val only = tm.allTabs().size == 1
+        val g = if (keep) snapGroups(setOf(t.id)).firstOrNull { t.id in it.ids } else null
+        val gi = g?.ids?.indexOf(t.id) ?: -1
+        tm.close(t)
+        if (!keep) return
+        UndoBar.show(act, "Tab closed") {
+            val nt = tm.newTab(url, 0, true, false) ?: return@show
+            ClosedTabs.remove(url)
+            tm.moveTo(nt, idx)
+            if (g != null) {
+                val cur = ArrayList<Int>(groups[g.name]?.filter { tm.byId(it) != null } ?: emptyList())
+                cur.add(if (gi < 0) cur.size else gi.coerceIn(0, cur.size), nt.id)
+                groups[g.name] = LinkedHashSet<Int>(cur)
+                g.color?.let { if (!colors.containsKey(g.name)) colors[g.name] = it }
+            }
+            if (only) tm.allTabs().filter { it.home && !it.priv }.forEach { h -> if (tm.allTabs().size > 1) tm.close(h) } // the Home tab made by closing the last one
+            onChanged?.invoke()
+        }
+    }
+
+    /** 0.0.365: drops ids of closed tabs from every group (empty groups + their colours go too). */
+    fun cleanStale(tm: TabManager) {
+        val ids = tm.allTabs().map { it.id }.toSet()
+        for (g in groups.values) g.retainAll(ids)
+        groups.entries.removeAll { it.value.isEmpty() }
+        colors.keys.retainAll(groups.keys)
+    }
 
     /** T1: put tabs into group [name] (created when missing); they leave any other group. */
     fun groupTabs(name: String, ids: Collection<Int>) {
@@ -190,6 +265,7 @@ object TabSwitcher {
     /** S15: opens group [name] directly as a panel over the page (grows out of [anchor], e.g. the strip arrow), like Brave. */
     fun showGroup(act: Activity, tm: TabManager, name: String, anchor: View?) {
         if (act.isFinishing || act.isDestroyed || !groups.containsKey(name)) return
+        UndoBar.hide(false)
         try { current?.dismiss() } catch (_: Exception) { }
         try {
             tm.active?.let { snap(it) }
@@ -235,6 +311,8 @@ object TabSwitcher {
         private lateinit var body: FrameLayout // S75: overlay host (drop zone, undo bar)
         private var zone: TextView? = null // S75: "Remove tab from group" drop zone (group view, while dragging)
         private var undoBar: View? = null // S75
+        private var pendingUndo: Pair<String, () -> Unit>? = null // 0.0.365: the Undo that is on screen now (handed to the main browser bar when the switcher closes)
+        private var gone = false // 0.0.365: the switcher is dismissed (late Undo must not draw into it)
         private val ZONE = Any()
         private lateinit var rootV: LinearLayout // S77: for the dim scrim behind the group panel
         private var panelAnim = false // S77: play the panel open animation on the next render
@@ -244,13 +322,34 @@ object TabSwitcher {
         private var stripTop = -1 // S15: screen y of the strip arrow, the panel ends just above it
         private var pendingGlide: Map<Any, FloatArray>? = null // S16: card positions before a re-render, cards glide from there to their new slot
         private var liftKey: Any? = null // S16: the dropped card keeps its lifted size while it glides home, then settles
+        private var bornKey: Any? = null // 0.0.364 (P3): tag of a group card made by this move (it pops in)
+        private var bornFrom: FloatArray? = null // 0.0.364: screen x,y of the tab card it grows out of
+        private var pulseKey: Any? = null // 0.0.364: tag of a card that gets a small pulse after a merge / close
+        private var panelFrom: IntArray? = null // 0.0.364: centre of the group card the panel grew from (close shrinks back there)
+        private var panelClosing = false // 0.0.364
+        private val still get() = TabPrefs.reduce(act) // 0.0.364 (P3): Reduce motion = no decorative animation
+        private fun ms(v: Long): Long = if (still) 0L else v
+        private val EASE = android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)
+        private val POP = android.view.animation.PathInterpolator(0.05f, 0.7f, 0.1f, 1f)
 
         private fun dp(v: Int) = Util.dp(act, v)
         private fun c(res: Int) = act.getColor(res)
         private val night get() = (act.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         private val cardW get() = (act.resources.displayMetrics.widthPixels - dp(40)) / 2
 
-        init { setOnDismissListener { if (current === this) current = null; onChanged?.invoke() } } // S13: groups may have changed
+        init {
+            setOnDismissListener { // S13: groups may have changed
+                if (current === this) current = null
+                gone = true
+                val pu = if (undoBar != null) pendingUndo else null // 0.0.365: Undo still showing when the switcher closes
+                pendingUndo = null
+                cleanStale(tm) // 0.0.365: dead tab ids leave the groups now (not only when the switcher draws)
+                onChanged?.invoke()
+                if (pu != null) act.window.decorView.post { // 0.0.365: same Undo, now on the main browser bar (skipped when another switcher / panel opened at once)
+                    if (current == null && !act.isFinishing && !act.isDestroyed) UndoBar.show(act, pu.first) { pu.second(); onChanged?.invoke() }
+                }
+            }
+        }
 
         /** 0.0.295 (Chrome look): card fill = quiet container tone; the open / picked tab = same tone mixed with the accent ("tonal"). */
         private fun tonal(tint: Int = c(R.color.mg_primary), a: Float = 0.28f): Int =
@@ -285,7 +384,7 @@ object TabSwitcher {
 
         /** S15: panel from the strip shrinks back into the arrow before it goes away. */
         override fun dismiss() {
-            if (!fromStrip || closing || !isShowing) { super.dismiss(); return }
+            if (!fromStrip || closing || !isShowing || still) { super.dismiss(); return } // 0.0.364: Reduce motion = close at once
             closing = true
             val ease = android.view.animation.AccelerateInterpolator(1.4f)
             for (v in listOf<View>(top, body)) v.animate().alpha(0f).scaleX(0.4f).scaleY(0.4f).setInterpolator(ease).setDuration(190).start()
@@ -596,6 +695,7 @@ object TabSwitcher {
         }
 
         private fun render() {
+            if (gone) return // 0.0.365: Undo run from the main browser bar after the switcher closed
             hideUndo() // S75: any new state makes an old Undo stale
             clean()
             if (fromStrip && openGroup == null) { if (!closing) dismiss(); return } // S15: group gone (deleted / emptied)
@@ -617,7 +717,7 @@ object TabSwitcher {
                 rootV.setOnClickListener { dismiss() }
                 top.isClickable = true; body.isClickable = true
                 bar.visibility = if (panel) View.GONE else View.VISIBLE
-                if (panel && panelAnim) { val sc = rootV.background; sc.alpha = 0; android.animation.ValueAnimator.ofInt(0, 255).apply { duration = 260; addUpdateListener { sc.alpha = it.animatedValue as Int } }.start() }
+                if (panel && panelAnim && !still) { val sc = rootV.background; sc.alpha = 0; android.animation.ValueAnimator.ofInt(0, 255).apply { duration = 260; addUpdateListener { sc.alpha = it.animatedValue as Int } }.start() }
             }
             val tl = top.layoutParams as LinearLayout.LayoutParams
             val bl = body.layoutParams as LinearLayout.LayoutParams
@@ -627,9 +727,12 @@ object TabSwitcher {
             bl.setMargins(m, 0, m, bm)
             top.layoutParams = tl
             body.layoutParams = bl
-            top.background = if (panel) GradientDrawable().apply { setColor(surf); cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f) } else null
-            body.background = if (panel) GradientDrawable().apply { setColor(surf); cornerRadii = floatArrayOf(0f, 0f, 0f, 0f, r, r, r, r) } else null
-            if (panel && panelAnim) {
+            val tbg = GradientDrawable().apply { setColor(surf); cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f) }
+            val bbg = GradientDrawable().apply { setColor(surf); cornerRadii = floatArrayOf(0f, 0f, 0f, 0f, r, r, r, r) }
+            top.background = if (panel) tbg else null
+            body.background = if (panel) bbg else null
+            if (panel && panelAnim) panelFrom = popFrom // 0.0.364: where the close shrinks back to
+            if (panel && panelAnim && !still) {
                 val pf = popFrom
                 val rl = IntArray(2)
                 rootV.getLocationOnScreen(rl)
@@ -643,7 +746,14 @@ object TabSwitcher {
                         v.pivotX = (pf[0] - rl[0] - m).toFloat()
                         v.pivotY = (pf[1] - rl[1] - dp(8) - (if (i == 0) 0 else dp(64))).toFloat()
                     }
-                    v.animate().alpha(1f).scaleX(1f).scaleY(1f).setInterpolator(if (fromStrip) android.view.animation.PathInterpolator(0.05f, 0.7f, 0.1f, 1f) else android.view.animation.DecelerateInterpolator(1.8f)).setDuration(if (fromStrip) 320L else 260L).start()
+                    v.animate().alpha(1f).scaleX(1f).scaleY(1f).setInterpolator(if (fromStrip || pf != null) POP else android.view.animation.DecelerateInterpolator(1.8f)).setDuration(if (fromStrip || pf != null) 320L else 260L).start()
+                }
+                if (pf != null || fromStrip) { // 0.0.364: corners start as round as the card (16dp as seen) and relax to 22dp while the panel grows
+                    val r0 = dp(16) / start
+                    android.animation.ValueAnimator.ofFloat(r0, r).apply {
+                        duration = 320; interpolator = EASE
+                        addUpdateListener { val x = it.animatedValue as Float; tbg.cornerRadii = floatArrayOf(x, x, x, x, 0f, 0f, 0f, 0f); bbg.cornerRadii = floatArrayOf(0f, 0f, 0f, 0f, x, x, x, x) }
+                    }.start()
                 }
             }
             panelAnim = false
@@ -662,6 +772,7 @@ object TabSwitcher {
             animateNext = false
             if (mode == 2 && openGroup == null) { // list of groups
                 pendingGlide = null
+                bornKey = null; pulseKey = null; bornFrom = null // 0.0.364
                 val names = groupNames()
                 empty.text = if (groups.isEmpty()) "No groups yet.\nLong press a tab > Add tab to group." else "No match."
                 empty.visibility = if (names.isEmpty()) View.VISIBLE else View.GONE
@@ -697,6 +808,52 @@ object TabSwitcher {
             val pg = pendingGlide
             pendingGlide = null
             if (anim) enter(cards + oldCards) else if (pg != null) glide(pg) // S16
+            effects(anim && pg == null) // 0.0.364 (P3)
+        }
+
+        /** 0.0.364 (P3): a new group card pops in (grows out of the tab card, name chip pops), a merged / re-opened group card pulses. */
+        private fun effects(afterEnter: Boolean) {
+            val bk = bornKey; val pk = pulseKey; val bf = bornFrom
+            bornKey = null; pulseKey = null; bornFrom = null
+            if (still || (bk == null && pk == null)) return
+            fun find(k: Any?): View? = if (k == null) null else targets.firstOrNull { it.first.tag == k }?.first
+            if (afterEnter) { // cards fade in with a stagger: pulse after they landed
+                if (pk != null) grid.postDelayed({ find(pk)?.let { pulse(it) } }, 380)
+                return
+            }
+            grid.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    val o = grid.viewTreeObserver
+                    if (o.isAlive) o.removeOnPreDrawListener(this)
+                    find(bk)?.let { popIn(it, bf) }
+                    if (pk != null) find(pk)?.let { v -> v.postDelayed({ pulse(v) }, 240) }
+                    return true
+                }
+            })
+        }
+
+        private fun pulse(v: View) {
+            if (still || !v.isAttachedToWindow) return
+            v.animate().cancel()
+            v.animate().scaleX(1.07f).scaleY(1.07f).setDuration(90).setInterpolator(EASE).withEndAction {
+                v.animate().scaleX(1f).scaleY(1f).setInterpolator(OvershootInterpolator(2.2f)).setDuration(240).start()
+            }.start()
+        }
+
+        private fun popIn(v: View, from: FloatArray?) {
+            val l = IntArray(2)
+            v.getLocationOnScreen(l)
+            v.alpha = 0f; v.scaleX = 0.4f; v.scaleY = 0.4f
+            if (from != null) { v.translationX = from[0] - l[0]; v.translationY = from[1] - l[1] }
+            v.translationZ = dp(10).toFloat()
+            (v.parent as? View)?.translationZ = dp(10).toFloat()
+            v.animate().alpha(1f).scaleX(1f).scaleY(1f).translationX(0f).translationY(0f).setInterpolator(POP).setDuration(340)
+                .withEndAction { v.translationZ = 0f; (v.parent as? View)?.translationZ = 0f }.start()
+            val chip = (v as? FrameLayout)?.takeIf { it.childCount > 1 }?.getChildAt(1) ?: v // the head row with the colour dot + name
+            if (chip !== v) {
+                chip.pivotX = dp(18).toFloat(); chip.scaleX = 0.5f; chip.scaleY = 0.5f; chip.alpha = 0f
+                chip.animate().scaleX(1f).scaleY(1f).alpha(1f).setStartDelay(180).setInterpolator(OvershootInterpolator(2.4f)).setDuration(280).start()
+            }
         }
 
         /** S16: screen position of every tab card now (includes the drag offset), used as the start of the glide after a re-render. */
@@ -711,6 +868,7 @@ object TabSwitcher {
         private fun glide(prev: Map<Any, FloatArray>) {
             val lk = liftKey
             liftKey = null
+            if (still) return // 0.0.364: Reduce motion = cards jump to the new place
             val vo = grid.viewTreeObserver
             vo.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
                 override fun onPreDraw(): Boolean {
@@ -727,8 +885,8 @@ object TabSwitcher {
                         if (!lifted && abs(dx) < 1f && abs(dy) < 1f) continue
                         v.translationX = if (lifted) dx + v.width * 0.04f else dx // lifted: the old rect was scaled 1.08 about its centre
                         v.translationY = if (lifted) dy + v.height * 0.04f else dy
-                        val an = v.animate().translationX(0f).translationY(0f).setStartDelay(0).setDuration(300)
-                            .setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f))
+                        val an = v.animate().translationX(0f).translationY(0f).setStartDelay(0).setDuration(250) // 0.0.364: 250 ms
+                            .setInterpolator(EASE)
                         if (lifted) { // above the other cards while it travels, then lands
                             v.scaleX = 1.08f; v.scaleY = 1.08f
                             v.translationZ = dp(12).toFloat()
@@ -743,6 +901,7 @@ object TabSwitcher {
         }
 
         private fun enter(views: List<View>) {
+            if (still) return // 0.0.364
             for ((i, v) in views.withIndex()) {
                 v.alpha = 0f
                 v.translationY = dp(16).toFloat()
@@ -808,12 +967,38 @@ object TabSwitcher {
             render()
         }
 
-        private fun closeGroupView() { if (fromStrip) { dismiss(); return }; openGroup = null; mode = backMode; animateNext = true; endSelect(false); render() }
+        private fun closeGroupView() {
+            if (fromStrip) { dismiss(); return }
+            val g = openGroup
+            if (still || g == null || panelClosing || mode != 2) { finishClose(g); return }
+            // 0.0.364 (P3): the panel shrinks back into the group card, the scrim fades
+            panelClosing = true
+            val pf = panelFrom
+            val rl = IntArray(2)
+            rootV.getLocationOnScreen(rl)
+            val m = dp(12)
+            for ((i, v) in listOf<View>(top, body).withIndex()) {
+                if (pf != null) { v.pivotX = (pf[0] - rl[0] - m).toFloat(); v.pivotY = (pf[1] - rl[1] - dp(8) - (if (i == 0) 0 else dp(64))).toFloat() }
+                v.animate().alpha(0f).scaleX(if (pf != null) 0.45f else 0.94f).scaleY(if (pf != null) 0.45f else 0.94f).setInterpolator(android.view.animation.AccelerateInterpolator(1.3f)).setDuration(200).start()
+            }
+            val sc = rootV.background
+            if (sc != null) android.animation.ValueAnimator.ofInt(255, 0).apply { duration = 200; addUpdateListener { sc.alpha = it.animatedValue as Int } }.start()
+            rootV.postDelayed({ if (panelClosing) finishClose(g) }, 210)
+        }
+
+        private fun finishClose(g: String?) {
+            panelClosing = false
+            if (g != null) pulseKey = "g:$g" // the group card pulses once the grid is back
+            for (v in listOf<View>(top, body)) { v.animate().cancel(); v.alpha = 1f; v.scaleX = 1f; v.scaleY = 1f }
+            rootV.background?.alpha = 255
+            openGroup = null; mode = backMode; animateNext = true; endSelect(false); render()
+        }
 
         private fun newTab(p: Boolean) {
+            val before = tm.active?.id // 0.0.363 (P2): the new tab goes right after the active tab of the group
             val t = tm.newTab(TabManager.HOME_PAGE, 0, true, p)
             val g = openGroup
-            if (t != null && !p && mode == 2 && g != null) groups[g]?.add(t.id)
+            if (t != null && !p && mode == 2 && g != null) addAfter(g, t.id, before)
             dismiss()
         }
 
@@ -908,8 +1093,9 @@ object TabSwitcher {
         private fun groupMenu(anchor: View, name: String, inView: Boolean) {
             val items = ArrayList<MI>()
             items.add(MI("New tab in group", R.drawable.ic_add) { // 0.0.362
+                val before = tm.active?.id // 0.0.363 (P2)
                 val nt = tm.newTab(TabManager.HOME_PAGE, 0, true, false)
-                if (nt != null) groups[name]?.add(nt.id)
+                if (nt != null) addAfter(name, nt.id, before)
                 dismiss()
             })
             if (inView) items.add(MI("Select tabs", R.drawable.ic_check) { startSelect(null) })
@@ -934,8 +1120,8 @@ object TabSwitcher {
             val gIdx = gName?.let { groups[it]?.toList()?.indexOf(t.id) } ?: -1
             val gCol = gName?.let { colors[it] }
             val onlyOne = all.size == 1
-            (if (dir != 0f) v.animate().translationX(dir * v.width * 1.1f).alpha(0f).setInterpolator(android.view.animation.AccelerateInterpolator(1.1f)).setDuration(if (TabPrefs.reduce(act)) 0L else 160L)
-            else v.animate().alpha(0f).scaleX(0.6f).scaleY(0.6f).setInterpolator(android.view.animation.AccelerateInterpolator(1.2f)).setDuration(if (TabPrefs.reduce(act)) 0L else 190L)).withEndAction {
+            (if (dir != 0f) v.animate().translationX(dir * v.width * 1.1f).alpha(0f).setInterpolator(EASE).setDuration(ms(220)) // 0.0.364: fade + slide, one curve
+            else v.animate().alpha(0f).scaleX(0.7f).scaleY(0.7f).setInterpolator(EASE).setDuration(ms(200))).withEndAction {
                 pendingGlide = snapPos() // S16: the cards after it slide into the gap
                 tm.close(t)
                 render()
@@ -1056,6 +1242,7 @@ object TabSwitcher {
         private fun addTo(name: String, ids: Set<Int>) {
             endSelect(false) // 0.0.362 (Chrome): stay on the grid, cards glide, Undo bar (moveInto)
             pendingGlide = snapPos()
+            bornFrom = ids.firstNotNullOfOrNull { pendingGlide?.get(it) } // 0.0.364: new group card grows out of the first tab card
             moveInto(name, ids)
         }
 
@@ -1223,13 +1410,13 @@ object TabSwitcher {
         }
 
         private fun ring(v: View) {
-            v.animate().scaleX(1.06f).scaleY(1.06f).setDuration(110).start()
+            v.animate().scaleX(1.06f).scaleY(1.06f).setDuration(ms(110)).start()
             if (v === zone) v.background = round(tint(), 16, 2, c(R.color.mg_primary)) // S75
             (v as? FrameLayout)?.foreground = round(Color.TRANSPARENT, 18, 3, c(R.color.mg_primary))
         }
 
         private fun unring(v: View) {
-            v.animate().scaleX(1f).scaleY(1f).setDuration(110).start()
+            v.animate().scaleX(1f).scaleY(1f).setDuration(ms(110)).start()
             if (v === zone) v.background = round(Color.TRANSPARENT, 16, 2, c(R.color.mg_primary)) // S75
             (v as? FrameLayout)?.foreground = null
         }
@@ -1266,7 +1453,7 @@ object TabSwitcher {
             }
             fun settle(v: View) {
                 v.animate().translationX(0f).translationY(0f).scaleX(1f).scaleY(1f).alpha(1f)
-                    .setInterpolator(OvershootInterpolator(0.9f)).setDuration(260) // S16
+                    .setInterpolator(OvershootInterpolator(0.9f)).setDuration(ms(260)) // S16
                     .withEndAction { v.translationZ = 0f; (v.parent as? View)?.translationZ = 0f }.start()
             }
             box.setOnTouchListener { v, e ->
@@ -1365,10 +1552,12 @@ object TabSwitcher {
             tg.first.getLocationOnScreen(b)
             val dx = (b[0] + tg.first.width / 2f) - (a[0] + v.width / 2f)
             val dy = (b[1] + tg.first.height / 2f) - (a[1] + v.height / 2f)
-            v.animate().translationX(v.translationX + dx).translationY(v.translationY + dy).scaleX(0.35f).scaleY(0.35f).alpha(0f)
-                .setDuration(170).withEndAction {
+            v.animate().translationX(v.translationX + dx).translationY(v.translationY + dy).scaleX(0.3f).scaleY(0.3f).alpha(0f)
+                .setInterpolator(EASE).setDuration(ms(200)).withEndAction { // 0.0.364 (P3): shrinks INTO the target
                     pendingGlide = snapPos() // S16: the remaining cards close the gap smoothly
                     val target = tg.second
+                    if (target is TabManager.Tab) bornFrom = pendingGlide?.get(target.id) // 0.0.364: a new group grows out of the target tab card
+                    if (target is String) pulseKey = "g:$target"
                     if (target === ZONE) pullOut(t.id) // S75
                     else if (target is String) moveInto(target, setOf(t.id))
                     else if (target is TabManager.Tab && openGroup != null) reorder(t.id, target.id) // S77
@@ -1384,18 +1573,16 @@ object TabSwitcher {
 
         /** Puts the tabs into a group and stays on the tab grid (no jump into the group). S75: Undo bar instead of a toast. */
         private fun moveInto(name: String, ids: Set<Int>) {
-            val before = HashMap<Int, String>()
-            for ((n, g) in groups) for (i in ids) if (i in g) before[i] = n
+            val snaps = snapGroups(ids, name) // 0.0.363 (P2): whole old groups (order + colour), not only the moved ids
             val hadGroup = groups.containsKey(name)
             for (g in groups.values) g.removeAll(ids)
             groups.getOrPut(name) { LinkedHashSet() }.addAll(ids)
+            if (!hadGroup) bornKey = "g:$name" else pulseKey = "g:$name" // 0.0.364 (P3)
             animateNext = false
             render()
             val gl = if (name.length > 18) name.take(17) + "\u2026" else name
             undo((if (ids.size == 1) "1 tab" else ids.size.toString() + " tabs") + " added to " + gl) { // 0.0.362: count of tabs added, not group size
-                for (g in groups.values) g.removeAll(ids)
-                for ((i, gn) in before) groups.getOrPut(gn) { LinkedHashSet() }.add(i)
-                if (!hadGroup) { groups.remove(name); colors.remove(name) }
+                restoreGroups(snaps, if (!hadGroup) name else null) { tm.byId(it) != null }
                 animateNext = false
                 render()
             }
@@ -1490,6 +1677,7 @@ object TabSwitcher {
             body.addView(b, FrameLayout.LayoutParams(MATCH, dp(52), Gravity.BOTTOM).apply { setMargins(dp(14), 0, dp(14), dp(12)) })
             b.animate().alpha(1f).translationY(0f).setInterpolator(android.view.animation.DecelerateInterpolator(1.6f)).setDuration(200).start()
             undoBar = b
+            pendingUndo = Pair(msg, onUndo) // 0.0.365
             b.onGone = { if (undoBar === b) hideUndo() }
             val autoHide = object : Runnable { // 0.0.281: not while a finger is dragging the bar
                 override fun run() { if (undoBar !== b) return; if (b.busy) b.postDelayed(this, 1500) else hideUndo(true) }
@@ -1500,6 +1688,7 @@ object TabSwitcher {
         private fun hideUndo(anim: Boolean = false) {
             val b = undoBar ?: return
             undoBar = null
+            pendingUndo = null // 0.0.365
             if (anim) b.animate().alpha(0f).translationY(dp(20).toFloat()).setDuration(160).withEndAction { body.removeView(b) }.start()
             else body.removeView(b)
         }

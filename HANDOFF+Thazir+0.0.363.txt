@@ -1,0 +1,32 @@
+================================================================================
+HANDOFF - Thazir 0.0.363 - PLAN: "CHROME TAB GROUPS" (3 parts)   [P1 + P2 DONE, P3 todo]
+================================================================================
+User note: the person is NOT a coder. Reply in Banglish, short, numbered steps. Whole plan is built first, device test after P3.
+Design rules: read ONLY section 2 of HANDOFF_A_ACCESS.txt (mg_* colours via act.getColor, 20dp cards, dark + light, TabPrefs.reduce(act) = no animation, dialogs built fresh each open, 560dp cap).
+Prompt template had empty placeholders: assumed Thazir, P2, MODIFY, prev 0.0.362.
+
+STATUS 0.0.363 (P2 done: Undo outside the switcher + new tab after the active tab).
+- UndoBar.kt (new): UndoBar.show(act, msg, onUndo) / hide(anim). Same look as TabSwitcher.undo(). Anchors above GroupStrip.topView() or bottom_bar when in the lower half, else 24dp from the bottom.
+- TabSwitcher.kt: closeWithUndo(act, tm, tab), GroupSnap, snapGroups(ids, plus), restoreGroups(list, removeName, alive), addAfter(name, newId, afterId), joinGroupOf now inserts after refId. moveInto Undo = restoreGroups. Screen.newTab + groupMenu "New tab in group" use addAfter(active tab). show() / showGroup() call UndoBar.hide(false).
+- GroupStrip.kt: chip x -> closeWithUndo; topView(). MainActivity.kt: Back-closes-tab -> closeWithUndo.
+Checked: brace / paren / bracket balance = 0 / 0 / 0 for the 4 Kotlin files (same as base), every patch single-match, names found by grep (ClosedTabs.remove, tm.moveTo, tm.byId, AppearancePrefs.undoToast, TabPrefs.reduce, SwipeAway.Bar.busy / onGone, R.color.mg_*).
+NOT tested: Gradle build (CI; kotlinc not in sandbox), device, 360 / 1280dp, dark + light, rotation. If CI fails send the Kotlin error line first.
+Left over (not P2, goes to P3 / later): Undo of "Group closed" is still only inside the switcher (the bar goes away when the switcher closes); the plan line "closed group Undo from main browser" is NOT done. Stale ids stay in groups until the switcher renders clean() (strip ignores them via mapNotNull).
+
+--------------------------------------------------------------------------------
+PLAN (code map: TabSwitcher.kt object TabSwitcher > class Screen; GroupStrip.kt; SwipeAway.kt (SwipeAway.Bar = swipeable undo bar); TabManager.kt close() l372, ClosedTabs)
+--------------------------------------------------------------------------------
+P2 v0.0.363  DONE (see STATUS above)
+P3 v0.0.364  CHROME ANIMATIONS (all skipped when TabPrefs.reduce(act))
+ - Tab card dropped on a tab / group: card shrinks INTO the target, target pulses, group card appears with name chip pop (dropOn already shrinks 0.35 + fade; add target pulse + merge).
+ - New group created from "Add to group": new group card scales in from the tab card position (glide + pop), then the Undo bar.
+ - Group panel open / close (applyPanel, popFrom): scale + corner radius from the card, scrim fade; close shrinks back into the group card.
+ - Swipe close card (dragTouch l~1228): fade + slide + neighbours glide (closeAnimated exists: tune curves to PathInterpolator(0.2,0,0,1), 200-250 ms).
+ - GroupStrip: collapse / expand chips animation, new chip slides in, closed chip shrinks out; strip slide-up exists (S15).
+ - Final regression: 360 + 1280dp, dark + light, rotation, Reduce motion ON, pinned tabs, private tab (not groupable), session restore of groups (exportGroups / importGroups).
+Kickoffs: "Thazir groups: read HANDOFF+Thazir+0.0.363.txt (top part), do P3 only. Patch only, changed files only, stop at 85% session, final reply max 8 lines, reply in Banglish."  (P3 only.)
+Untouchable: Vault*, CI workflow, EngineHost / ChromeBridge / ExtApi, Backup JSON shape, groups session format (exportGroups v2).
+
+=== OLDER HANDOFF (download parts plan, 0.0.361): see HANDOFF+Thazir+0.0.361.txt ===
+
+=== OLDER HANDOFF (P1, 0.0.362): see HANDOFF+Thazir+0.0.362.txt ===

@@ -1,0 +1,21 @@
+================================================================================
+HANDOFF - Thazir 0.0.364 - PLAN: "CHROME TAB GROUPS" (3 parts)   [P1 + P2 + P3 DONE, device test todo]
+================================================================================
+User note: the person is NOT a coder. Reply in Banglish, short, numbered steps. Device test now (whole plan built).
+Design rules: read ONLY section 2 of HANDOFF_A_ACCESS.txt (mg_* colours via act.getColor, 20dp cards, dark + light, TabPrefs.reduce(act) = no animation, dialogs built fresh each open, 560dp cap).
+
+STATUS 0.0.364 (P3 done: Chrome animations).
+- TabSwitcher.kt Screen: helpers still / ms() / EASE (0.2,0,0,1) / POP (0.05,0.7,0.1,1); fields bornKey / bornFrom / pulseKey / panelFrom / panelClosing. effects() (called at end of renderList) = popIn() for a new group card + pulse() for a merged / re-opened one; keys are set in moveInto (bornKey if group is new, else pulseKey), dropOn (bornFrom = target tab pos), addTo (bornFrom = first tab pos), finishClose (pulseKey). closeGroupView() now animates the panel back into the card then finishClose(). applyPanel: corner radius morph (tbg / bbg). glide 250 ms, closeAnimated EASE 200-220 ms. glide / enter / dismiss / settle / ring / panel all return early or use 0 ms when TabPrefs.reduce.
+- GroupStrip.kt: lastGroup / lastIds / animNext; toggle() fades chips out then build() pops them in; new chip slides in; chip x shrinks out before closeWithUndo.
+Checked: brace / paren / bracket balance = 0 / 0 / 0 for both Kotlin files, every patch single-match (script asserts). Version 0.0.364 + CHANGELOG.
+NOT tested: Gradle build (CI; kotlinc not in sandbox), device, 360 / 1280dp, dark + light, rotation with panel open, Reduce motion ON, pinned tabs, private tab, session restore of groups (exportGroups / importGroups). If CI fails send the Kotlin error line first.
+
+NEXT (not P3):
+ 1. Device regression (list above). Watch: new group card pop position in list view (groupRow, no name chip pop), panel close with search / select active, strip collapse with fast taps.
+ 2. Still open from P2: Undo of "Group closed" only inside the switcher (the plan line "closed group Undo from main browser" is NOT done); stale ids stay in groups until clean() runs.
+ 3. Not animated on purpose: newGroup() (+ button, creates a tab and dismisses), list-view group rows get pulse only.
+Untouchable: Vault*, CI workflow, EngineHost / ChromeBridge / ExtApi, Backup JSON shape, groups session format (exportGroups v2).
+
+Kickoff for the next chat: "Thazir groups: read HANDOFF+Thazir+0.0.364.txt. FIX only what the device test shows. Patch only, changed files only, final reply max 8 lines, Banglish."
+
+=== OLDER HANDOFFS: HANDOFF+Thazir+0.0.363.txt (P2), 0.0.362 (P1), 0.0.361 (download parts) ===

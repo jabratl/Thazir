@@ -186,7 +186,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                     urlBar.hasFocus() -> leaveUrlBar()
                     t != null && tabs.canBack(t) -> tabs.back(t) // 0.0.130: Home counts as a page
                     t != null && SocialBack.hold(this@MainActivity, t) -> Unit // 0.0.241 (A3): first page of a social tab: press Back again
-                    t != null && tabs.count > 1 -> tabs.close(t)
+                    t != null && tabs.count > 1 -> TabSwitcher.closeWithUndo(this@MainActivity, tabs, t) // 0.0.363 (P2): Undo bar
                     else -> {
                         isEnabled = false
                         onBackPressedDispatcher.onBackPressed()

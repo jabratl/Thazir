@@ -1,0 +1,21 @@
+================================================================================
+HANDOFF - Thazir 0.0.365 - PLAN: "CHROME TAB GROUPS" (3 parts + 1 fix)   [P1 + P2 + P3 + FIX DONE, device test todo]
+================================================================================
+User note: the person is NOT a coder. Reply in Banglish, short, numbered steps.
+Design rules: read ONLY section 2 of HANDOFF_A_ACCESS.txt (mg_* colours via act.getColor, 20dp cards, dark + light, TabPrefs.reduce(act) = no animation, dialogs built fresh each open, 560dp cap).
+
+STATUS 0.0.365 (fix after P3). Repo base was 0.0.361; P1 (0.0.362, TabSwitcher.kt only) is inside the P3 TabSwitcher.kt, P2 and P3 files are merged in this package.
+- TabSwitcher.kt: Screen fields pendingUndo / gone. undo() stores the Undo; dismiss listener hands it to UndoBar.show (posted, only when no other switcher / panel opened) and runs cleanStale(tm). render() returns early when gone. Object fun cleanStale(tm) = drop dead ids + empty groups + colours.
+- From P3 (0.0.364): animations (popIn / pulse / panel morph / glide, all off with TabPrefs.reduce); GroupStrip.kt collapse / expand / new chip / x shrink.
+- From P2 (0.0.363): UndoBar.kt, closeWithUndo, GroupSnap, addAfter; MainActivity Back-closes-tab uses closeWithUndo.
+Checked: brace / paren / bracket balance = 0 / 0 / 0 for the 4 Kotlin files, every patch single-match (script asserts).
+NOT tested: Gradle build (CI; kotlinc not in sandbox), device, 360 / 1280dp, dark + light, rotation with panel open, Reduce motion ON, pinned tabs, private tab, session restore of groups. If CI fails send the Kotlin error line first.
+
+NEXT:
+ 1. Device regression (list above). Watch: Undo bar on main browser after closing a group and leaving the switcher; new group card pop in list view; panel close with search / select active; strip collapse with fast taps.
+ 2. Not animated on purpose: newGroup() (+ button), list-view group rows get pulse only.
+Untouchable: Vault*, CI workflow, EngineHost / ChromeBridge / ExtApi, Backup JSON shape, groups session format (exportGroups v2).
+
+Kickoff for the next chat: "Thazir groups: read HANDOFF+Thazir+0.0.365.txt. FIX only what the device test shows. Patch only, changed files only, final reply max 8 lines, Banglish."
+
+=== OLDER HANDOFFS: 0.0.364 (P3), 0.0.363 (P2), 0.0.362 (P1), 0.0.361 (download parts) ===
