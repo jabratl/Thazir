@@ -1,8 +1,9 @@
-// Media Grabber - 0.0.356: mgWholeFile = last way with progress. 0.0.355: progress is now also sent to the app (report) + stats row. 0.0.353: read ONE big file (a DASH Representation that is only a BaseURL, e.g. Bilibili video / audio) in pieces.
+// Media Grabber - 0.0.360: NEW first stage 'parts' = N parallel 4 MB pieces (setting partsN, default 1 = off). 0.0.356: mgWholeFile = last way with progress. 0.0.355: progress is now also sent to the app (report) + stats row. 0.0.353: read ONE big file (a DASH Representation that is only a BaseURL, e.g. Bilibili video / audio) in pieces.
 // WHY: the old code asked for the whole file in ONE request and held it as one blob: on a phone one dropped connection = "Failed to fetch" for the
 // whole file, and nothing was kept. Here every piece (4 MB) has its own retry (fetchRetry), so a single hiccup no longer kills the job.
 // DESIGN: this file only ADDS. downloader.js calls fileBlob() (a small hook); if anything here fails or returns null, the OLD whole-file code runs.
 // Stages (ordered list = data, tried one after the other, each in try / catch, a failure only writes a log line):
+//   0) parts    : (0.0.360, only when partsN > 1) N workers take 4 MB pieces from a queue, bytes assembled in order; anything unusual = next stage
 //   1) direct   : Range requests with fetchRetry (same headers / header modes as every other download)
 //   2) page     : Range requests read through the video page (viaPageBin, own origin + cookies)   [NOT tested on a device]
 //   3) (old)    : whole file in one request - lives in downloader.js, not here
@@ -31,6 +32,66 @@
     return { buf, total: -1, whole: buf.byteLength > CH, last: buf.byteLength < CH }; // longer than asked = the server ignored Range; a short piece = the end
   }
   const STAGES = [['direct', readDirect], ['page', readPage]];
+
+  // 0.0.360: parallel pieces. Returns a Blob, throws (= next stage) on anything unusual, rethrows Cancelled.
+  // Piece 0 is read first (learns the real total from Content-Range); total must be known and >= 2 pieces, and the server must really answer Range.
+  async function readParts(url, label, n) {
+    const ft0 = Date.now();
+    try { report('run', 0, (label ? label + ': ' : '') + 'starting...'); } catch (e) { /* display only */ }
+    await gate();
+    const first = await readDirect(url, 0, CH - 1);
+    if (first.whole || first.last) throw new Error('server ignores Range');
+    const total = first.total;
+    if (!(total > 0)) throw new Error('size unknown');
+    if (total < 2 * CH) throw new Error('file too small for parts');
+    if (first.buf.byteLength !== CH) throw new Error('first piece has a wrong size');
+    const count = Math.ceil(total / CH);
+    if (count > MAX_PIECES) throw new Error('too many pieces');
+    const res = new Array(count);
+    res[0] = new Blob([first.buf]);
+    let got = first.buf.byteLength, next = 1, fail = null, active = 0;
+    const workers = Math.max(1, Math.min(n, count - 1));
+    const show = () => {
+      try {
+        const sec = (Date.now() - ft0) / 1000 || 1, bps = got / sec;
+        const left = bps ? fmtDur(Math.max(0, total - got) / bps) : '';
+        status('Downloading... ' + fmtSize(got) + ' / ' + fmtSize(total));
+        progress(got, total);
+        const txt = (label ? label + ': ' : '') + fmtSize(got) + ' / ' + fmtSize(total) + ' - ' + workers + ' parts' + (bps ? ' - ' + fmtSpeed(bps) : '') + (left ? ' - ' + left + ' left' : '');
+        report('run', got / total, txt);
+        setStats({ speed: fmtSpeed(bps), size: fmtSize(got), eta: left, seg: Math.round(got / total * 100) + '%', sub: label || 'File' });
+      } catch (e) { /* display only */ }
+    };
+    show();
+    async function worker() {
+      active++;
+      try {
+        while (!fail) {
+          const i = next++;
+          if (i >= count) break;
+          await gate();
+          const a = i * CH, b = Math.min(total, a + CH) - 1, want = b - a + 1;
+          let r, ok = false;
+          for (let t = 0; t < 2 && !ok; t++) { // one extra try for a piece (fetchRetry already retries inside)
+            try { r = await readDirect(url, a, b); ok = true; }
+            catch (e) { if (isCancel(e) || t === 1) throw e; await gate(); }
+          }
+          if (r.whole || r.last || r.buf.byteLength !== want) throw new Error('piece ' + i + ' has a wrong size (' + r.buf.byteLength + ' of ' + want + ' B)');
+          if (r.total > 0 && r.total !== total) throw new Error('file size changed during download');
+          res[i] = new Blob([r.buf]);
+          got += want;
+          show();
+        }
+      } catch (e) { if (!fail) fail = e; } finally { active--; }
+    }
+    const jobs = [];
+    for (let k = 0; k < workers; k++) jobs.push(worker());
+    await Promise.all(jobs);
+    if (fail) throw fail;
+    for (let i = 0; i < count; i++) if (!res[i]) throw new Error('piece ' + i + ' missing');
+    if (got !== total) throw new Error('incomplete: ' + got + ' of ' + total + ' B');
+    return new Blob(res);
+  }
 
   async function readAll(read, url, label) {
     const parts = [];
@@ -75,6 +136,17 @@
 
   // Returns a Blob, or null (= caller uses the old whole-file request). Throws only for Cancelled.
   window.mgBigFile = async function (url, label) {
+    let pn = 1;
+    try { pn = parseInt(SET && SET.partsN, 10) || 1; } catch (e) { pn = 1; }
+    if (pn > 1) {
+      try {
+        const b = await readParts(url, label, Math.min(pn, 16));
+        if (b && b.size > 0) { dbg('dl', 'big file read in parts (' + Math.min(pn, 16) + '): ' + fmtSize(b.size)); return b; }
+      } catch (e) {
+        if (isCancel(e)) throw e;
+        dbg('dl', 'big file: stage parts failed, sequential pieces instead (' + String((e && e.message) || e).slice(0, 120) + ')');
+      }
+    }
     for (const [name, read] of STAGES) {
       try {
         const b = await readAll(read, url, label);

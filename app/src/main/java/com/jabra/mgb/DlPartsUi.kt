@@ -21,6 +21,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.json.JSONObject
 
 /**
+ * 0.0.360 (S4): + row "Also for big grabber files" (engine key partsN).
  * 0.0.359 (S3): UI of "Download in parts" (native Downloader, DlParts.kt).
  *  - open(act): bottom sheet with the switch (pref dp_on), number of parts (dp_n 2/4/6/8/16) and "only files bigger than" (dp_min_mb 2/8/32).
  *  - summary(ctx): short text for the Settings row.
@@ -43,6 +44,10 @@ object DlPartsUi {
     fun summary(c: Context): String = if (on(c)) "ON · ${parts(c)} parts" else "OFF"
 
     private fun mbText(v: Int): String = "$v MB"
+
+    // 0.0.360 (S4): engine key partsN (chrome.storage.sync, read by assets/ext/bigfile.js). 1 = off, 2..16 = pieces at the same time.
+    private fun gParts(): Int = try { ChromeBridge.sync.get("partsN").optInt("partsN", 1) } catch (e: Exception) { 1 }
+    private fun gPut(v: Int) { try { ChromeBridge.storageSet("sync", JSONObject().put("partsN", v)) } catch (e: Exception) { /* engine not ready */ } }
 
     fun open(act: Activity, onClose: (() -> Unit)? = null) {
         val cText = act.getColor(R.color.mg_text)
@@ -128,6 +133,7 @@ object DlPartsUi {
                     MaterialAlertDialogBuilder(act).setTitle(title)
                         .setSingleChoiceItems(values.map { label(it) }.toTypedArray(), values.indexOf(cur)) { dd, i ->
                             try { sp(act).edit().putInt(key, values[i]).apply() } catch (e: Exception) { }
+                            if (key == "dp_n" && gParts() > 1) gPut(values[i]) // 0.0.360: grabber files follow the number of parts
                             dd.dismiss(); fill()
                         }
                         .setNegativeButton("Cancel", null).show()
@@ -158,6 +164,20 @@ object DlPartsUi {
             val mins = if (MINS.contains(cm)) MINS else (MINS.toList() + cm).sorted().toIntArray()
             choice(c2, "Only files bigger than", "Smaller files use the normal single connection", "dp_min_mb", cm, mins) { mbText(it) }
             box.addView(c2, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            box.addView(head("Grabber"))
+            val c3 = card()
+            val r3 = rowView("Also for big grabber files", null, "Bilibili and similar sites: video / audio pieces are fetched together, same number of parts. Off = one piece after the other")
+            val s3 = SwitchCompat(act).apply { isChecked = gParts() > 1; ThazirSwitch.tint(this) }
+            r3.addView(s3, LinearLayout.LayoutParams(WRAP, WRAP))
+            val flip3 = {
+                gPut(if (gParts() > 1) 1 else parts(act))
+                fill()
+            }
+            r3.setOnClickListener { flip3() }
+            s3.setOnClickListener { flip3() }
+            c3.addView(r3, LinearLayout.LayoutParams(MATCH, WRAP))
+            box.addView(c3, LinearLayout.LayoutParams(MATCH, WRAP))
         }
         fill()
         d.setContentView(root)

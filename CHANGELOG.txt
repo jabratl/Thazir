@@ -1,3 +1,12 @@
+0.0.360 (BUILD: "Download in parts" S4 - engine parts for big single files (bigfile.js))
+- WHY: plan step S4 of 5: Bilibili-type big files (video / audio as ONE file) were read in 4 MB pieces one after the other (slow on a fast line).
+- What: bigfile.js new readParts(): first piece 0..4 MB is read alone (learns the real total from Content-Range), then N workers take the next piece from a queue, every piece through the same readDirect / fetchRetry as before, Blob built in order. Progress = sum of pieces, same report() / setStats() path, text "Video: 12 MB / 80 MB - 4 parts - 4 MB/s - 0:20 left". mgBigFile tries 'parts' FIRST only when partsN > 1, then the old stages 'direct' and 'page' unchanged.
+- shared.js: DEFAULTS partsN: 1 (1 = off). options.html: 1 number row partsN (1-16) under "download in pieces" (binding is automatic from DEFAULTS). DlPartsUi.kt: 1 switch row "Also for big grabber files" in the sheet: ON = partsN = same number as Parts (dp_n), OFF = 1; changing Parts while ON updates partsN too.
+- Safe / fallback: partsN 1 (default) = byte for byte the 0.0.359 stages. chunkFile = false still switches all big-file stages off. Parts stage throws (= next stage, nothing half) when: server ignores Range, total unknown, file < 8 MB, a piece has a wrong size, size changes, a piece fails twice. Cancel / Pause use the same gate().
+- BROKEN / BHENGE-NI: nothing known. Memory is the same as the sequential stage (all pieces are kept either way).
+- NOT tested: Gradle build (CI), device, live Bilibili, stage 'page'. Tested here: node --check bigfile.js / shared.js; node mock with a local Range server: 5 parts bytes equal (4 parallel), server ignores Range -> next stage ok, one piece fails 2x -> still ok, cancel mid way, partsN 1 = old stage only, total unknown -> next stage, piece always fails -> next stages, small file -> next stage.
+- Files: assets/ext/bigfile.js, shared.js, options.html, CHANGELOG.txt, DlPartsUi.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF+Thazir+0.0.360.txt.
+
 0.0.359 (BUILD: "Download in parts" S3 - settings + parts UI, first time the switch can be turned on)
 - WHY: plan step S3 of 5: the user could not turn "Download in parts" on (no screen) and could not see the parts.
 - What: NEW DlPartsUi.kt: bottom sheet (switch dp_on, Parts 2/4/6/8/16 = dp_n, Only files bigger than 2/8/32 MB = dp_min_mb; BottomSheetDialog + NestedScrollView, ThazirSwitch, mg_* colours) + PartsBar view (one 6dp segment per part, 2dp gaps, track mg_outline, fill mg_primary) + text "4 parts · 3.1 MB/s · 0:42 left".
