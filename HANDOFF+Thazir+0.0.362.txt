@@ -1,8 +1,35 @@
 ================================================================================
-HANDOFF - Thazir 0.0.362 - S6 BUGFIX (parts 502 + Diagnose)  [S1-S5 DONE, S6 DONE, device test todo]
+HANDOFF - Thazir 0.0.362 - PLAN: "CHROME TAB GROUPS" (3 parts)   [P1 DONE, P2 + P3 todo]
 ================================================================================
-STATUS 0.0.362 (S6): see CHANGELOG 0.0.362 (top entry). bigfile.js readParts adaptive (slow start / re-queue / halve), DiagRules.kt subtitle false verdict fixed + rule dl-5xx.
-Live evidence: 8 parts on bilibili.tv -> Failed to fetch x15, 0 B piece, then 502 on the old stage too. Cause is from the code + log; NOT proven live yet.
-NEXT: (1) push zip, CI must build (S1-S6 Kotlin never compiled; if it fails send the Kotlin error line). (2) Device test: Bilibili with parts 2 and 4 first, then 8; send a new Diagnose report. (3) If 502 still comes with 2 parts: Bilibili CDN may not allow Range pieces in parallel at all -> keep parts OFF for engine ("Also for big grabber files" switch) and tell me. (4) T1-T13 from HANDOFF 0.0.361 section 8. (5) Then flip defaults ON (1 line each).
-Open: Resume of a plain file with parts; stage 'page' untested; pieces already got are thrown away when the parts stage fails (sequential restarts from 0).
-READ ONLY THIS TOP PART, older handoff = HANDOFF+Thazir+0.0.361.txt (grep only).
+User note: the person is NOT a coder. Reply in Banglish, short, numbered steps. Whole plan is built first, device test after P3.
+Design rules: read ONLY section 2 of HANDOFF_A_ACCESS.txt (mg_* colours via act.getColor, 20dp cards, dark + light, TabPrefs.reduce(act) = no animation, dialogs built fresh each open, 560dp cap).
+Prompt template had empty placeholders: assumed Thazir, P1, MODIFY, prev 0.0.361.
+
+STATUS 0.0.362 (P1 done: creating groups + Add to group + group Undo). File: TabSwitcher.kt only.
+- groupPicker(ids, names, onNew): BottomSheetDialog "Add to group" (New group row + groups with colour dot / count). askGroup() calls it.
+- addTo(): endSelect, pendingGlide = snapPos(), moveInto(name, ids) -> stays on grid + Undo bar "N tabs added to <name>".
+- ungroup(), deleteGroup(): Undo (whole group order + colour). closeGroup -> closeList(list, "Group closed"); doCloseList(list, msg) restores tabs at old group position (Snap.gi, back map).
+- tabMenu: "Add to group" / "Move to group", "Remove from group" (pullOut). groupMenu: "New tab in group" first.
+Checked: brace / paren / bracket balance of TabSwitcher.kt = 0 / 0 / 0 (same as 0.0.361), every patch single-match, names found by grep (groupOf, pullOut, moveInto, snapPos, press, round, tonal, ic_add, ic_close).
+NOT tested: Gradle build (CI; kotlinc not in sandbox), device, 360 / 1280dp, dark + light, rotation with the sheet open. If CI fails send the Kotlin error line first.
+
+--------------------------------------------------------------------------------
+PLAN (code map: TabSwitcher.kt object TabSwitcher > class Screen; GroupStrip.kt; SwipeAway.kt (SwipeAway.Bar = swipeable undo bar); TabManager.kt close() l372, ClosedTabs)
+--------------------------------------------------------------------------------
+P2 v0.0.363  UNDO EVERYWHERE + NEW TAB INSIDE GROUP (Chrome behaviour)
+ - GroupStrip.kt: chip x (tm.close(t)) and "+ new tab" have no Undo bar and no animation. Add an undo bar outside the switcher (new small helper, reuse SwipeAway.Bar, same look as TabSwitcher.undo(): mg_surface_variant, 16dp, 52dp, 5 s, swipe away, Settings "Show undo toast" respected via AppearancePrefs.undoToast).
+ - Closed tab / closed group Undo must also work from the main browser (tab close from bottom bar / strip), restore same group + position + colour. Group-level snapshot object (name, colour, ordered urls) shared by switcher + strip.
+ - moveInto() Undo restores OLD groups without their old order (uses plain add): store full lists like ungroup() does.
+ - "New tab in group": group view top "+" (newTab(false) already adds to openGroup), group card menu (done in P1), strip "+" (joinGroupOf). Add: new tab inserted right after the active tab of the group (Chrome), not at the end.
+ - Undo bar: stack of one only; a newer action replaces the old bar (already so). Swipe left / right removes (SwipeAway exists: check busy / onGone, reduce motion).
+P3 v0.0.364  CHROME ANIMATIONS (all skipped when TabPrefs.reduce(act))
+ - Tab card dropped on a tab / group: card shrinks INTO the target, target pulses, group card appears with name chip pop (dropOn already shrinks 0.35 + fade; add target pulse + merge).
+ - New group created from "Add to group": new group card scales in from the tab card position (glide + pop), then the Undo bar.
+ - Group panel open / close (applyPanel, popFrom): scale + corner radius from the card, scrim fade; close shrinks back into the group card.
+ - Swipe close card (dragTouch l~1228): fade + slide + neighbours glide (closeAnimated exists: tune curves to PathInterpolator(0.2,0,0,1), 200-250 ms).
+ - GroupStrip: collapse / expand chips animation, new chip slides in, closed chip shrinks out; strip slide-up exists (S15).
+ - Final regression: 360 + 1280dp, dark + light, rotation, Reduce motion ON, pinned tabs, private tab (not groupable), session restore of groups (exportGroups / importGroups).
+Kickoffs: "Thazir groups: read HANDOFF+Thazir+0.0.362.txt (top part), do P2 only. Patch only, changed files only, stop at 85% session, final reply max 8 lines, reply in Banglish."  (P3 same with P3.)
+Untouchable: Vault*, CI workflow, EngineHost / ChromeBridge / ExtApi, Backup JSON shape, groups session format (exportGroups v2).
+
+=== OLDER HANDOFF (download parts plan, 0.0.361): see HANDOFF+Thazir+0.0.361.txt ===

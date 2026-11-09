@@ -1,11 +1,9 @@
-0.0.362 (BUGFIX S6: "Download in parts" 502 on Bilibili + wrong Diagnose verdict)
-- WHY (live report 2026-11-09, bilibili.tv, 8 parts): all 8 parts failed ("Failed to fetch" x15, piece 1 = 0 B), then the old sequential stage got HTTP 502 too (server was throttled by the burst). Diagnose said "A subtitle file failed" (wrong) and had no rule for 502.
-- ROOT CAUSE (code, not 100% proven live): bigfile.js readParts started ALL workers at once (partsN) and ONE bad piece (error or wrong size, thrown outside the retry) killed the whole stage; no adaptive step in the JS stage (only Kotlin DlParts had it); next stage started at once at the throttled server. DiagRules.kt "subtitle-fail" matched the normal "[detect] subtitle <url>" log line.
-- What: bigfile.js readParts: slow start (2 connections, +1 after 2 good pieces, up to partsN); failed piece (error or wrong size) goes back in a queue, connections halved (min 1), pause 1.5 s x streak, stage fails only after 4 bad pieces in a row (or 40 total); Range ignored / size changed = fail at once (as before). readDirect got optional 4th param tries (parts use 3). mgBigFile waits 3 s before the sequential stage. DiagRules.kt: subtitle-fail needs "fail"/"error" in a log line; new rule dl-5xx (warn, fix: settings).
-- Safe / fallback: partsN 1 (default) = nothing of this runs. Any parts failure = old sequential stages as before. No setting / key / message changed.
-- Rollback: restore assets/ext/bigfile.js + DiagRules.kt from 0.0.361 (the 2 files only), version back to 0.0.361.
-- NOT tested: Gradle build (CI), device, live Bilibili, pause / cancel inside parts, dark + light. Tested: node --check; node mock Range server (ok, >2 connections reset, empty 0 B piece, always 502 = stage fails then old stages); Kotlin brace / paren / bracket delta 0.
-- Files: assets/ext/bigfile.js, assets/ext/CHANGELOG.txt, DiagRules.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF+Thazir+0.0.362.txt.
+0.0.362 (BUILD: "Chrome tab groups" P1 of 3 - creating groups, Add to group, group Undo)
+- WHY: group creation did not feel like Chrome: "Add to group" was a plain list, adding a tab jumped into the group, ungroup / delete group had no Undo, closing a group lost the tab order.
+- What (TabSwitcher.kt only): new groupPicker() = bottom sheet "Add to group" (New group row, then each group with colour dot + tab count; groups that already hold the tabs are hidden). addTo() now stays on the grid, cards glide, Undo bar "N tabs added to <name>" (goes through moveInto; the text now counts added tabs, not the group size). ungroup() + deleteGroup() get Undo (group order + colour restored). closeGroup says "Group closed" and Undo puts every tab back at its old place in the group (doCloseList keeps the group position). Tab menu: "Add to group" / "Move to group" + "Remove from group" (uses pullOut + Undo). Group menu: "New tab in group" first.
+- Safe / fallback: Settings "Show undo toast" OFF = no bar (deleteGroup then shows the old toast). No new pref, no new id, no new file.
+- NOT tested: Gradle build (CI), device, dark / light, 360 / 1280dp, rotation with the sheet open, Undo after ungroup / delete group / close group.
+- Files: TabSwitcher.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF+Thazir+0.0.362.txt.
 
 0.0.361 (BUILD: "Download in parts" S5 - plain file mode + Diagnose + help)
 - WHY: plan step S5 of 5: the engine plain file mode (downloadFile, one stream held in memory) could not use parts; Diagnose / help did not know the new feature.

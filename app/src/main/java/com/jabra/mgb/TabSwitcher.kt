@@ -889,7 +889,8 @@ object TabSwitcher {
         private fun tabMenu(anchor: View, t: TabManager.Tab) {
             val items = ArrayList<MI>()
             items.add(MI("Select tab", R.drawable.ic_check) { startSelect(t.id) })
-            if (!t.priv) items.add(MI("Add tab to group", R.drawable.ic_folder) { askGroup(setOf(t.id)) })
+            if (!t.priv) items.add(MI(if (groupOf(t) != null) "Move to group" else "Add to group", R.drawable.ic_folder) { askGroup(setOf(t.id)) })
+            if (!t.priv && groupOf(t) != null) items.add(MI("Remove from group", R.drawable.ic_close) { pullOut(t.id) }) // 0.0.362 (Undo comes from pullOut)
             if (!t.isExt) items.add(MI("Clone tab", R.drawable.ic_copy) { // T1
                 if (tm.cloneTab(t, false) != null) { Util.toast(act, "Tab cloned"); render() }
             })
@@ -906,6 +907,11 @@ object TabSwitcher {
 
         private fun groupMenu(anchor: View, name: String, inView: Boolean) {
             val items = ArrayList<MI>()
+            items.add(MI("New tab in group", R.drawable.ic_add) { // 0.0.362
+                val nt = tm.newTab(TabManager.HOME_PAGE, 0, true, false)
+                if (nt != null) groups[name]?.add(nt.id)
+                dismiss()
+            })
             if (inView) items.add(MI("Select tabs", R.drawable.ic_check) { startSelect(null) })
             items.add(MI("Copy group links", R.drawable.ic_copy) { // T1
                 TabBookmarks.copyLinks(act, (groups[name] ?: emptySet<Int>()).mapNotNull { tm.byId(it) })
@@ -1006,23 +1012,66 @@ object TabSwitcher {
                 }
             }
             if (names.isEmpty()) { newGroup(); return }
-            val items = (names + "New group...").toTypedArray()
-            MaterialAlertDialogBuilder(act).setTitle("Move to group").setItems(items) { _, i ->
-                if (i < names.size) addTo(names[i], ids) else newGroup()
-            }.show()
+            groupPicker(ids, names, newGroup)
+        }
+
+        /** 0.0.362 (Chrome look): "Add to group" sheet = New group row on top, then every group with its colour + tab count. Built fresh on each open (rotation safe). */
+        private fun groupPicker(ids: Set<Int>, names: List<String>, onNew: () -> Unit) {
+            val dlg = com.google.android.material.bottomsheet.BottomSheetDialog(act)
+            val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(16), dp(14), dp(18)) }
+            col.addView(TextView(act).apply {
+                text = if (ids.size == 1) "Add tab to group" else "Add " + ids.size + " tabs to group"
+                textSize = 20f; setTextColor(c(R.color.mg_text)); typeface = Typeface.DEFAULT_BOLD
+                setPadding(dp(6), 0, dp(6), dp(10))
+            }, LinearLayout.LayoutParams(MATCH, WRAP))
+            fun addRow(lead: View, label: String, info: String?, on: () -> Unit) {
+                val r = LinearLayout(act).apply {
+                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                    minimumHeight = dp(56); setPadding(dp(8), dp(6), dp(8), dp(6))
+                    background = round(Color.TRANSPARENT, 14)
+                    setOnClickListener { dlg.dismiss(); on() }
+                }
+                press(r)
+                r.addView(lead, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(14) })
+                val t = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+                t.addView(TextView(act).apply { text = label; textSize = 16f; maxLines = 1; ellipsize = TextUtils.TruncateAt.END; setTextColor(c(R.color.mg_text)) })
+                if (info != null) t.addView(TextView(act).apply { text = info; textSize = 12f; setTextColor(c(R.color.mg_text_dim)) })
+                r.addView(t, LinearLayout.LayoutParams(0, WRAP, 1f))
+                col.addView(r, LinearLayout.LayoutParams(MATCH, WRAP))
+            }
+            val plus = FrameLayout(act).apply { background = round(tonal(c(R.color.mg_primary), 0.35f), 18) }
+            plus.addView(ImageView(act).apply { setImageResource(R.drawable.ic_add); setColorFilter(c(R.color.mg_primary)) }, FrameLayout.LayoutParams(dp(20), dp(20), Gravity.CENTER))
+            addRow(plus, "New group", null) { onNew() }
+            for (n in names) {
+                if (groups[n]?.containsAll(ids) == true) continue // already there
+                val k = groups[n]?.size ?: 0
+                val dot = View(act).apply { background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(colorOf(n)) } }
+                addRow(dot, n, k.toString() + (if (k == 1) " tab" else " tabs")) { addTo(n, ids) }
+            }
+            val sv = ScrollView(act).apply { addView(col) }
+            dlg.setContentView(sv)
+            dlg.show()
         }
 
         private fun addTo(name: String, ids: Set<Int>) {
-            for (g in groups.values) g.removeAll(ids)
-            groups.getOrPut(name) { LinkedHashSet() }.addAll(ids)
-            endSelect(false)
-            openGroupView(name)
+            endSelect(false) // 0.0.362 (Chrome): stay on the grid, cards glide, Undo bar (moveInto)
+            pendingGlide = snapPos()
+            moveInto(name, ids)
         }
 
         private fun ungroup() {
-            for (g in groups.values) g.removeAll(picked)
+            val ids = HashSet(picked)
+            val snap = LinkedHashMap<String, List<Int>>() // 0.0.362: whole group order + colour, for Undo
+            val cols = HashMap<String, Int>()
+            for ((n, g) in groups) if (g.any { it in ids }) { snap[n] = g.toList(); colors[n]?.let { cols[n] = it } }
+            for (g in groups.values) g.removeAll(ids)
             endSelect(false)
             render()
+            if (snap.isNotEmpty()) undo((if (ids.size == 1) "1 tab" else ids.size.toString() + " tabs") + " ungrouped") {
+                for ((n, l) in snap) { groups[n] = LinkedHashSet<Int>(l); cols[n]?.let { colors[n] = it } }
+                animateNext = false
+                render()
+            }
         }
 
         private fun renameGroup(old: String) {
@@ -1044,38 +1093,50 @@ object TabSwitcher {
 
         private fun closeGroup(name: String) {
             val ids = groups[name] ?: return
-            closeList(tm.allTabs().filter { it.id in ids })
+            closeList(tm.allTabs().filter { it.id in ids }, "Group closed") // 0.0.362
         }
 
         private fun deleteGroup(name: String) {
+            val ids = groups[name]?.toList() ?: emptyList() // 0.0.362: Undo brings the group back (same tabs, order, colour)
+            val col = colors[name]
             groups.remove(name)
             colors.remove(name)
             if (openGroup == name) { openGroup = null; mode = backMode }
-            Util.toast(act, "Group deleted, tabs kept")
             render()
+            if (ids.isEmpty()) return
+            if (!AppearancePrefs.undoToast(act)) Util.toast(act, "Group deleted, tabs kept")
+            undo("Group deleted") {
+                if (!groups.containsKey(name)) {
+                    for (g in groups.values) g.removeAll(ids.toSet())
+                    groups[name] = LinkedHashSet<Int>(ids)
+                    if (col != null) colors[name] = col
+                }
+                animateNext = false
+                render()
+            }
         }
 
-        private fun closeList(list: List<TabManager.Tab>) {
+        private fun closeList(list: List<TabManager.Tab>, msg: String? = null) {
             if (list.isEmpty()) return
             if (TabPrefs.confirmClose(act)) { // S21f: Settings > Tabs > Ask before Close all
                 MaterialAlertDialogBuilder(act)
                     .setMessage("Close " + list.size + " tab" + (if (list.size == 1) "" else "s") + "?")
-                    .setPositiveButton("Close") { _, _ -> doCloseList(list) }
+                    .setPositiveButton("Close") { _, _ -> doCloseList(list, msg) }
                     .setNegativeButton("Cancel", null)
                     .show()
-            } else doCloseList(list)
+            } else doCloseList(list, msg)
         }
 
-        private fun doCloseList(list: List<TabManager.Tab>) {
+        private fun doCloseList(list: List<TabManager.Tab>, msg: String? = null) {
             // S21d: no confirm dialog: close at once and offer Undo (http tabs come back at the same place and group)
-            class Snap(val url: String, val idx: Int, val g: String?, val col: Int?)
+            class Snap(val url: String, val idx: Int, val g: String?, val col: Int?, val gi: Int = -1)
             val all = tm.allTabs()
             val snaps = ArrayList<Snap>()
             for (t in list) {
                 val url = t.web.url ?: t.url
                 if (t.priv || t.isExt || t.home || !url.startsWith("http")) continue
                 val g = groupOf(t)
-                snaps.add(Snap(url, all.indexOf(t), g, g?.let { colors[it] }))
+                snaps.add(Snap(url, all.indexOf(t), g, g?.let { colors[it] }, g?.let { groups[it]?.toList()?.indexOf(t.id) } ?: -1))
             }
             snaps.sortBy { it.idx }
             val n = list.size
@@ -1083,17 +1144,21 @@ object TabSwitcher {
             for (t in list) tm.close(t)
             endSelect(false)
             render()
-            if (snaps.isNotEmpty()) undo((if (n == 1) "1 tab" else "$n tabs") + " closed") {
+            if (snaps.isNotEmpty()) undo(msg ?: ((if (n == 1) "1 tab" else "$n tabs") + " closed")) {
+                val back = HashMap<String, ArrayList<Pair<Int, Int>>>() // 0.0.362: group -> (old place in the group, new tab id)
                 for (s in snaps) {
                     val nt = tm.newTab(s.url, 0, false, false) ?: continue
                     ClosedTabs.remove(s.url)
                     tm.moveTo(nt, s.idx)
                     if (s.g != null) {
-                        val l = ArrayList(groups[s.g] ?: emptySet<Int>())
-                        l.add(nt.id)
-                        groups[s.g] = LinkedHashSet<Int>(l)
+                        back.getOrPut(s.g) { ArrayList() }.add(Pair(s.gi, nt.id))
                         if (s.col != null && !colors.containsKey(s.g)) colors[s.g] = s.col
                     }
+                }
+                for ((gn, l) in back) {
+                    val cur = ArrayList(groups[gn] ?: emptySet<Int>())
+                    for ((gi, id) in l.sortedBy { it.first }) cur.add(if (gi < 0) cur.size else gi.coerceIn(0, cur.size), id)
+                    groups[gn] = LinkedHashSet<Int>(cur)
                 }
                 if (onlyAll) tm.allTabs().filter { it.home && !it.priv }.forEach { h -> if (tm.allTabs().size > 1) tm.close(h) } // the Home tab made by closing everything
                 pendingGlide = null
@@ -1326,8 +1391,8 @@ object TabSwitcher {
             groups.getOrPut(name) { LinkedHashSet() }.addAll(ids)
             animateNext = false
             render()
-            val n = groups[name]?.size ?: ids.size
-            undo((if (n == 1) "1 tab" else "$n tabs") + " grouped") {
+            val gl = if (name.length > 18) name.take(17) + "\u2026" else name
+            undo((if (ids.size == 1) "1 tab" else ids.size.toString() + " tabs") + " added to " + gl) { // 0.0.362: count of tabs added, not group size
                 for (g in groups.values) g.removeAll(ids)
                 for ((i, gn) in before) groups.getOrPut(gn) { LinkedHashSet() }.add(i)
                 if (!hadGroup) { groups.remove(name); colors.remove(name) }
