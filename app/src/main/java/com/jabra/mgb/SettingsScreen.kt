@@ -91,7 +91,7 @@ object SettingsScreen {
         private val RESET = mapOf(
             "general" to listOf("night", "accent", "dark_pages", "engine", "tr_lang", "hide_bar", "pull_refresh", "rotate_browser",
                 "ap_bar_pos", "ap_home_action", "ap_full_url", "ap_swipe_fs", "ap_swipe_tabs", "ap_swipe_side", "ap_swipe_nav", "ap_wp_dim", "ap_undo_toast", "ap_start_page", "ap_bar_compact", "ap_nav_back", "ap_nav_fwd", "ap_nav_hide", "ap_zoom_def", "ap_force_zoom", "ap_touchpad", "ap_simple_hint", "sm_on", "sm_sep", "sm_int", "sm_full", "sm_bars", "sm_back", "sm_splash", "sm_cs", "sm_kb", "sm_big", "sm_links", "sm_win", "sm_dfix", "sm_pre", "sm_keep", "sm_dyn", "sm_touch", "sm_fbshare", "sm_clean", "sm_lock", "sm_lockd", "sm_err", "sm_focus", "sm_ext", "sm_pip", "sm_dock", "sm_save2", "sm_mute", "sm_tl", "sm_t_day", "sm_t_sec") + MediaPrefs.KEYS + Orbit.KEYS + SiteMute.KEY + SocialProfiles.all.map { "sm_s_" + it.id } + SocialProfiles.all.map { "sm_x_" + it.id } + SocialProfiles.all.map { "sm_ua_" + it.id } + SocialBlur.keys + SocialBadge.keys + SocialNsfw.keys + SocialDark.keys + SocialSlot.keys + listOf("swipe_close", "close_confirm", "reduce_motion", "tab_suspend_min"), // A9, A11, A1, A2: + Appearance keys; 0.0.312: + Tabs keys (Tabs card merged into Browser)
-            "downloads" to listOf("auto_diag", "dr_wifi", "dr_metered", "dr_batt", "dr_store", "li_on"), // D1, D2: download rules
+            "downloads" to listOf("auto_diag", "dr_wifi", "dr_metered", "dr_batt", "dr_store", "li_on", "dp_on", "dp_n", "dp_min_mb"), // D1, D2: download rules
             "grabber" to listOf("web_play", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),
             "player" to listOf("pl_gestures", "pl_hold_speed", "pl_hold_slide", "pl_dtap_sec", "pl_seek_sens", "pl_vol_boost", "pl_bright", "pl_fit_default",
                 "pl_speed_keep", "pl_speed_last", "pl_speeds", "pl_quality_cap", "pl_repeat", "pl_sub_size", "pl_sub_bg", "pl_sub_pos", "sub_size", "sub_color", "bg_audio"),
@@ -173,6 +173,7 @@ object SettingsScreen {
             "Ask before Close all" to "confirm dialog tabs",
             "Reduce motion" to "animation animations effects fade transitions speed",
             "Download folder" to "storage location save path sd card",
+            "Download in parts" to "parallel connections threads segments multi part faster speed 1dm range",
             "Download quality" to "resolution 1080 720 best height",
             "Convert .ts to .mp4" to "hls merge remux",
             "Subtitles and file names" to "srt vtt naming template language",
@@ -1091,6 +1092,7 @@ object SettingsScreen {
                 Row(R.drawable.ic_download, "Audio only downloads", if (QualityPrefs.audioOnlyOn()) "ON" else "OFF", "Streams with a separate audio track. Also in batches") { QualityPrefs.toggleAudioOnly(act) { fill() } },
                 Row(R.drawable.ic_folder, "Batch: folder and number", if (NameIndex.on()) "ON" else "OFF", "Show folder and 01 - title for batches") { NameIndex.toggle(act) { fill() } },
                 Row(R.drawable.ic_download, "Link inbox", if (LinkInbox.on(act)) "ON" else "OFF", "Card for a shared or copied video link") { LinkInbox.setOn(act, !LinkInbox.on(act)); fill() },
+                Row(R.drawable.ic_download, "Download in parts", DlPartsUi.summary(act), "Big files in several pieces at once. Faster on servers that allow it") { DlPartsUi.open(act) { fill() } }, // 0.0.359 S3
                 Row(R.drawable.ic_download, "Download rules", DlRules.summary(act), "Wi-Fi only, battery, storage. Checked before a download starts") { DlRules.dialog(act) { fill() } }
             ))
             category("grabber", R.drawable.ic_settings, "Grabber and buttons", "Engine, buttons, player", listOf(

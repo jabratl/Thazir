@@ -78,6 +78,20 @@ object DlParts {
         /** New round after a soft failure (all workers of the old round are finished). */
         fun reset() { stop = false; kind = 0; netEx = null; err.set(null); calls.clear(); next.set(0) }
         fun sum(): Long { var t = 0L; for (i in 0 until n) t += done.get(i); return t }
+
+        // 0.0.359 (S3): speed meter (bytes per second, smoothed). tick() is called by the progress loop only.
+        @Volatile var speed = 0L
+        private var mT = 0L
+        private var mB = 0L
+        fun tick(now: Long) {
+            val b = sum()
+            if (mT == 0L) { mT = now; mB = b; return }
+            val dt = now - mT
+            if (dt < 500L) return
+            val inst = ((b - mB).coerceAtLeast(0L) * 1000L) / dt
+            speed = if (speed == 0L) inst else (speed * 7L + inst * 3L) / 10L
+            mT = now; mB = b
+        }
     }
 
     private class Probe(val code: Int, val total: Long, val vld: String, val ct: String, val cd: String?, val fu: String, val enc: String)
@@ -114,6 +128,18 @@ object DlParts {
     // ---------- control ----------
 
     fun abort(item: DlItem) { try { runs[item.id]?.halt() } catch (e: Exception) { } }
+
+    /** 0.0.359 (S3): fraction 0..1 of every part of a RUNNING parts download. null = this id is not running in parts mode. */
+    fun snapshot(id: Int): List<Double>? {
+        val r = runs[id] ?: return null
+        return List(r.n) { i ->
+            val len = r.ends[i] - r.starts[i] + 1L
+            if (len <= 0L) 1.0 else (r.done.get(i).toDouble() / len).coerceIn(0.0, 1.0)
+        }
+    }
+
+    /** 0.0.359 (S3): smoothed bytes per second of a running parts download (0 = unknown). */
+    fun speed(id: Int): Long = runs[id]?.speed ?: 0L
 
     private fun userStop(item: DlItem): Boolean = item.paused || item.state != "in_progress"
 
@@ -280,6 +306,7 @@ object DlParts {
             val ch = f.channel
             runs[item.id] = r
             item.received = r.sum()
+            r.tick(SystemClock.elapsedRealtime())
             Diag.i(TAG, (if (resuming) "resume " else "start ") + r.n + " parts with $k connections, ${total / 1024} KB, have ${r.sum() / 1024} KB")
 
             var w = k
@@ -299,6 +326,7 @@ object DlParts {
                 }
                 while (!latch.await(250, TimeUnit.MILLISECONDS)) {
                     item.received = r.sum()
+                    r.tick(SystemClock.elapsedRealtime())
                     if (userStop(item)) r.halt()
                     val now = SystemClock.elapsedRealtime()
                     if (now - lastSave >= 1000L) {

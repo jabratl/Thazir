@@ -295,9 +295,20 @@ object DownloadsApi {
                 "done" -> ""
                 else -> if (i.error == "USER_CANCELED") "Canceled" else i.error.ifBlank { "Failed" }
             }
-            JSONObject().put("key", "nat:" + i.id).put("title", name).put("state", st).put("paused", i.paused && st == "run")
+            val row = JSONObject().put("key", "nat:" + i.id).put("title", name).put("state", st).put("paused", i.paused && st == "run")
                 .put("pct", if (tot > 0) (rec.toDouble() / tot).coerceIn(0.0, 1.0) else 0.0).put("text", text)
                 .put("url", i.url).put("native", true).put("canResume", i.canResume && st == "fail").put("updated", if (st == "run") System.currentTimeMillis() else maxOf(i.start, i.end))
+            // 0.0.359 (S3): optional fields only for a running parts download: parts = fraction per part, speed = bytes / s, eta = seconds left
+            try {
+                if (st == "run" && !i.paused) DlParts.snapshot(i.id)?.let { ps ->
+                    val pa = JSONArray(); for (v in ps) pa.put(v)
+                    row.put("parts", pa)
+                    val sp = DlParts.speed(i.id)
+                    row.put("speed", sp)
+                    if (sp > 0L && tot > rec) row.put("eta", (tot - rec) / sp)
+                }
+            } catch (e: Exception) { }
+            row
         }
     }
 

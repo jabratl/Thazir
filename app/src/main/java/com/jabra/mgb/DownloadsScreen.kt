@@ -275,7 +275,8 @@ object DownloadsScreen {
             val jobs = EngineApi.jobs()
             val hist = histOf()
             val s = jobs.joinToString("|") {
-                it.optString("key") + ":" + it.optString("state") + ":" + pctOf(it) + ":" + it.optBoolean("paused") + ":" + it.optString("text")
+                it.optString("key") + ":" + it.optString("state") + ":" + pctOf(it) + ":" + it.optBoolean("paused") + ":" + it.optString("text") +
+                    (it.optJSONArray("parts")?.let { a -> ":" + (0 until a.length()).joinToString(",") { i -> ((a.optDouble(i, 0.0) * 50).toInt()).toString() } + ":" + it.optLong("eta") + ":" + it.optLong("speed") / 100000L } ?: "") // 0.0.359 S3: parts rows only
             } + "?" + query + "#" + hist.joinToString("|") { it.optString("id") + ":" + it.optLong("time") } +
                 "~" + selecting + picked.sorted().joinToString(",")
             if (s == sig) return
@@ -389,6 +390,13 @@ object DownloadsScreen {
                     progressTintList = android.content.res.ColorStateList.valueOf(act.getColor(R.color.mg_primary))
                     progressBackgroundTintList = android.content.res.ColorStateList.valueOf(act.getColor(R.color.mg_surface_variant))
                 }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(6)).apply { topMargin = dp(10) })
+                j.optJSONArray("parts")?.let { pa -> // 0.0.359 S3: only rows of a running parts download carry this field
+                    if (pa.length() > 0) {
+                        val fr = List(pa.length()) { pa.optDouble(it, 0.0) }
+                        c.addView(DlPartsUi.bar(act, fr), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(6)).apply { topMargin = dp(6) })
+                        c.addView(label(DlPartsUi.infoText(j), 12f, act.getColor(R.color.mg_text_dim), 1), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
+                    }
+                }
             }
             val actions = actionRow()
             if (state == "run") {

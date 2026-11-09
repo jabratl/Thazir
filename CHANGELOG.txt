@@ -1,3 +1,15 @@
+0.0.359 (BUILD: "Download in parts" S3 - settings + parts UI, first time the switch can be turned on)
+- WHY: plan step S3 of 5: the user could not turn "Download in parts" on (no screen) and could not see the parts.
+- What: NEW DlPartsUi.kt: bottom sheet (switch dp_on, Parts 2/4/6/8/16 = dp_n, Only files bigger than 2/8/32 MB = dp_min_mb; BottomSheetDialog + NestedScrollView, ThazirSwitch, mg_* colours) + PartsBar view (one 6dp segment per part, 2dp gaps, track mg_outline, fill mg_primary) + text "4 parts · 3.1 MB/s · 0:42 left".
+- SettingsScreen.kt: 1 row "Download in parts" (value OFF / ON · N parts) in Downloads > Quality and files, search keywords, dp_on / dp_n / dp_min_mb added to the "downloads" RESET list (Reset on the card turns the switch OFF again).
+- DownloadsScreen.kt: jobRow shows PartsBar + text under the ProgressBar ONLY when the row has a "parts" field; list refresh signature also sees parts / eta / speed (parts rows only). Rows without "parts" are unchanged.
+- DownloadsApi.kt: plainJobs() adds optional fields parts (fraction per part), speed (bytes / s), eta (seconds) for a running, not paused parts download. Old fields unchanged. (eta is new vs the plan, which listed only parts + speed: the text needs it.)
+- DlParts.kt: snapshot(id) + speed(id) + small speed meter (smoothed, ticked by the existing 250 ms progress loop). No download logic changed.
+- Safe / fallback: switch OFF = old behaviour (DlParts.run returns false at once). Any error in the new row fields is caught: row then looks like before.
+- BROKEN / BHENGE-NI: nothing known. A PAUSED parts row shows the normal bar (parts are only drawn while running).
+- NOT tested: Gradle build (CI), device, live sites. Checked: brace / paren balance, ids / names exist (grep), diff scope.
+- Files: DlPartsUi.kt (new), DlParts.kt, DownloadsApi.kt, DownloadsScreen.kt, SettingsScreen.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF+Thazir+0.0.359.txt.
+
 0.0.358 (MODIFY: "Download in parts" S2 - resume + safety, switch still OFF)
 - WHY: plan step S2 of 5: pause / app kill / network loss must not throw the parts away.
 - What (DlParts.kt): state file files/dl/<id>.pp.json {v,url,total,validator,n,parts[{s,e,d}]} saved about every 1 s (tmp + rename, written AFTER the bytes) and on pause; run() restores it: every part continues from its own offset. Probe is repeated on resume: changed total / validator (or server answers 200 to If-Range) = old parts deleted, start again (never mixed). Parts layout is fixed, workers take unfinished parts, so fewer connections are possible: HTTP 429 / 403 / 200 / 5xx = connections halve (min 2), 2nd bad round = old single connection. 401 / 416 / bad Content-Range = old single connection at once. Network loss (3 retries, counter resets on progress) = state KEPT, item becomes interrupted + Resume button. Pause keeps state; cancel / error clean it. hasState(id) new. Disk check only for a fresh start. Global cap 16 stays (resume with cap full = interrupted, Resume later).
