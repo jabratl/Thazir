@@ -103,7 +103,7 @@ object Downloader {
         pool.execute { run(item) }
     }
 
-    fun abort(item: DlItem) { try { item.call?.cancel() } catch (e: Exception) { } }
+    fun abort(item: DlItem) { try { item.call?.cancel() } catch (e: Exception) { }; DlParts.abort(item) } // 0.0.357: DlParts.abort never throws
 
     private fun checkStop(item: DlItem) {
         if (item.paused || item.state != "in_progress") throw Stop(null)
@@ -173,7 +173,8 @@ object Downloader {
         return v
     }
 
-    private fun open(item: DlItem, have: Long): Response {
+    // 0.0.357: private -> internal + 2 optional params (defaults = old behaviour). rangeEnd >= 0: "bytes=have-rangeEnd" (DlParts); onCall != null: the Call goes to the callback, not to item.call.
+    internal fun open(item: DlItem, have: Long, rangeEnd: Long = -1L, onCall: ((okhttp3.Call) -> Unit)? = null): Response {
         val h = TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER)
         h["User-Agent"] = userAgent()
         h["Accept"] = "*/*"
@@ -186,8 +187,8 @@ object Downloader {
         }
         val rb = try { Request.Builder().url(item.url) } catch (e: IllegalArgumentException) { throw Stop("NETWORK_INVALID_REQUEST") }
         for ((k, v) in h) rb.header(k, v)
-        if (have > 0) {
-            rb.header("Range", "bytes=$have-")
+        if (have > 0 || rangeEnd >= 0) {
+            rb.header("Range", if (rangeEnd >= 0) "bytes=$have-$rangeEnd" else "bytes=$have-")
             if (item.validator.isNotEmpty()) rb.header("If-Range", item.validator)
         }
         if (item.method == "POST") {
@@ -195,7 +196,7 @@ object Downloader {
             rb.post((item.body ?: "").toRequestBody(ct))
         } else rb.get()
         val call = client.newCall(rb.build())
-        item.call = call
+        if (onCall != null) onCall(call) else item.call = call
         return call.execute()
     }
 
@@ -207,7 +208,7 @@ object Downloader {
         else -> "SERVER_FAILED"
     }
 
-    private fun nameFromResponse(url: String, cd: String?, ct: String): String {
+    internal fun nameFromResponse(url: String, cd: String?, ct: String): String {
         var name = ""
         if (cd != null) {
             Regex("filename\\*\\s*=\\s*[^']*'[^']*'([^;]+)", RegexOption.IGNORE_CASE).find(cd)?.let {
@@ -228,6 +229,8 @@ object Downloader {
     }
 
     private fun runHttp(item: DlItem) {
+        // 0.0.357: parts mode first (switch dp_on, OFF by default). true = whole file is in partFile; false / error = old code below.
+        try { if (DlParts.run(item)) return } catch (e: IOException) { throw e } catch (e: Exception) { Diag.w("dlparts", "hook " + e.javaClass.simpleName) }
         val part = partFile(item.id)
         var have = if (part.exists()) part.length() else 0L
         var tries = 0

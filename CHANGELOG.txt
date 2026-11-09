@@ -1,3 +1,14 @@
+0.0.357 (ADD: "Download in parts" S1 - native core, switch OFF, no UI yet)
+- WHY: user plan "DOWNLOAD IN PARTS" (1DM style), step S1 of 5.
+- What: NEW DlParts.kt. One http(s) GET file = N parallel Range parts (N = pref dp_n, 2/4/6/8/16, default 4) written into one preallocated files/dl/<id>.pp; when complete it is renamed to the old <id>.part, so finish() / publish() are unchanged. Probe = one request "bytes=0-0" (needs 206 + Content-Range total, no Content-Encoding). Prefs (mgb_ui): dp_on (default FALSE), dp_n (4), dp_min_mb (8). Global cap 16 part workers, own thread pool (not Downloader.pool). Disk check (total + 32 MB free). Part network error = 3 retries from the byte already written. Part answers 200 / 401 / 403 / 416 / 429, wrong Content-Range or changed size = whole parts mode stops.
+- DownloadService.kt (3 small hooks): runHttp() first line calls DlParts.run(item) (true = file complete, return; false / any error = old code below, untouched); abort() also calls DlParts.abort(item); open() private -> internal + 2 optional params (rangeEnd = -1, onCall = null; defaults = old behaviour byte for byte); nameFromResponse() private -> internal (DlParts sets the file name like the old code).
+- Plan note: plan said open(..., track: Boolean); built as onCall callback instead, because DlParts needs the Call object to cancel part requests on pause / cancel.
+- Safe / fallback: dp_on OFF = DlParts.run returns false at once (old path). POST, blob:, data:, no Range, size unknown, file < dp_min_mb, low disk, any exception = old single connection. Pause / cancel = IOException (Downloader.run already stops silently), .pp deleted, .part never touched until the file is complete.
+- BROKEN / BHENGE-NI: nothing (switch has no UI yet: dp_on can only be set from S3, so S1 is "dark").
+- Known limit (S2 fixes): pause / app kill = parts start again from 0; .pp leftover of a deleted / killed item stays in files/dl until S2 (clean on delete + restore).
+- NOT tested: Gradle build (CI), device, live sites. Checked: brace / paren balance, hook sits before old code, old open() callers compile via defaults, no comment-open inside Kotlin comments.
+- Files: app/src/main/java/com/jabra/mgb/DlParts.kt (new), DownloadService.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF+Thazir+0.0.357.txt.
+
 0.0.356 (ADD: progress also for the LAST way (whole file in one request) of a big single file)
 - WHY: user asked: the final whole-file fallback of Bilibili big files had no progress; add it if it causes no problem for the native downloader / browser.
 - What: bigfile.js new mgWholeFile(url, label): the SAME request as before (fetchRetry(url)), but the body is read as a stream so report() / setStats() / progress() run (every 250 ms, display only, try / catch). downloader.js fileBlob(): order is now 1) pieces 2) pieces via page 3) whole file WITH progress (new) 4) the old plain fetchRetry(url).blob() (unchanged, still the very last way).
