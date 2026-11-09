@@ -122,18 +122,28 @@ object Downloader {
                 }
                 finish(item)
             } catch (s: Stop) {
+                if (s.code == "FILE_FAILED") why(s)
                 if (s.code != null) fail(item, s.code)
             } catch (e: IOException) {
                 if (item.paused || item.state != "in_progress") return
                 fail(item, ioCode(e))
             } catch (e: Exception) {
                 if (item.paused || item.state != "in_progress") return
+                why(e)
                 fail(item, "FILE_FAILED")
             }
         } finally {
             item.call = null
             item.lock.unlock()
         }
+    }
+
+    /** 0.0.353: FILE_FAILED is thrown from ~12 places; this logs WHICH one (class, message, file:line). Log only, never changes the flow. */
+    private fun why(t: Throwable) {
+        try {
+            val f = t.stackTrace.firstOrNull()
+            Diag.w("dlwhy", "FILE_FAILED " + t.javaClass.simpleName + " " + (t.message ?: "").take(100) + (if (f != null) " @" + f.fileName + ":" + f.lineNumber else ""))
+        } catch (e: Throwable) { }
     }
 
     private fun ioCode(e: IOException): String {
@@ -383,6 +393,7 @@ object Downloader {
         val size = part.length()
         val pub = try { publish(item, part) } catch (e: Stop) { throw e } catch (e: Exception) {
             val m = e.message ?: ""
+            why(e)
             throw Stop(if (m.contains("ENOSPC") || m.contains("No space", true)) "FILE_NO_SPACE" else "FILE_FAILED")
         }
         part.delete()

@@ -990,6 +990,14 @@ function preferBox(list, hasAudio) {
   return m.length ? m : list;
 }
 
+// 0.0.353 hook: a single big file (DASH BaseURL, Bilibili) is read in pieces by bigfile.js; any failure / null / setting off = the old whole-file request below.
+async function fileBlob(url) {
+  try {
+    if (SET.chunkFile !== false && typeof mgBigFile === 'function') { const b = await mgBigFile(url); if (b) return b; }
+  } catch (e) { if (e && (e.message === 'Cancelled' || e.name === 'AbortError')) throw e; dbg('dl', 'pieces failed, whole file instead: ' + String((e && e.message) || e).slice(0, 100)); }
+  return await (await fetchRetry(url)).blob();
+}
+
 async function runDash(text) {
   $('#options').textContent = '';
   $('#cancel').hidden = false; $('#pause').hidden = false;
@@ -1008,7 +1016,7 @@ async function runDash(text) {
     const got = [];
     for (const [rep, suffix] of [[v, ''], [auds[0], 'audio']]) {
       cancelled = false;
-      if (rep.file) { status('Downloading ' + (suffix || 'video') + '...'); got.push({ rep, suffix, blob: await (await fetchRetry(rep.file)).blob() }); }
+      if (rep.file) { status('Downloading ' + (suffix || 'video') + '...'); got.push({ rep, suffix, blob: await fileBlob(rep.file) }); }
       else got.push({ rep, suffix, r: await downloadSegments({ segs: rep.segs.map((u) => ({ url: u })), map: rep.init ? { url: rep.init, range: null } : null }, suffix || 'Video') });
     }
     let merged = null;
@@ -1034,7 +1042,7 @@ async function runDash(text) {
     if (!SAVED[sk]) {
       if (rep.file) {
         status('Downloading ' + (suffix || 'video') + '...');
-        SAVED[sk] = await save(await (await fetchRetry(rep.file)).blob(), rep.type === 'audio' ? 'm4a' : 'mp4', suffix);
+        SAVED[sk] = await save(await fileBlob(rep.file), rep.type === 'audio' ? 'm4a' : 'mp4', suffix);
       } else {
         const r = await downloadSegments({ segs: rep.segs.map((u) => ({ url: u })), map: rep.init ? { url: rep.init, range: null } : null }, suffix || 'Video');
         SAVED[sk] = await saveSegments({ ...r, ext: 'mp4' }, suffix, rep.type === 'audio');

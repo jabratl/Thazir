@@ -1,3 +1,14 @@
+0.0.353 (FIX: Bilibili / big single file "Failed to fetch"; ADD: FILE_FAILED reason log)
+- WHY: Bilibili (bilibili.tv) video was found by the grabber, but the download ended "Failed: Failed to fetch" (2 jobs in the Diagnose report) and the verdict said "choose the download folder again".
+- Root cause (code reading, device NOT re-tested): Bilibili hands over video and audio as ONE big file each (DASH BaseURL only). downloader.js runDash read each file with ONE request (fetchRetry(rep.file).blob()): one dropped / slow connection = the whole file fails, no piece is kept. Still "most likely", NOT proven on the device.
+- Folder advice was a wrong lead: DownloadService.publish() already falls back to the Downloads folder when the picked folder fails. FILE_FAILED is thrown from ~12 places (blob read, timeouts, publish ...), the log did not say which.
+- Fix 1: new ext/bigfile.js (mgBigFile): the file is read in 4 MB Range pieces, each piece has the normal fetchRetry retries; stage 2 = same pieces through the video page (viaPageBin). downloader.js: small hook fileBlob() at the 2 places that read rep.file. Any failure / null / setting off = the OLD whole-file request (final fallback, unchanged).
+- Fix 2 (log only): DownloadService.kt why(): a FILE_FAILED now also writes one line "dlwhy FILE_FAILED <class> <message> @File.kt:line" (shows in Diagnose > Recent errors). Flow unchanged.
+- New setting: chunkFile (shared.js DEFAULTS, true) + row in the engine options page "Big single files: download in pieces". Nothing renamed / removed.
+- BROKEN / BHENGE-NI: nothing. Same-name files, keys, message types unchanged.
+- NOT tested: Gradle build (CI), device, live Bilibili. Tested here: node --check on the 3 JS files; node mock test of bigfile.js (10 MB + 7 bytes, exact 8 MB, 100 bytes, server ignores Range, direct fails -> page stage, Cancelled passes through): all OK.
+- Files: app/src/main/assets/ext/bigfile.js (NEW), downloader.js, downloader.html, offscreen.html, shared.js, options.html, app/src/main/java/com/jabra/mgb/DownloadService.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt
+
 0.0.352 (FIX: Episodes / chapters sheet scroll)
 - WHY: scrolling the episode list moved the whole sheet down and a small drag closed it (user screen recording).
 - Root cause: NativeBatch.kt ~268 plain ScrollView in a BottomSheetDialog = no nested scrolling, the sheet took the touch. Working sheets use NestedScrollView.

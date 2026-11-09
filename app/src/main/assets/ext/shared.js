@@ -51,6 +51,7 @@ const DEFAULTS = {
   minDurationSec: 0,       // hide HLS/DASH streams shorter than this many seconds (ads, previews). 0 = off
   liveMaxMin: 120,         // live HLS recording: stop and save after this many minutes (0 = until you press Stop)
   siteModules: true,       // site modules: TikTok, Douyin, Vimeo, SoundCloud, Bandcamp (siteHook.js) + Bilibili, iQIYI, Facebook, Instagram, TwitCasting, Showroom, CNTV, Weverse (siteMax.js, V82) readers + Telegram Web button
+  chunkFile: true,         // 0.0.353: a single big file (Bilibili DASH video / audio) is downloaded in 4 MB pieces, each with its own retry. Off = the old one-request download
   siteMaxFetch: true,      // 0.0.348: Facebook / Instagram reader reads the page's own HTML again after an address change (one same-origin request, min 1.5 s apart). Off = only the HTML already in the page
   msOffSites: 'ok.ru',     // sites where MediaSource is switched off so the player falls back to a downloadable URL (one domain per line)
   speedLimitKBps: 0,       // bandwidth limit for stream downloads in KB/s per download (0 = unlimited)
