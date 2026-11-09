@@ -198,10 +198,10 @@ object DownloadsApi {
                     if (!(http && i.paused)) {   // a paused http download stays paused, everything else was cut by the process death
                         i.state = "interrupted"; i.error = "CRASH"; i.paused = false
                     }
-                    i.canResume = http && part.exists()
-                    if (!http) part.delete()
+                    i.canResume = http && (part.exists() || DlParts.hasState(i.id)) // 0.0.358: parts download keeps ID.pp + ID.pp.json
+                    if (!http) { part.delete(); DlParts.clean(i.id) }
                 }
-                if (i.state != "in_progress" && i.state != "interrupted" && part.exists()) part.delete()
+                if (i.state != "in_progress" && i.state != "interrupted") { if (part.exists()) part.delete(); DlParts.clean(i.id) }
                 items[i.id] = i
                 if (i.id > maxId) maxId = i.id
             }
@@ -233,7 +233,7 @@ object DownloadsApi {
         DlFly.fire() // S21e: badge flies to the menu button
         if (items.size > MAX_ITEMS) {   // forget the oldest finished ones
             val drop = items.values.filter { it.state != "in_progress" }.take(items.size - MAX_ITEMS)
-            for (d in drop) { items.remove(d.id); Downloader.partFile(d.id).delete() }
+            for (d in drop) { items.remove(d.id); Downloader.partFile(d.id).delete(); DlParts.clean(d.id) }
         }
         n
     }
@@ -316,7 +316,7 @@ object DownloadsApi {
             "job-cancel" -> if (i.state == "in_progress") {
                 change(i) { state = "interrupted"; error = "USER_CANCELED"; paused = false; canResume = false; end = System.currentTimeMillis() }
                 Downloader.abort(i)
-                Downloader.partFile(i.id).delete()
+                Downloader.partFile(i.id).delete(); DlParts.clean(i.id)
             }
             "job-remove" -> if (i.state != "in_progress") { i.plain = false; save() } // leaves the queue only; file + chrome.downloads item stay
         }
@@ -341,7 +341,7 @@ object DownloadsApi {
         for (i in all) {
             change(i) { state = "interrupted"; error = "USER_CANCELED"; paused = false; canResume = false; end = System.currentTimeMillis() }
             Downloader.abort(i)
-            Downloader.partFile(i.id).delete()
+            Downloader.partFile(i.id).delete(); DlParts.clean(i.id)
         }
     }
 
@@ -702,7 +702,7 @@ object DownloadsApi {
             if (i.state == "in_progress" || (i.state == "interrupted" && i.canResume)) {
                 change(i) { state = "interrupted"; error = "USER_CANCELED"; paused = false; canResume = false; end = System.currentTimeMillis() }
                 Downloader.abort(i)
-                Downloader.partFile(i.id).delete()
+                Downloader.partFile(i.id).delete(); DlParts.clean(i.id)
             }
             c.ok(null)
         }
@@ -751,7 +751,7 @@ object DownloadsApi {
             for (i in find(q)) {
                 if (i.state == "in_progress") continue
                 synchronized(items) { items.remove(i.id) }
-                Downloader.partFile(i.id).delete()
+                Downloader.partFile(i.id).delete(); DlParts.clean(i.id)
                 gone.put(i.id)
                 emit("downloads.onErased", i.id)
             }

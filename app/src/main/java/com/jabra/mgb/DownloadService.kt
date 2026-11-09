@@ -159,7 +159,7 @@ object Downloader {
         Diag.w("download", "failed " + code, item.url) // S83
         DownloadsApi.change(item) {
             state = "interrupted"; error = code; paused = false; end = System.currentTimeMillis()
-            canResume = canResume && partFile(id).exists() && url.startsWith("http", true)
+            canResume = canResume && (partFile(id).exists() || DlParts.hasState(id)) && url.startsWith("http", true) // 0.0.358: parts state counts
         }
         DownloadsApi.notifyFail(item)
     }

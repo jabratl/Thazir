@@ -1,9 +1,12 @@
 package com.jabra.mgb
 
 import android.content.Context
+import android.os.SystemClock
 import android.os.StatFs
 import okhttp3.Call
 import okhttp3.Response
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
@@ -29,7 +32,9 @@ import java.util.concurrent.atomic.AtomicReference
  *            FALSE = parts mode not used or failed (switch OFF, POST, no Range, size unknown, small file,
  *                    low disk, any error): the caller runs the OLD single connection code, unchanged.
  *            throws IOException = user paused / cancelled (Downloader.run stops silently on that).
- * Switch pref dp_on is OFF by default. S1 has no resume: pause / process death = start again from 0 (S2).
+ * Switch pref dp_on is OFF by default.
+ * 0.0.358 (S2): state file ID.pp.json (saved ~1 s + on pause) => pause / resume / process death continue every part from its own offset;
+ *   changed size / validator = start again; adaptive fewer connections (429 / 403 / 200 / 5xx); network loss keeps the state (Resume button).
  */
 object DlParts {
     private const val TAG = "dlparts"
@@ -39,26 +44,43 @@ object DlParts {
 
     private val used = AtomicInteger(0)
     private val runs = ConcurrentHashMap<Int, Run>()
+    /** Thrown to Downloader.run as a plain IOException (state files are kept, item stays resumable). */
+    private class KeepIo(val io: IOException) : Exception()
+    private class HttpStatus(val code: Int) : IOException("HTTP $code")
+    private const val SOFT = 1   // server refuses / too many connections: fewer connections, then single connection
+    private const val HARD = 2   // parts mode cannot work for this file: single connection at once
+    private const val NET = 3    // network lost: keep state, item becomes interrupted + resumable
+
     private val exec: ExecutorService by lazy {
         Executors.newCachedThreadPool(ThreadFactory { r -> Thread(r, "dlparts").also { it.isDaemon = true } })
     }
 
-    /** Live state of one parts download. */
+    /** Live state of one parts download. n parts (fixed layout); a round runs w workers that take the unfinished parts. */
     private class Run(val item: DlItem, val total: Long, val n: Int) {
         val starts = LongArray(n)
         val ends = LongArray(n)
         val done = AtomicLongArray(n)
         val calls: MutableSet<Call> = ConcurrentHashMap.newKeySet<Call>()
+        val next = AtomicInteger(0)
         @Volatile var stop = false
+        @Volatile var kind = 0
+        @Volatile var netEx: IOException? = null
         val err = AtomicReference<String?>(null)
 
         fun halt() {
             stop = true
             for (c in calls) { try { c.cancel() } catch (e: Exception) { } }
         }
-        fun fail(why: String) { err.compareAndSet(null, why); halt() }
+        fun fail(why: String, k: Int, ex: IOException? = null) {
+            if (err.compareAndSet(null, why)) { kind = k; netEx = ex }
+            halt()
+        }
+        /** New round after a soft failure (all workers of the old round are finished). */
+        fun reset() { stop = false; kind = 0; netEx = null; err.set(null); calls.clear(); next.set(0) }
         fun sum(): Long { var t = 0L; for (i in 0 until n) t += done.get(i); return t }
     }
+
+    private class Probe(val code: Int, val total: Long, val vld: String, val ct: String, val cd: String?, val fu: String, val enc: String)
 
     // ---------- prefs (SharedPreferences mgb_ui) ----------
 
@@ -83,6 +105,11 @@ object DlParts {
         try { ppFile(id).delete() } catch (e: Exception) { }
         try { File(Downloader.partFile(id).parentFile, "$id.pp.json").delete() } catch (e: Exception) { }
     }
+
+    private fun stateFile(id: Int): File = File(Downloader.partFile(id).parentFile, "$id.pp.json")
+
+    /** True when a parts download of this id can continue (state file + data file). */
+    fun hasState(id: Int): Boolean = try { stateFile(id).exists() && ppFile(id).exists() } catch (e: Exception) { false }
 
     // ---------- control ----------
 
@@ -112,6 +139,8 @@ object DlParts {
         if (!(u.startsWith("http://", true) || u.startsWith("https://", true)) || item.method == "POST") return false
         return try {
             runParts(item)
+        } catch (k: KeepIo) {
+            throw k.io                                   // network lost: state kept, item becomes interrupted + resumable
         } catch (e: Exception) {
             if (userStop(item)) throw IOException("dlparts stopped")
             Diag.w(TAG, "fallback to single connection: " + e.javaClass.simpleName + " " + (e.message ?: "").take(80))
@@ -119,117 +148,224 @@ object DlParts {
         }
     }
 
-    private fun runParts(item: DlItem): Boolean {
-        val part = Downloader.partFile(item.id)
-        if (part.exists() && part.length() > 0L) return skip("old .part exists, old resume goes on")
-        clean(item.id)                                   // stale leftovers of this id: always start from 0 in S1
-        val pp = ppFile(item.id)
+    // ---------- state file (S2) ----------
 
-        // ---- probe: one request for bytes 0-0 tells size + Range support ----
-        var total = -1L
-        var vld = ""
-        var ct = ""
-        var cd: String? = null
-        var fu = item.url
+    private class St(val total: Long, val vld: String, val starts: LongArray, val ends: LongArray, val done: LongArray)
+
+    /** Reads ID.pp.json. null = missing / broken / does not fit this item (caller starts again from 0). */
+    private fun readState(item: DlItem): St? {
+        try {
+            val f = stateFile(item.id)
+            if (!f.exists() || !ppFile(item.id).exists()) return null
+            val o = JSONObject(f.readText())
+            if (o.optInt("v") != 1 || o.optString("url") != item.url) return null
+            val total = o.optLong("total", -1L)
+            val arr = o.optJSONArray("parts") ?: return null
+            val n = arr.length()
+            if (total <= 0L || n < 1 || n > MAX_WORKERS * 4 || ppFile(item.id).length() != total) return null
+            val s = LongArray(n); val e = LongArray(n); val d = LongArray(n)
+            for (i in 0 until n) {
+                val p = arr.getJSONObject(i)
+                s[i] = p.getLong("s"); e[i] = p.getLong("e"); d[i] = p.getLong("d")
+                if (s[i] > e[i] || d[i] < 0L || d[i] > e[i] - s[i] + 1L) return null
+                if (i == 0 && s[i] != 0L) return null
+                if (i > 0 && s[i] != e[i - 1] + 1L) return null
+            }
+            if (e[n - 1] != total - 1L) return null
+            return St(total, o.optString("validator"), s, e, d)
+        } catch (ex: Exception) { return null }
+    }
+
+    /** Writes the state AFTER the bytes were written (done counters only grow after ch.write). tmp + rename = never half a file. */
+    private fun saveState(r: Run, vld: String) {
+        try {
+            val arr = JSONArray()
+            for (i in 0 until r.n) arr.put(JSONObject().put("s", r.starts[i]).put("e", r.ends[i]).put("d", r.done.get(i)))
+            val o = JSONObject().put("v", 1).put("url", r.item.url).put("total", r.total).put("validator", vld).put("n", r.n).put("parts", arr)
+            val f = stateFile(r.item.id)
+            val tmp = File(f.parentFile, f.name + ".tmp")
+            tmp.writeText(o.toString())
+            if (!tmp.renameTo(f)) { f.delete(); tmp.renameTo(f) }
+        } catch (e: Exception) { }
+    }
+
+    private fun probe(item: DlItem): Probe {
         val pr = Downloader.open(item, 0L, 0L)
         try {
-            if (pr.code != 206) return skip("no Range support (HTTP ${pr.code})")
-            val enc = pr.header("Content-Encoding") ?: ""
-            if (enc.isNotEmpty() && !enc.equals("identity", true)) return skip("Content-Encoding present")
-            total = pr.header("Content-Range")?.substringAfter('/', "")?.trim()?.toLongOrNull() ?: -1L
-            vld = pr.header("ETag") ?: pr.header("Last-Modified") ?: ""
-            ct = pr.header("Content-Type")?.substringBefore(';')?.trim()?.lowercase() ?: ""
-            cd = pr.header("Content-Disposition")
-            fu = pr.request.url.toString()
-        } finally {
-            pr.close()
+            val total = pr.header("Content-Range")?.substringAfter('/', "")?.trim()?.toLongOrNull() ?: -1L
+            return Probe(
+                pr.code, total,
+                pr.header("ETag") ?: pr.header("Last-Modified") ?: "",
+                pr.header("Content-Type")?.substringBefore(';')?.trim()?.lowercase() ?: "",
+                pr.header("Content-Disposition"),
+                pr.request.url.toString(),
+                pr.header("Content-Encoding") ?: ""
+            )
+        } finally { pr.close() }
+    }
+
+    private fun runParts(item: DlItem): Boolean {
+        val part = Downloader.partFile(item.id)
+        if (part.exists() && part.length() > 0L) { clean(item.id); return skip("old .part exists, old resume goes on") }
+        var st = readState(item)                         // S2: saved parts of an earlier run (pause / crash / network loss)
+
+        // ---- probe: one request for bytes 0-0 tells size + Range support (+ If-Range with the old validator) ----
+        var pb = probe(item)
+        if (pb.code == 200 && item.validator.isNotEmpty()) {
+            // server says the file changed since the first run: forget old parts + validator, ask again
+            clean(item.id); st = null
+            DownloadsApi.change(item) { this.validator = ""; this.received = 0L }
+            pb = probe(item)
         }
         if (userStop(item)) throw IOException("dlparts stopped")
-        if (total <= 0L) return skip("size unknown")
-        if (total < minBytes()) return skip("file smaller than the minimum size")
+        if (pb.code != 206) { clean(item.id); return skip("no Range support (HTTP ${pb.code})") }
+        if (pb.enc.isNotEmpty() && !pb.enc.equals("identity", true)) { clean(item.id); return skip("Content-Encoding present") }
+        val total = pb.total
+        if (total <= 0L) { clean(item.id); return skip("size unknown") }
+        val vld = if (pb.vld.isNotEmpty() && !pb.vld.startsWith("W/")) pb.vld else ""
+        if (st != null && (st.total != total || st.vld != vld)) {
+            Diag.i(TAG, "saved parts do not fit the server file: start again")
+            clean(item.id); st = null
+        }
+        if (st == null && total < minBytes()) { clean(item.id); return skip("file smaller than the minimum size") }
+        val resuming = st != null
 
-        val k = reserve(nParts())
-        if (k < 2) {
+        val want = if (st != null) st.starts.size else nParts()
+        val k = reserve(want)
+        if (k < 1 || (!resuming && k < 2)) {
             if (k > 0) used.addAndGet(-k)
+            if (resuming) throw KeepIo(IOException("too many parallel downloads"))   // state stays, Resume later
             return skip("worker cap reached")
         }
 
         var ok = false
+        var keep = false
         var raf: RandomAccessFile? = null
         var run: Run? = null
         try {
-            val free = StatFs(DownloadsApi.app.filesDir.path).availableBytes
-            if (free < total + 32L * MB) return skip("not enough free space")
+            if (!resuming) {
+                clean(item.id)
+                val free = StatFs(DownloadsApi.app.filesDir.path).availableBytes
+                if (free < total + 32L * MB) return skip("not enough free space")
+            }
             val tot = total
-            val v2 = vld
-            val ct2 = ct
-            val cd2 = cd
-            val fu2 = fu
+            val ct2 = pb.ct
+            val cd2 = pb.cd
+            val fu2 = pb.fu
             DownloadsApi.change(item) {
                 this.finalUrl = fu2
                 this.total = tot
-                this.received = 0L
-                if (v2.isNotEmpty() && !v2.startsWith("W/")) this.validator = v2
+                if (vld.isNotEmpty()) this.validator = vld
                 if (this.mime.isEmpty() && ct2.isNotEmpty() && ct2 != "application/octet-stream") this.mime = ct2
                 this.canResume = true
                 if (this.rel.isEmpty()) this.rel = Downloader.nameFromResponse(fu2, cd2, ct2)
             }
 
-            val r = Run(item, total, k)
-            run = r
-            val size = (total + k - 1) / k
-            for (i in 0 until k) {
-                r.starts[i] = i * size
-                r.ends[i] = minOf(total - 1, (i + 1) * size - 1)
-            }
-            val f = RandomAccessFile(pp, "rw")
-            raf = f
-            f.setLength(total)
-            val ch = f.channel
-            runs[item.id] = r
-            if (userStop(item)) r.halt()
-            Diag.i(TAG, "start $k parts, ${total / 1024} KB")
-
-            val latch = CountDownLatch(k)
-            for (i in 0 until k) {
-                exec.execute {
-                    try { work(r, i, ch) } catch (t: Throwable) { r.fail("worker " + t.javaClass.simpleName) } finally { latch.countDown() }
+            val r: Run
+            if (st != null) {
+                r = Run(item, total, st.starts.size)
+                for (i in 0 until r.n) { r.starts[i] = st.starts[i]; r.ends[i] = st.ends[i]; r.done.set(i, st.done[i]) }
+            } else {
+                r = Run(item, total, k)
+                val size = (total + k - 1) / k
+                for (i in 0 until k) {
+                    r.starts[i] = i * size
+                    r.ends[i] = minOf(total - 1, (i + 1) * size - 1)
                 }
             }
-            while (!latch.await(250, TimeUnit.MILLISECONDS)) {
-                item.received = r.sum()
-                if (userStop(item)) r.halt()
-            }
+            run = r
+            val f = RandomAccessFile(ppFile(item.id), "rw")
+            raf = f
+            if (f.length() != total) f.setLength(total)
+            val ch = f.channel
+            runs[item.id] = r
             item.received = r.sum()
+            Diag.i(TAG, (if (resuming) "resume " else "start ") + r.n + " parts with $k connections, ${total / 1024} KB, have ${r.sum() / 1024} KB")
+
+            var w = k
+            var bad = 0
+            var saves = 0
+            var lastSave = SystemClock.elapsedRealtime()
+            if (!resuming) saveState(r, vld)
+            while (true) {
+                r.reset()
+                if (userStop(item)) r.halt()
+                val ww = maxOf(1, minOf(w, r.n))
+                val latch = CountDownLatch(ww)
+                for (i in 0 until ww) {
+                    exec.execute {
+                        try { worker(r, ch) } catch (t: Throwable) { r.fail("worker " + t.javaClass.simpleName, HARD) } finally { latch.countDown() }
+                    }
+                }
+                while (!latch.await(250, TimeUnit.MILLISECONDS)) {
+                    item.received = r.sum()
+                    if (userStop(item)) r.halt()
+                    val now = SystemClock.elapsedRealtime()
+                    if (now - lastSave >= 1000L) {
+                        lastSave = now
+                        if (++saves % 5 == 0) { try { ch.force(false) } catch (e: Exception) { } }
+                        saveState(r, vld)
+                    }
+                }
+                item.received = r.sum()
+                if (userStop(item)) {
+                    // pause keeps the parts (Resume continues); cancel / error: finally{} cleans
+                    if (item.paused && item.state == "in_progress") {
+                        try { ch.force(false) } catch (e: Exception) { }
+                        saveState(r, vld)
+                        keep = true
+                    }
+                    throw IOException("dlparts stopped")
+                }
+                val why = r.err.get() ?: break
+                when (r.kind) {
+                    NET -> {
+                        try { ch.force(false) } catch (e: Exception) { }
+                        saveState(r, vld)
+                        keep = true
+                        Diag.w(TAG, "network problem, parts kept for Resume: $why")
+                        throw KeepIo(r.netEx ?: IOException(why))
+                    }
+                    SOFT -> {
+                        bad++
+                        if (bad >= 2 || w <= 2) { Diag.w(TAG, "fallback to single connection: $why"); return false }
+                        w = maxOf(2, w / 2)
+                        Diag.w(TAG, "server limits connections ($why): now $w connections")
+                        try { Thread.sleep(1000L) } catch (ie: InterruptedException) { }
+                    }
+                    else -> { Diag.w(TAG, "fallback to single connection: $why"); return false }
+                }
+            }
             try { f.close() } catch (e: Exception) { }
             raf = null
-
-            if (userStop(item)) throw IOException("dlparts stopped")
-            val why = r.err.get()
-            if (why != null) {
-                Diag.w(TAG, "fallback to single connection: $why")
-                return false
-            }
             if (r.sum() != total) return skip("parts incomplete")
             if (part.exists()) part.delete()
-            if (!pp.renameTo(part)) return skip("rename failed")
+            if (!ppFile(item.id).renameTo(part)) return skip("rename failed")
+            try { stateFile(item.id).delete() } catch (e: Exception) { }
             val done = total
             DownloadsApi.change(item) { this.total = done; this.received = done }
             ok = true
-            Diag.i(TAG, "done $k parts")
+            Diag.i(TAG, "done ${r.n} parts")
             return true
         } finally {
             runs.remove(item.id)
             used.addAndGet(-k)
-            if (!ok) {
-                try { run?.halt() } catch (e: Exception) { }
-                try { raf?.close() } catch (e: Exception) { }
-                clean(item.id)
-            }
+            try { run?.halt() } catch (e: Exception) { }
+            try { raf?.close() } catch (e: Exception) { }
+            if (!ok && !keep) clean(item.id)
         }
     }
 
-    /** One part: bytes starts[i]..ends[i]. Network errors retry 3 times from the byte already written. */
+    /** A worker takes the next unfinished part until none is left. */
+    private fun worker(r: Run, ch: FileChannel) {
+        while (!r.stop) {
+            val i = r.next.getAndIncrement()
+            if (i >= r.n) return
+            work(r, i, ch)
+        }
+    }
+
+    /** One part: bytes starts[i]..ends[i]. Errors retry 3 times from the byte already written; the kind of failure decides what happens next. */
     private fun work(r: Run, i: Int, ch: FileChannel) {
         var tries = 0
         while (!r.stop) {
@@ -242,13 +378,14 @@ object DlParts {
                 if (r.stop) return
                 val code = resp.code
                 if (code != 206) {
-                    // 200 = server ignores Range, 401 / 403 / 416 / 429 = refuses: parts mode does not work for this file
-                    if (code == 200 || code == 401 || code == 403 || code == 416 || code == 429) { r.fail("part $i HTTP $code"); return }
-                    throw IOException("HTTP $code")
+                    // 200 / 403 / 429 = server ignores Range or limits connections: fewer connections (SOFT); 401 / 416 = parts mode cannot work (HARD)
+                    if (code == 200 || code == 403 || code == 429) { r.fail("part $i HTTP $code", SOFT); return }
+                    if (code == 401 || code == 416) { r.fail("part $i HTTP $code", HARD); return }
+                    throw HttpStatus(code)
                 }
                 val cr = resp.header("Content-Range") ?: ""
-                if (!cr.startsWith("bytes $from-")) { r.fail("part $i bad Content-Range"); return }
-                if (cr.substringAfter('/', "").trim().toLongOrNull() != r.total) { r.fail("part $i size changed"); return }
+                if (!cr.startsWith("bytes $from-")) { r.fail("part $i bad Content-Range", HARD); return }
+                if (cr.substringAfter('/', "").trim().toLongOrNull() != r.total) { r.fail("part $i size changed", HARD); return }
                 val body = resp.body ?: throw IOException("no body")
                 val src = body.byteStream()
                 val buf = ByteArray(65536)
@@ -263,12 +400,22 @@ object DlParts {
                     while (bb.hasRemaining()) at += ch.write(bb, at)
                     pos += n
                     r.done.addAndGet(i, n.toLong())
+                    tries = 0                              // progress made: a later drop gets fresh retries
                 }
                 if (pos <= to) throw IOException("short part")
                 return
             } catch (e: Exception) {
                 if (r.stop) return
-                if (++tries > 3) { r.fail("part $i " + e.javaClass.simpleName + " " + (e.message ?: "").take(60)); return }
+                if (++tries > 3) {
+                    val why = "part $i " + e.javaClass.simpleName + " " + (e.message ?: "").take(60)
+                    when {
+                        e is HttpStatus && e.code >= 500 -> r.fail(why, SOFT)
+                        e is HttpStatus -> r.fail(why, HARD)
+                        e is IOException -> r.fail(why, NET, e)
+                        else -> r.fail(why, HARD)
+                    }
+                    return
+                }
                 try { Thread.sleep(600L * tries) } catch (ie: InterruptedException) { return }
             } finally {
                 try { resp?.close() } catch (e: Exception) { }
