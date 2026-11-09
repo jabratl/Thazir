@@ -1,3 +1,11 @@
+0.0.348 (MODIFY: Bookmarks screen gets the features + look of the reference video)
+- Added: breadcrumb path (home chip > folder chips, tap to jump, last chip violet), sort button next to it with popup (A-Z, Z-A, Newest, Oldest, Sort by last opened, By site, Sort by manual order; current one violet; folders sort too), icon popup for the 3-dot menu (Select, Lock data vault, New folder, Import, Export, Manage start page, Add site to folder).
+- Added: "Manage start page" sheet (tick bookmarks / top folders shown on Home), "Add site to folder" dialog, "Lock data vault" (VaultStore.lock, same call as the Vault screen).
+- Look: card rows (16dp radius, ripple follows corners), violet folder tile + count pill + chevron, search box with icon, 8 new icons ic_bm_*.
+- Files: NEW BmUi.kt, 9 new ic_bm_*.xml; BmUndo.kt (BmSort: public mode, MENU, Z-A, last opened, folders()); BookmarksScreen.kt (hooks); build.gradle.kts.
+- Could break: History list uses the same card row() (looks like cards too); old 3-dot dialog path stays for History only.
+- NOT tested: Gradle build (CI), device. Not compiled (no kotlinc in sandbox). Sort mode is kept in memory only (as before).
+
 0.0.347 (FIX: build failed, AAPT "attribute android:checkMarkGravity is private")
 - Seen: CI processReleaseResources failed on mg_dialog_singlechoice.xml / mg_dialog_multichoice.xml line 18.
 - Root cause: my 0.0.345 layouts used android:checkMarkGravity, which is a private framework attribute (not usable in app XML).

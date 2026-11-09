@@ -48,14 +48,38 @@ object BmUndo {
 /** 0.0.332: Sort for the Bookmarks list (3-dot menu > Sort). Only the order of the bookmarks changes, never the stored data. */
 object BmSort {
     private val NAMES = arrayOf("Added order", "Newest first", "Oldest first", "A to Z", "By site")
-    private var mode = 0
+    /** 0.0.348: 0 manual, 1 newest, 2 oldest, 3 A-Z, 4 by site, 5 Z-A, 6 last opened. */
+    var mode = 0
+    /** 0.0.348: popup list of the sort button (label to mode). */
+    val MENU = listOf("A-Z" to 3, "Z-A" to 5, "Newest" to 1, "Oldest" to 2, "Sort by last opened" to 6, "By site" to 4, "Sort by manual order" to 0)
+
+    private fun lastOpened(): Map<String, Long> {
+        val m = HashMap<String, Long>()
+        for (h in Bookmarks.history()) if (h.time > (m[h.url] ?: 0L)) m[h.url] = h.time
+        return m
+    }
 
     fun apply(list: List<Bookmarks.Item>): List<Bookmarks.Item> = when (mode) {
         1 -> list.sortedByDescending { it.time }
         2 -> list.sortedBy { it.time }
         3 -> list.sortedBy { it.title.lowercase() }
         4 -> list.sortedWith(compareBy({ Util.host(it.url).lowercase() }, { it.title.lowercase() }))
+        5 -> list.sortedByDescending { it.title.lowercase() }
+        6 -> { val m = lastOpened(); list.sortedByDescending { m[it.url] ?: 0L } }
         else -> list
+    }
+
+    /** 0.0.348: folders follow the same order (by name, or by the newest / last opened bookmark inside). */
+    fun folders(names: List<String>, all: List<Bookmarks.Item>): List<String> {
+        val lo = if (mode == 6) lastOpened() else emptyMap()
+        fun key(f: String): Long = all.filter { Bookmarks.under(it.folder, f) }.maxOfOrNull { if (mode == 6) (lo[it.url] ?: 0L) else it.time } ?: 0L
+        return when (mode) {
+            3 -> names.sortedBy { Bookmarks.shortName(it).lowercase() }
+            5 -> names.sortedByDescending { Bookmarks.shortName(it).lowercase() }
+            1, 6 -> names.sortedByDescending { key(it) }
+            2 -> names.sortedBy { key(it) }
+            else -> names
+        }
     }
 
     fun pick(act: Activity, done: () -> Unit) {

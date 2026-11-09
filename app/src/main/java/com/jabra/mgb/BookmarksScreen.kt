@@ -161,8 +161,12 @@ object BookmarksScreen {
             textSize = 15f
             setTextColor(act.getColor(R.color.mg_text))
             setHintTextColor(act.getColor(R.color.mg_text_dim))
-            background = round(act.getColor(R.color.mg_surface_variant), 22)
+            background = BmUi.card(act, act.getColor(R.color.mg_surface_variant), 22) // 0.0.348
             setPadding(dp(16), 0, dp(16), 0)
+            act.getDrawable(R.drawable.ic_search)?.mutate()?.let { d -> // 0.0.348: search icon
+                d.setTint(act.getColor(R.color.mg_text_dim)); d.setBounds(0, 0, dp(20), dp(20))
+                setCompoundDrawablesRelative(d, null, null, null); compoundDrawablePadding = dp(10)
+            }
             addTextChangedListener(object : android.text.TextWatcher {
                 override fun afterTextChanged(e: android.text.Editable?) { query = e?.toString().orEmpty(); render() }
                 override fun beforeTextChanged(t: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -204,6 +208,7 @@ object BookmarksScreen {
                 setPadding(dp(10), dp(10), dp(10), dp(10))
                 contentDescription = "More"
                 setOnClickListener {
+                    if (mode == Mode.BOOKMARKS) { bookmarksMenu(this); return@setOnClickListener } // 0.0.348
                     val labels = if (mode == Mode.BOOKMARKS) arrayOf("Select", "New folder", "Import bookmarks", "Export bookmarks", "Sort by...") else arrayOf("Select", "Clear history")
                     MaterialAlertDialogBuilder(act).setItems(labels) { _, which ->
                         if (which == 0) { selecting = true; picked.clear(); build() } // S27
@@ -219,6 +224,19 @@ object BookmarksScreen {
                 }
             }, LinearLayout.LayoutParams(dp(44), dp(48)))
             return h
+        }
+
+        /** 0.0.348: popup menu of the Bookmarks 3-dot button (icons on the right). */
+        private fun bookmarksMenu(anchor: View) {
+            BmUi.menu(act, anchor, listOf(
+                BmUi.Entry("Select", R.drawable.ic_bm_select) { selecting = true; picked.clear(); build() },
+                BmUi.Entry("Lock data vault", R.drawable.ic_bm_vault_lock) { BmUi.lockVault(act) },
+                BmUi.Entry("New folder", R.drawable.ic_bm_folder_add) { BookmarkFolderPicker.askName(act, folder ?: "") { render() } },
+                BmUi.Entry("Import bookmarks", R.drawable.ic_bm_import) { BrowserExtras.importBookmarks { render() } },
+                BmUi.Entry("Export bookmarks", R.drawable.ic_bm_export) { BrowserExtras.exportBookmarks() },
+                BmUi.Entry("Manage start page", R.drawable.ic_bm_home) { BmUi.manageStart(act) { u -> favTile(u) } },
+                BmUi.Entry("Add site to folder", R.drawable.ic_bm_site_add) { BmUi.addSite(act, folder) { render() } }
+            ))
         }
 
         // ---------- S27: multi-select ----------
@@ -374,17 +392,9 @@ object BookmarksScreen {
             if (mode == Mode.BOOKMARKS) {
                 val all = Bookmarks.bookmarks()
                 val open = folder
-                if (open != null && q.isEmpty()) { // S24: folder title
-                    box.addView(TextView(act).apply {
-                        text = open.replace("/", " > ")
-                        setTextColor(act.getColor(R.color.mg_text))
-                        textSize = 16f
-                        setTypeface(typeface, android.graphics.Typeface.BOLD)
-                        setPadding(dp(16), dp(4), dp(16), dp(8))
-                    })
-                }
+                box.addView(BmUi.bar(act, open, q.isNotEmpty(), { p -> folder = p; render() }, { render() }), LinearLayout.LayoutParams(MATCH, WRAP)) // 0.0.348: breadcrumb + sort (was folder title S24)
                 if (q.isEmpty()) { // 0.0.328: folders of this level (top level or the sub folders of the open folder)
-                    for (f in Bookmarks.childFolders(open ?: "")) {
+                    for (f in BmSort.folders(Bookmarks.childFolders(open ?: ""), all)) { // 0.0.348
                         box.addView(folderRow(f, all.count { Bookmarks.under(it.folder, f) }))
                         count++
                     }
@@ -419,31 +429,22 @@ object BookmarksScreen {
             val r = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = dp(56)
-                setPadding(dp(16), dp(8), dp(16), dp(8))
-                layoutParams = LinearLayout.LayoutParams(MATCH, WRAP)
-                val out = TypedValue()
-                if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)) {
-                    foreground = act.getDrawable(out.resourceId)
-                }
+                minimumHeight = dp(60)
+                setPadding(dp(12), dp(8), dp(12), dp(8))
+                layoutParams = BmUi.cardParams(act) // 0.0.348: card row
+                background = BmUi.rippleCard(act)
             }
-            r.addView(ImageView(act).apply {
-                setImageResource(R.drawable.ic_folder)
-                setColorFilter(act.getColor(R.color.mg_text_dim))
-            }, LinearLayout.LayoutParams(dp(24), dp(24)))
+            r.addView(BmUi.folderTile(act), LinearLayout.LayoutParams(dp(36), dp(36)))
             r.addView(TextView(act).apply {
                 text = Bookmarks.shortName(name)
                 setTextColor(act.getColor(R.color.mg_text))
                 textSize = 15f
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
-                setPadding(dp(16), 0, dp(8), 0)
+                setPadding(dp(14), 0, dp(8), 0)
             }, LinearLayout.LayoutParams(0, WRAP, 1f))
-            r.addView(TextView(act).apply {
-                text = n.toString()
-                setTextColor(act.getColor(R.color.mg_text_dim))
-                textSize = 13f
-            })
+            r.addView(BmUi.countPill(act, n)) // 0.0.348
+            r.addView(BmUi.chevron(act))
             r.setOnClickListener { folder = name; render() }
             r.setOnLongClickListener {
                 MaterialAlertDialogBuilder(act)
@@ -530,13 +531,9 @@ object BookmarksScreen {
                 orientation = LinearLayout.HORIZONTAL
                 minimumHeight = dp(60)
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(16), dp(8), dp(16), dp(8))
-                layoutParams = LinearLayout.LayoutParams(MATCH, WRAP)
-                val out = TypedValue()
-                if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)) {
-                    foreground = act.getDrawable(out.resourceId)
-                }
-                if (isOn) setBackgroundColor(act.getColor(R.color.mg_surface))
+                setPadding(dp(12), dp(8), dp(14), dp(8))
+                layoutParams = BmUi.cardParams(act) // 0.0.348: card row
+                background = BmUi.rippleCard(act, isOn)
             }
             if (selecting) { // S27: round check box
                 r.addView(ImageView(act).apply {
