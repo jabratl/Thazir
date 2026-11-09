@@ -1,3 +1,5 @@
+Media Grabber 2.82.0 (Thazir engine) + 0.0.356: bigfile.js mgWholeFile - the last way (whole file, one request) now shows progress too; any problem = the old plain way.
+Media Grabber 2.82.0 (Thazir engine) + 0.0.355: bigfile.js now also sends progress (report + stats) so the app job card shows percent / size / speed for Bilibili big files.
 Media Grabber 2.82.0 (Thazir engine) + 0.0.354: bigfile.js fix - a Range answer with status 200 was taken for the whole file (only the first 4 MB were saved).
 Media Grabber 2.82.0 (Thazir engine) + 0.0.353: bigfile.js - a single big file (Bilibili DASH video / audio) is read in 4 MB pieces with a retry per piece; setting chunkFile (default on, off = old one-request way).
 Media Grabber 2.82.0 (Thazir engine) + 0.0.351: 'Subtitle delay (ms)' (subDelayMs) for saved subtitles, taken from V82 (V81 part). 0 = off.

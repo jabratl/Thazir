@@ -1,3 +1,21 @@
+0.0.356 (ADD: progress also for the LAST way (whole file in one request) of a big single file)
+- WHY: user asked: the final whole-file fallback of Bilibili big files had no progress; add it if it causes no problem for the native downloader / browser.
+- What: bigfile.js new mgWholeFile(url, label): the SAME request as before (fetchRetry(url)), but the body is read as a stream so report() / setStats() / progress() run (every 250 ms, display only, try / catch). downloader.js fileBlob(): order is now 1) pieces 2) pieces via page 3) whole file WITH progress (new) 4) the old plain fetchRetry(url).blob() (unchanged, still the very last way).
+- Safe: any problem in the new step (no stream support, network drop mid-stream, short body when Content-Length is known, empty) = returns null = the old plain way runs. Cancel / Pause work as in the other ways (abort signal + gate()). Content-Encoding != identity = no percent (length not trusted), size + speed still show. Setting chunkFile = false switches the new step off too (= 0.0.352 way).
+- Cost: if the server really fails (HTTP error after 6 tries), the old plain way tries again once more (same as before, just one extra round).
+- BROKEN / BHENGE-NI: nothing. Same keys, message types, file names; downloadFile() (plain file mode) untouched.
+- NOT tested: Gradle (CI), device, live Bilibili. Tested here: node --check; node mock: normal stream (percent + log), drop mid-stream -> null, short body -> null, no body -> null, no Content-Length OK, AbortError passes through.
+- Files: app/src/main/assets/ext/bigfile.js, downloader.js, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt (+ ext CHANGELOG.txt). (This zip also holds 0.0.355.)
+
+0.0.355 (FIX: Bilibili / big single file download showed NO progress in the app card, like other sites do)
+- WHY: user: on bilibili.tv the download runs, but the progress (percent / size / speed) is not shown the way other sites show it.
+- Root cause (code reading, device NOT re-tested): bigfile.js (0.0.353) only called status() and progress(), which update the downloader PAGE itself. Every other download type (HLS segments downloader.js ~430, plain file ~906) ALSO calls report('run', pct, text) = "job-update" message -> background trackJob / sendJob -> content.js job card in the app, and setStats() for speed / size / ETA. bigfile.js never called them, so the card stayed without percent, size and speed.
+- Fix (only bigfile.js + 3 tiny label edits in downloader.js): after every piece bigfile.js now calls report('run', done/total, "Video: 12 MB / 80 MB - 2 MB/s - 0:34 left") and setStats({speed,size,eta,seg,sub}) in try / catch (display only: if they fail, the download goes on). One "starting..." report before the first piece. fileBlob(url, label) passes "Video" / "Audio" so the card says which file is running. If the total size is unknown the percent is not sent (-1 = keep old), size + speed still show.
+- BROKEN / BHENGE-NI: nothing. Same keys, same setting chunkFile, same message type (job-update), same file names; fileBlob(url) still works without a label.
+- NOT tested: Gradle (CI), device, live Bilibili. Tested here: node --check on both JS files; node mock (10 MB + 7 B in 4 MB pieces): report 0% -> 40% -> 80% -> 100% with size / speed / ETA text, final size exact; mock with report() throwing: download still completes.
+- STILL NO PROGRESS (not changed, on purpose): the last fallback (old whole-file request when both piece stages fail) has no progress, and downloader.js "downloadFile" is another path. See HANDOFF.
+- Files: app/src/main/assets/ext/bigfile.js, app/src/main/assets/ext/downloader.js, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt (+ ext CHANGELOG.txt)
+
 0.0.354 (FIX: 0.0.353 big-file pieces stopped after the FIRST 4 MB piece on Bilibili)
 - WHY: user test of 0.0.353: bilibili.tv video and audio both downloaded, but only ~4 MB each (MAX extension gets the full video).
 - Root cause (code + symptom, device NOT re-tested): bigfile.js readDirect treated "status 200" as "server ignored Range = this is the WHOLE file". Here the Range answer came back as 200 (no Content-Range), so the first 4 MB piece was saved as the whole file. Also a piece shorter than 4 MB was taken as the end of the file.

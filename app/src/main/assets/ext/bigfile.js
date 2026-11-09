@@ -1,4 +1,4 @@
-// Media Grabber - 0.0.353: read ONE big file (a DASH Representation that is only a BaseURL, e.g. Bilibili video / audio) in pieces.
+// Media Grabber - 0.0.356: mgWholeFile = last way with progress. 0.0.355: progress is now also sent to the app (report) + stats row. 0.0.353: read ONE big file (a DASH Representation that is only a BaseURL, e.g. Bilibili video / audio) in pieces.
 // WHY: the old code asked for the whole file in ONE request and held it as one blob: on a phone one dropped connection = "Failed to fetch" for the
 // whole file, and nothing was kept. Here every piece (4 MB) has its own retry (fetchRetry), so a single hiccup no longer kills the job.
 // DESIGN: this file only ADDS. downloader.js calls fileBlob() (a small hook); if anything here fails or returns null, the OLD whole-file code runs.
@@ -32,9 +32,11 @@
   }
   const STAGES = [['direct', readDirect], ['page', readPage]];
 
-  async function readAll(read, url) {
+  async function readAll(read, url, label) {
     const parts = [];
     let a = 0, total = -1;
+    const ft0 = Date.now(); // 0.0.355: start of THIS file, for speed / ETA
+    try { report('run', 0, (label ? label + ': ' : '') + 'starting...'); } catch (e) { /* display only */ }
     for (let n = 0; n < MAX_PIECES; n++) {
       await gate();
       let res;
@@ -55,6 +57,14 @@
         status('Downloading... ' + fmtSize(a) + (total > 0 ? ' / ' + fmtSize(total) : ''));
         progress(a, total > 0 ? total : 0);
       } catch (e) { /* display only */ }
+      // 0.0.355: tell the app / on-page panel too (report = job-update message). Without this only the downloader page itself showed progress; the job card stayed empty.
+      try {
+        const sec = (Date.now() - ft0) / 1000 || 1, bps = a / sec;
+        const left = total > 0 && bps ? fmtDur((total - a) / bps) : '';
+        const txt = (label ? label + ': ' : '') + fmtSize(a) + (total > 0 ? ' / ' + fmtSize(total) : '') + (bps ? ' - ' + fmtSpeed(bps) : '') + (left ? ' - ' + left + ' left' : '');
+        report('run', total > 0 ? a / total : -1, txt);
+        setStats({ speed: fmtSpeed(bps), size: fmtSize(a), eta: left, seg: total > 0 ? Math.round(a / total * 100) + '%' : '-', sub: label || 'File' });
+      } catch (e) { /* display only */ }
       if (res.last && total <= 0) break; // reader says this was the last piece (no size known)
       if (total > 0 && a >= total) break; // 0.0.354: a SHORT piece is NOT the end (a server may answer less than asked). End = size reached, an empty answer, or 416
     }
@@ -64,10 +74,10 @@
   }
 
   // Returns a Blob, or null (= caller uses the old whole-file request). Throws only for Cancelled.
-  window.mgBigFile = async function (url) {
+  window.mgBigFile = async function (url, label) {
     for (const [name, read] of STAGES) {
       try {
-        const b = await readAll(read, url);
+        const b = await readAll(read, url, label);
         if (b && b.size > 0) { dbg('dl', 'big file read in pieces (' + name + '): ' + fmtSize(b.size)); return b; }
       } catch (e) {
         if (isCancel(e)) throw e;
@@ -75,5 +85,42 @@
       }
     }
     return null;
+  };
+
+  // 0.0.356: the LAST way (whole file in ONE request) now also shows progress. Same request as before (fetchRetry(url)), but the body is read as a stream
+  // so report() / setStats() can run. Returns a Blob, or null on any problem (caller then runs the old, unchanged .blob() way). Throws only for Cancelled.
+  window.mgWholeFile = async function (url, label) {
+    try {
+      const r = await fetchRetry(url);
+      if (!r || !r.body || typeof r.body.getReader !== 'function') return null; // no stream support: old way
+      let total = parseInt(r.headers.get('content-length'), 10) || 0;
+      const enc = r.headers.get('content-encoding'); if (enc && enc !== 'identity') total = 0; // length is of the packed bytes: do not trust it for a percent
+      const reader = r.body.getReader(), chunks = [], ft0 = Date.now();
+      let got = 0, lastShow = 0;
+      for (;;) {
+        await gate();
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value); got += value.length;
+        const now = Date.now();
+        if (now - lastShow < 250) continue;
+        lastShow = now;
+        try {
+          if (total > 0 && got > total) total = 0;
+          const bps = got / ((now - ft0) / 1000 || 1), left = total > 0 && bps ? fmtDur((total - got) / bps) : '';
+          status('Downloading... ' + fmtSize(got) + (total > 0 ? ' / ' + fmtSize(total) : ''));
+          progress(got, total > 0 ? total : 0);
+          report('run', total > 0 ? got / total : -1, (label ? label + ': ' : '') + fmtSize(got) + (total > 0 ? ' / ' + fmtSize(total) : '') + (bps ? ' - ' + fmtSpeed(bps) : '') + (left ? ' - ' + left + ' left' : ''));
+          setStats({ speed: fmtSpeed(bps), size: fmtSize(got), eta: left, seg: total > 0 ? Math.round(got / total * 100) + '%' : '-', sub: label || 'File' });
+        } catch (e) { /* display only */ }
+      }
+      if (!got || (total > 0 && got < total)) throw new Error('incomplete: ' + got + ' of ' + total + ' B');
+      dbg('dl', 'whole file read with progress: ' + fmtSize(got));
+      return new Blob(chunks);
+    } catch (e) {
+      if (isCancel(e) || (e && e.message === 'Cancelled')) throw e;
+      dbg('dl', 'whole file with progress failed, plain way instead: ' + String((e && e.message) || e).slice(0, 100));
+      return null;
+    }
   };
 })();
