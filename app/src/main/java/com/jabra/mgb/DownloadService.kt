@@ -497,16 +497,38 @@ object Downloader {
 class DownloadService : Service() {
     private val h = Handler(Looper.getMainLooper())
     private var idle = 0
+    private var wl: android.os.PowerManager.WakeLock? = null // 0.0.366: CPU stays awake with the screen off
+    private var wifi: android.net.wifi.WifiManager.WifiLock? = null // 0.0.366: Wi-Fi does not sleep with the screen off
+    private var locked = false
+
+    @Suppress("DEPRECATION")
+    private fun locks(on: Boolean) {
+        try {
+            if (on) {
+                if (wl == null) wl = (getSystemService(POWER_SERVICE) as android.os.PowerManager).newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "mgb:download").apply { setReferenceCounted(false) }
+                wl?.acquire(12 * 60 * 60 * 1000L) // safety limit only; released when no download runs (tick) or the service ends
+                if (wifi == null) wifi = (applicationContext.getSystemService(WIFI_SERVICE) as android.net.wifi.WifiManager)
+                    .createWifiLock(if (Build.VERSION.SDK_INT >= 29) android.net.wifi.WifiManager.WIFI_MODE_FULL_LOW_LATENCY else android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "mgb:download").apply { setReferenceCounted(false) }
+                if (wifi?.isHeld != true) wifi?.acquire()
+            } else {
+                if (wl?.isHeld == true) wl?.release()
+                if (wifi?.isHeld == true) wifi?.release()
+            }
+        } catch (_: Exception) { }
+        locked = on
+    }
 
     private val tick = object : Runnable {
         override fun run() {
-            if (DownloadsApi.active().isEmpty() && DownloadsApi.pausedList().isEmpty()) {
+            if (DownloadsApi.active().isEmpty() && DownloadsApi.pausedList().isEmpty() && !BgKeep.engineBusy()) { // 0.0.366: engine jobs keep it alive too
                 if (++idle >= 2) {
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                     return
                 }
             } else idle = 0
+            val busy = DownloadsApi.active().isNotEmpty() || BgKeep.engineBusy() // 0.0.366: only paused = locks released (battery)
+            if (busy && !locked) locks(true) else if (!busy && locked) locks(false)
             try {
                 (getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager).notify(NOTE_ID, DownloadsApi.progressNote())
             } catch (e: Exception) { }
@@ -523,7 +545,7 @@ class DownloadService : Service() {
             ACT_RESUME -> DownloadsApi.resumeAll()
             ACT_CANCEL -> DownloadsApi.cancelAll()
         }
-        if (intent?.action != null && DownloadsApi.active().isEmpty() && DownloadsApi.pausedList().isEmpty()) {
+        if (intent?.action != null && DownloadsApi.active().isEmpty() && DownloadsApi.pausedList().isEmpty() && !BgKeep.engineBusy()) {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
@@ -536,6 +558,7 @@ class DownloadService : Service() {
             return START_NOT_STICKY
         }
         idle = 0
+        locks(true) // 0.0.366
         h.removeCallbacks(tick)
         h.post(tick)
         return START_NOT_STICKY
@@ -543,6 +566,7 @@ class DownloadService : Service() {
 
     override fun onDestroy() {
         h.removeCallbacks(tick)
+        locks(false) // 0.0.366
         super.onDestroy()
     }
 

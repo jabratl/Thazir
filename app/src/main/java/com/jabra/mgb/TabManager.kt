@@ -141,7 +141,7 @@ class TabManager(
     private fun sweep() {
         val min = suspendMin(ctx)
         if (min <= 0) return
-        if (DownloadsApi.active().isNotEmpty()) return // a download is running: suspend nothing
+        if (DownloadsApi.active().isNotEmpty() || BgKeep.engineBusy()) return // a download is running: suspend nothing (0.0.366: engine jobs too)
         val now = System.currentTimeMillis()
         for (t in tabs.toList()) {
             if (t === active || t.priv || t.home || t.isExt || t.suspended || t.pending != null || t.loading) continue

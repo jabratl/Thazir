@@ -1,0 +1,29 @@
+================================================================================
+HANDOFF - Thazir 0.0.366 - FIX "background downloads" (Home / screen off / lock)   [CODE DONE, device test todo]
+================================================================================
+User note: the person is NOT a coder. Reply in Banglish, short, numbered steps. Patch only, changed files only, final reply max 10 lines.
+Design rules: unchanged (no UI added in this step). Read ONLY section 2 of HANDOFF_A_ACCESS.txt if UI is ever needed.
+
+ROOT CAUSE: DownloadService had no WakeLock / WifiLock (CPU + Wi-Fi slept with the screen off); V77 engine jobs (state "run" in session mgJobs) never started the service; MainActivity.onPause paused the page in front; TabManager.sweep ignored engine jobs.
+
+CHANGES
+- BgKeep.kt (new): busy(), engineBusy() (state run, not paused, updated < 10 min), onPause(act, web) -> true = do not pause the page, onStop(act, web). Starts DownloadService, resumeTimers, RENDERER_PRIORITY_IMPORTANT (waived = false).
+- DownloadService.kt: locks() PARTIAL_WAKE_LOCK "mgb:download" + WifiLock; acquired in onStartCommand, toggled in tick by busy, released in onDestroy; tick / early-stop check also use BgKeep.engineBusy().
+- MainActivity.kt: onPause (dlKeep gate around tabs.active.web.onPause), onStop (BgKeep.onStop).
+- TabManager.kt: sweep() returns while BgKeep.engineBusy().
+- app/build.gradle.kts: 0.0.366. CHANGELOG.txt: entry on top.
+
+CHECKS: brace / paren balance 0 / 0 for the 4 Kotlin files; every patch single-match (script asserts); no JS, JSON, layout or manifest changed.
+NOT tested: Gradle build (CI; kotlinc not in sandbox), device. If CI fails send the Kotlin error line first.
+Device test: 1) start a big download, press Home, screen off 10 min, check progress. 2) lock phone, same. 3) swipe Thazir from Recents (FGS usually survives; brand-dependent). 4) V77 video + manga job with screen off. 5) blob: download, Home. 6) Wi-Fi and mobile data. 7) pause all -> notification stays, no wake lock (check Settings > Battery).
+
+NEXT (not touched):
+ 1. Native downloads have no auto-retry on a network switch (NETWORK_FAILED -> user presses Resume). Add backoff retry in Downloader.run for canResume items.
+ 2. Engine job started while Thazir is already in background and the service has stopped = no service (queued jobs). Start the service from the engine job start message.
+ 3. targetSdk 35: dataSync foreground service has a 6 h limit -> add DownloadService.onTimeout.
+ 4. Optional: one-time prompt to set "Battery: unrestricted" when the first download starts (row already exists in DevicePerms).
+Untouchable: Vault*, CI workflow, EngineHost / ChromeBridge / ExtApi, Backup JSON shape, groups session format (exportGroups v2).
+
+Kickoff for the next chat: "Thazir bg download: read HANDOFF+Thazir+0.0.366.txt. FIX only what the device test shows. Patch only, changed files only, final reply max 10 lines, Banglish."
+
+=== OLDER HANDOFFS: 0.0.365 (tab groups), earlier in repo ===

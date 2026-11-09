@@ -629,6 +629,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         AdBlock.flushTotal() // S68
         super.onStop()
         MediaPrefs.onStop(this, tabs.active?.web) // 0.0.302: background play keeps the page running after the window is hidden
+        BgKeep.onStop(this, tabs.active?.web) // 0.0.366: same for a running download
     }
 
     override fun onNewIntent(intent: Intent) { // D1: Share while the browser is already open
@@ -667,7 +668,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     override fun onPause() {
         floating.stop() // S11
-        if (!(MediaPrefs.bg(this) && MediaPrefs.audible(this))) tabs.active?.web?.onPause() // 0.0.296: Media > Background play: a playing page is not paused
+        val dlKeep = BgKeep.onPause(this, tabs.active?.web) // 0.0.366: a running download keeps the page + a service (wake lock) alive
+        if (!dlKeep && !(MediaPrefs.bg(this) && MediaPrefs.audible(this))) tabs.active?.web?.onPause() // 0.0.296: Media > Background play: a playing page is not paused
         MediaPrefs.onPause(this)
         // 0.0.342: Android 12 and older: blank Recents picture of private tabs only while the app is away (screenshots stay allowed in the app)
         if (android.os.Build.VERSION.SDK_INT < 33 && privHide && !privSecure) try { window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE) } catch (e: Exception) { }
