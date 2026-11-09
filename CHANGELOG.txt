@@ -1,12 +1,10 @@
-0.0.366 (FIX: downloads stop when you press Home / the screen turns off / the phone locks)
-- WHY: DownloadService (the foreground notification) had no wake lock and no Wi-Fi lock, so with the screen off the CPU and Wi-Fi went to sleep and the download stalled. Engine jobs (video, manga, novel: V77 in the hidden WebView) did not start the service at all, and the page in front was paused (WebView.onPause) the moment Thazir was left.
-- What (BgKeep.kt, new): busy() = a native download or an engine job (state run, not paused, updated in the last 10 min) is running. MainActivity.onPause / onStop call it: when busy, DownloadService is started and the page in front is NOT paused (timers resumed, renderer kept important while hidden).
-- DownloadService.kt: PARTIAL wake lock + Wi-Fi lock while a download is really running (released when only paused / when the service stops); the service also stays alive while an engine job runs.
-- TabManager.kt: the 1-minute sweep suspends no tab while an engine job runs (before only native downloads blocked it).
-- MainActivity.kt: 2 lines (onPause, onStop). build.gradle.kts: version only. No new pref, no new id, no layout, no manifest change (WAKE_LOCK + dataSync service were already declared).
-- Needs on the phone: Notifications allowed, and Settings > Device permissions > "Battery: unrestricted" = Thazir (Xiaomi / Oppo / Vivo / Realme also: Autostart ON + lock Thazir in Recents). Without it the phone brand can still kill the app.
-- Could break: battery use is higher while a download runs with the screen off (that is the point); an idle paused download holds no lock.
-- NOT tested: Gradle build (CI), device (Home, screen off 10 min, lock, swipe from Recents, Wi-Fi + mobile data, blob download, V77 video job, manga job).
+0.0.367 (FIX: smooth switch between Bookmarks / History / Downloads)
+- WHY: switching between the 3 pills glitched: Bookmarks <> History rebuilt the whole screen (header, pills, search all redrawn at once) and Downloads was a separate Dialog that was dismissed, then a new one opened (flash, pill jumped, list popped in).
+- What (BookmarksScreen.kt): pills() is now ONE indicator that slides under the labels (label colours fade). Bookmarks <> History keeps header + pills, the old list slides / fades out and the new one slides / fades in (switchMode). Filter change rebuilds only the body. Bookmarks / History > Downloads and back: the new screen opens FIRST, the old one is dismissed 90 ms later (no gap, no dialog pop), the indicator slides from the old pill, the body slides in from the matching side.
+- What (DownloadsScreen.kt + screen_downloads.xml): same handover; header 56dp, search margins and divider aligned with the Bookmarks screen so nothing jumps between the two windows.
+- Safe / fallback: Reduce motion ON = instant switch like before (no slide, no fade). No new pref, no new id, no logic change in lists, search or select.
+- NOT tested: Gradle build (CI), device, Downloads > Bookmarks > Downloads fast taps, rotation while switching, select mode, light theme.
+- Files: BookmarksScreen.kt, DownloadsScreen.kt, res/layout/screen_downloads.xml, build.gradle.kts, CHANGELOG.txt, HANDOFF+Thazir+0.0.367.txt.
 
 0.0.365 (FIX: "Chrome tab groups" after P3 - Undo of a group close survives the switcher + stale ids)
 - WHY: the "Group closed" Undo (and every other switcher Undo) disappeared the moment the switcher closed; dead tab ids stayed inside groups until the switcher drew again.

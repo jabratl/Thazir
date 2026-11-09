@@ -32,17 +32,28 @@ object DownloadsScreen {
     private const val TAG = "MGB.dlscreen"
     private var current: Screen? = null
 
-    fun open(host: Activity) {
+    fun open(host: Activity, smooth: Boolean = false) {
         if (host.isFinishing || host.isDestroyed) return
-        closeAll()
+        val prev = if (smooth) BookmarksScreen.detach() else null // 0.0.366: Bookmarks / History > Downloads without a gap
+        if (!smooth || prev == null) closeAll()
         try {
-            val s = Screen(host)
+            val s = Screen(host, if (prev != null) 1 else 0)
             current = s
             s.show()
+            if (prev != null) BookmarksScreen.finishHandoff(prev)
         } catch (e: Exception) {
             Log.e(TAG, "open failed", e)
             current = null
         }
+    }
+
+    /** 0.0.366: see BookmarksScreen.detach. */
+    internal fun detach(): Dialog? { val s = current; current = null; return s }
+
+    internal fun finishHandoff(prev: Dialog?) {
+        if (prev == null) return
+        prev.window?.setWindowAnimations(0)
+        prev.window?.decorView?.postDelayed({ try { prev.dismiss() } catch (_: Exception) { } }, 90)
     }
 
     fun closeAll() {
@@ -51,7 +62,7 @@ object DownloadsScreen {
         try { s.dismiss() } catch (_: Exception) { }
     }
 
-    private class Screen(private val act: Activity) :
+    private class Screen(private val act: Activity, private val enterDir: Int = 0) :
         Dialog(act, com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar) {
         private val main = Handler(Looper.getMainLooper())
         private var list: LinearLayout? = null
@@ -74,6 +85,7 @@ object DownloadsScreen {
             setOnDismissListener {
                 main.removeCallbacks(tick)
                 if (current === this) current = null
+                if (current == null && BookmarksScreen.hasNone()) BookmarksScreen.lastPill = -1 // 0.0.366: closed for good, next open does not slide
             }
         }
 
@@ -84,6 +96,7 @@ object DownloadsScreen {
                 it.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 it.setBackgroundDrawable(ColorDrawable(act.getColor(R.color.mg_bg)))
                 it.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+                if (enterDir != 0) it.setWindowAnimations(0) // 0.0.366: handed over, no dialog pop
             }
             list = findViewById(R.id.xd_list)
             empty = findViewById(R.id.xd_empty)
@@ -96,12 +109,12 @@ object DownloadsScreen {
             if (hdr != null && tabsRef != null) {
                 val at = hdr.indexOfChild(title)
                 hdr.removeView(title)
-                hdr.addView(BookmarksScreen.pills(act, 2) { i ->
+                val bar = BookmarksScreen.pills(act, 2) { i ->
                     if (i != 2) {
-                        dismiss()
-                        BookmarksScreen.open(act, if (i == 0) BookmarksScreen.Mode.BOOKMARKS else BookmarksScreen.Mode.HISTORY, tabsRef)
+                        BookmarksScreen.open(act, if (i == 0) BookmarksScreen.Mode.BOOKMARKS else BookmarksScreen.Mode.HISTORY, tabsRef, smooth = true)
                     }
-                }, at, android.widget.LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginStart = dp(4); marginEnd = dp(4) })
+                }
+                hdr.addView(bar, at, android.widget.LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginStart = dp(4); marginEnd = dp(4) })
                 findViewById<View>(R.id.xd_close).visibility = View.GONE // the back arrow already closes
             }
             findViewById<android.widget.EditText>(R.id.xd_search)?.let { et -> // S66
@@ -113,6 +126,10 @@ object DownloadsScreen {
                 })
             }
             findViewById<View>(R.id.xd_clear)?.visibility = View.GONE // 0.0.126: Clear did nothing, hidden (id + layout kept)
+            if (enterDir != 0) { // 0.0.366: search + list slide in from the right, header stays
+                list?.let { l -> (l.parent?.parent as? View)?.let { BookmarksScreen.enter(act, it, enterDir) } }
+                findViewById<View>(R.id.xd_search)?.let { BookmarksScreen.enter(act, it, enterDir) }
+            }
             main.post(tick)
         }
 

@@ -1,0 +1,5 @@
+HANDOFF Thazir 0.0.367 (short)
+DONE: smooth switching Bookmarks / History / Downloads (sliding pill indicator, body slide+fade, Dialog handover with no gap). See CHANGELOG 0.0.367.
+Design: BookmarksScreen.pills() returns PillBar (moveTo). BookmarksScreen.lastPill = previous pill index (-1 fresh open). open(..., smooth=true) / DownloadsScreen.open(act, smooth=true) detach the other screen, show the new one, dismiss the old after 90 ms (finishHandoff). BookmarksScreen.enter() = shared slide/fade. All off with TabPrefs.reduce.
+NOT tested: Gradle build (CI), device. Brace/paren balance checked only.
+LEFT: build on CI and watch the video case again; if indicator start looks off on first frame, tweak the layout listener in pills().

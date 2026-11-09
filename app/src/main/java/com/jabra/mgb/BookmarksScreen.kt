@@ -33,42 +33,119 @@ object BookmarksScreen {
     /** S25: set by MainActivity so DownloadsScreen can jump back here. Cleared in onDestroy. */
     var tabsRef: TabManager? = null
 
+    /** 0.0.366: last selected pill, so the next screen slides the indicator from there. -1 = fresh open (no slide). */
+    var lastPill = -1
+    /** 0.0.366: true only while one screen hands over to the next (keeps lastPill). */
+    private var switching = false
+
+    /** 0.0.366: Pills = rounded track + ONE indicator that slides between the 3 labels (was: pill redrawn, so it jumped). */
+    class PillBar(act: Activity) : android.widget.FrameLayout(act) {
+        var moveTo: (Int) -> Unit = {}
+    }
+
+    /** 0.0.366: shared slide / fade used by both screens for the body under the header. dir +1 = from the right, -1 = from the left. */
+    fun enter(act: Activity, v: View, dir: Int) {
+        if (dir == 0 || TabPrefs.reduce(act)) return
+        v.alpha = 0f
+        v.translationX = dir * Util.dp(act, 36).toFloat()
+        v.animate().alpha(1f).translationX(0f).setDuration(260)
+            .setInterpolator(android.view.animation.DecelerateInterpolator(1.8f)).start()
+    }
+
     /** S25: the 3 top pills. selected: 0 Bookmarks, 1 History, 2 Downloads. pick(i) is called on tap. */
-    fun pills(act: Activity, selected: Int, pick: (Int) -> Unit): View {
+    fun pills(act: Activity, selected: Int, pick: (Int) -> Unit): PillBar {
         fun dp(v: Int) = Util.dp(act, v)
         fun round(color: Int, r: Int) = android.graphics.drawable.GradientDrawable().apply {
             setColor(color)
             cornerRadius = dp(r).toFloat()
         }
-        val seg = LinearLayout(act).apply {
-            orientation = LinearLayout.HORIZONTAL
+        val reduce = TabPrefs.reduce(act)
+        val from = if (lastPill in 0..2 && !reduce) lastPill else selected
+        lastPill = selected
+        val seg = PillBar(act).apply {
             background = round(act.getColor(R.color.mg_surface_variant), 22)
             setPadding(dp(3), dp(3), dp(3), dp(3))
         }
+        val ind = View(act).apply { background = round(act.getColor(R.color.mg_primary), 19) }
+        seg.addView(ind, android.widget.FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT))
+        val row = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
         val labels = arrayOf("Bookmarks", "History", "Downloads")
+        val tv = ArrayList<TextView>()
+        var cur = from
         for (i in labels.indices) {
-            val on = i == selected
-            seg.addView(TextView(act).apply {
+            val t = TextView(act).apply {
                 text = labels[i]
                 gravity = Gravity.CENTER
                 textSize = 13f
                 maxLines = 1
-                setTextColor(act.getColor(if (on) R.color.mg_on_primary else R.color.mg_text))
-                if (on) background = round(act.getColor(R.color.mg_primary), 19)
+                setTextColor(act.getColor(if (i == cur) R.color.mg_on_primary else R.color.mg_text))
                 setOnClickListener { pick(i) }
-            }, LinearLayout.LayoutParams(0, dp(38), 1f))
+            }
+            tv.add(t)
+            row.addView(t, LinearLayout.LayoutParams(0, dp(38), 1f))
+        }
+        seg.addView(row, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        var segW = 0
+        seg.moveTo = { i ->
+            if (i != cur) {
+                val old = cur
+                cur = i
+                lastPill = i
+                if (segW > 0 && !reduce) {
+                    ind.animate().translationX(i * segW.toFloat()).setDuration(280)
+                        .setInterpolator(android.view.animation.DecelerateInterpolator(1.8f)).start()
+                    for (j in tv.indices) {
+                        val to = act.getColor(if (j == i) R.color.mg_on_primary else R.color.mg_text)
+                        if (j == i || j == old) android.animation.ObjectAnimator.ofArgb(tv[j], "textColor", tv[j].currentTextColor, to).setDuration(220).start()
+                    }
+                } else {
+                    ind.translationX = i * segW.toFloat()
+                    for (j in tv.indices) tv[j].setTextColor(act.getColor(if (j == i) R.color.mg_on_primary else R.color.mg_text))
+                }
+            }
+        }
+        seg.addOnLayoutChangeListener { _, l, _, r, _, _, _, _, _ ->
+            val w = (r - l - dp(6)) / 3
+            if (w > 0 && w != segW) {
+                val first = segW == 0
+                segW = w
+                ind.layoutParams = (ind.layoutParams as android.widget.FrameLayout.LayoutParams).apply { width = w }
+                ind.translationX = cur * w.toFloat()
+                if (first && from != selected) { // slide from the previous screen's pill
+                    cur = from
+                    for (j in tv.indices) tv[j].setTextColor(act.getColor(if (j == cur) R.color.mg_on_primary else R.color.mg_text))
+                    seg.post { seg.moveTo(selected) }
+                }
+            }
         }
         return seg
     }
 
-    fun open(host: Activity, mode: Mode, tabs: TabManager) {
+    /** 0.0.366: DownloadsScreen hands over: take the open screen out of `current` (it is dismissed after the new one is shown). */
+    internal fun detach(): Dialog? { val s = current; current = null; return s }
+    internal fun hasNone() = current == null
+
+    /** 0.0.366: dismiss a screen that was replaced; no exit animation, lastPill stays. */
+    internal fun finishHandoff(prev: Dialog?) {
+        if (prev == null) return
+        prev.window?.setWindowAnimations(0)
+        prev.window?.decorView?.postDelayed({
+            switching = true
+            try { prev.dismiss() } catch (_: Exception) { }
+            switching = false
+        }, 90)
+    }
+
+    fun open(host: Activity, mode: Mode, tabs: TabManager, smooth: Boolean = false) {
         if (host.isFinishing || host.isDestroyed) return
-        closeAll()
+        val prev = if (smooth) DownloadsScreen.detach() else null // 0.0.366: Downloads > Bookmarks / History without a gap
+        if (!smooth || prev == null) closeAll()
         try {
             tabsRef = tabs // S25
-            val s = Screen(host, mode, tabs)
+            val s = Screen(host, mode, tabs, if (prev != null) -1 else 0)
             current = s
             s.show()
+            if (prev != null) DownloadsScreen.finishHandoff(prev)
         } catch (e: Exception) {
             Log.e(TAG, "open failed", e)
             current = null
@@ -84,7 +161,8 @@ object BookmarksScreen {
     private class Screen(
         private val act: Activity,
         private var mode: Mode, // S23: switchable from the top pills
-        private val tabs: TabManager
+        private val tabs: TabManager,
+        private var enterDir: Int = 0 // 0.0.366: slide direction of the body when handed over from Downloads
     ) : Dialog(act, com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar) {
 
         private var list: LinearLayout? = null
@@ -101,14 +179,18 @@ object BookmarksScreen {
 
         private fun dp(v: Int) = Util.dp(act, v)
 
+        private var pillBar: PillBar? = null
+        private var bodyHost: android.widget.FrameLayout? = null
+
         init {
-            setOnDismissListener { if (current === this) current = null }
+            setOnDismissListener { if (current === this) current = null; if (!switching) lastPill = -1 }
         }
 
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
             build()
             window?.let {
+                if (enterDir != 0) it.setWindowAnimations(0) // 0.0.366: handed over, no dialog pop
                 it.setLayout(MATCH, MATCH)
                 it.setBackgroundDrawable(ColorDrawable(act.getColor(R.color.mg_bg)))
                 it.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
@@ -121,11 +203,25 @@ object BookmarksScreen {
                 orientation = LinearLayout.VERTICAL
                 setBackgroundColor(act.getColor(R.color.mg_bg))
             }
+            pillBar = null
             root.addView(header(), LinearLayout.LayoutParams(MATCH, dp(56)))
-            root.addView(searchBox(), LinearLayout.LayoutParams(MATCH, dp(44)).apply {
+            val host = android.widget.FrameLayout(act)
+            bodyHost = host
+            val body = buildBody()
+            host.addView(body, android.widget.FrameLayout.LayoutParams(MATCH, MATCH))
+            root.addView(host, LinearLayout.LayoutParams(MATCH, 0, 1f))
+            setContentView(root)
+            render()
+            if (enterDir != 0) { enter(act, body, enterDir); enterDir = 0 }
+        }
+
+        /** 0.0.366: search + filter + list of the current mode (the part that changes when a pill is tapped). Sets list / empty. */
+        private fun buildBody(): LinearLayout {
+            val body = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            body.addView(searchBox(), LinearLayout.LayoutParams(MATCH, dp(44)).apply {
                 marginStart = dp(16); marginEnd = dp(16); topMargin = dp(4); bottomMargin = dp(8)
             })
-            if (mode == Mode.HISTORY) root.addView(HistoryFilter.row(act) { build() }, LinearLayout.LayoutParams(MATCH, WRAP)) // 0.0.330
+            if (mode == Mode.HISTORY) body.addView(HistoryFilter.row(act) { refreshBody() }, LinearLayout.LayoutParams(MATCH, WRAP)) // 0.0.330
 
             val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
             val emptyView = TextView(act).apply {
@@ -141,12 +237,38 @@ object BookmarksScreen {
             box.addView(items, LinearLayout.LayoutParams(MATCH, WRAP))
             val sv = ScrollView(act)
             sv.addView(box, ViewGroup.LayoutParams(MATCH, WRAP))
-            root.addView(sv, LinearLayout.LayoutParams(MATCH, 0, 1f))
-
+            body.addView(sv, LinearLayout.LayoutParams(MATCH, 0, 1f))
             list = items
             empty = emptyView
-            setContentView(root)
+            return body
+        }
+
+        /** 0.0.366: filter changed: rebuild only the body (header + pills stay, no flash). */
+        private fun refreshBody() {
+            val host = bodyHost ?: return build()
+            host.removeAllViews()
+            host.addView(buildBody(), android.widget.FrameLayout.LayoutParams(MATCH, MATCH))
             render()
+        }
+
+        /** 0.0.366: Bookmarks <> History: header and pills stay, the indicator slides, the old list slides / fades out and the new one in. */
+        private fun switchMode(m: Mode) {
+            if (m == mode) return
+            val dir = if (m.ordinal > mode.ordinal) 1 else -1
+            mode = m; query = ""; folder = null
+            val host = bodyHost
+            val bar = pillBar
+            if (host == null || bar == null || TabPrefs.reduce(act)) { build(); return }
+            bar.moveTo(m.ordinal)
+            val old = host.getChildAt(host.childCount - 1)
+            val nb = buildBody()
+            host.addView(nb, android.widget.FrameLayout.LayoutParams(MATCH, MATCH))
+            render()
+            enter(act, nb, dir)
+            val d = dp(36).toFloat()
+            old?.animate()?.alpha(0f)?.translationX(-dir * d)?.setDuration(170)
+                ?.setInterpolator(android.view.animation.AccelerateInterpolator(1.2f))
+                ?.withEndAction { host.removeView(old) }?.start()
         }
 
         private fun round(color: Int, r: Int) = android.graphics.drawable.GradientDrawable().apply {
@@ -195,12 +317,10 @@ object BookmarksScreen {
             }, LinearLayout.LayoutParams(dp(44), dp(48)))
             // S23/S25: segmented pills Bookmarks | History | Downloads (shared with DownloadsScreen)
             val seg = pills(act, if (mode == Mode.BOOKMARKS) 0 else 1) { i ->
-                if (i == 2) { dismiss(); DownloadsScreen.open(act) }
-                else {
-                    val m = if (i == 0) Mode.BOOKMARKS else Mode.HISTORY
-                    if (m != mode) { mode = m; query = ""; folder = null; build() }
-                }
+                if (i == 2) DownloadsScreen.open(act, smooth = true) // 0.0.366: handover, no dismiss gap; the new screen slides the indicator
+                else switchMode(if (i == 0) Mode.BOOKMARKS else Mode.HISTORY)
             }
+            pillBar = seg
             h.addView(seg, LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginStart = dp(4); marginEnd = dp(4) })
             // 3-dot: Import / Export (bookmarks, S18) or Clear (history)
             h.addView(ImageView(act).apply {
