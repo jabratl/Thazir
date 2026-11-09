@@ -1,3 +1,11 @@
+0.0.354 (FIX: 0.0.353 big-file pieces stopped after the FIRST 4 MB piece on Bilibili)
+- WHY: user test of 0.0.353: bilibili.tv video and audio both downloaded, but only ~4 MB each (MAX extension gets the full video).
+- Root cause (code + symptom, device NOT re-tested): bigfile.js readDirect treated "status 200" as "server ignored Range = this is the WHOLE file". Here the Range answer came back as 200 (no Content-Range), so the first 4 MB piece was saved as the whole file. Also a piece shorter than 4 MB was taken as the end of the file.
+- Fix (only bigfile.js): 200 without Content-Range counts as the whole file ONLY if it is LONGER than the 4 MB asked; otherwise it is a normal piece (a short one = last piece). A short piece with a known size is no longer the end: end = size reached / empty answer / 416. If the size is known and not reached = error, so the next stage / old whole-file way runs (a half file is never handed over). The log now has "piece 0 / 1: got N B, whole=, total=" so the next report shows what the server answers.
+- BROKEN / BHENGE-NI: nothing. Setting chunkFile unchanged.
+- NOT tested: Gradle (CI), device, live Bilibili. Tested here: node mock (normal, exact 8 MB, 100 B, Range ignored, 200-for-ranges 20 MB + exact 8 MB, 1 MB short pieces with / without Content-Range, direct fails -> page, Cancelled): all OK.
+- Files: app/src/main/assets/ext/bigfile.js, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt (+ ext CHANGELOG.txt)
+
 0.0.353 (FIX: Bilibili / big single file "Failed to fetch"; ADD: FILE_FAILED reason log)
 - WHY: Bilibili (bilibili.tv) video was found by the grabber, but the download ended "Failed: Failed to fetch" (2 jobs in the Diagnose report) and the verdict said "choose the download folder again".
 - Root cause (code reading, device NOT re-tested): Bilibili hands over video and audio as ONE big file each (DASH BaseURL only). downloader.js runDash read each file with ONE request (fetchRetry(rep.file).blob()): one dropped / slow connection = the whole file fails, no piece is kept. Still "most likely", NOT proven on the device.

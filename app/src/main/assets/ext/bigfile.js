@@ -9,23 +9,26 @@
 // Setting: chunkFile (default on). Off = stage 3 only = exactly the 0.0.352 behaviour.
 (function () {
   const CH = 4 * 1024 * 1024;
-  const MAX_PIECES = 20000;
+  const MAX_PIECES = 400000;
 
   const isCancel = (e) => !!e && (e.message === 'Cancelled' || e.name === 'AbortError');
 
-  // each reader returns { buf: ArrayBuffer, total: number (-1 unknown), whole: boolean (server ignored Range and sent everything) }
+  // each reader returns { buf: ArrayBuffer, total: number (-1 unknown), whole: boolean (server ignored Range and sent everything), last: boolean (a short piece that ends the file) }
   async function readDirect(url, a, b) {
     const r = await fetchRetry(url, { headers: { Range: 'bytes=' + a + '-' + b } });
     const buf = await r.arrayBuffer();
-    let total = -1;
-    try { const cr = r.headers.get('Content-Range'); if (cr && cr.indexOf('/') > 0) { const t = parseInt(cr.split('/')[1], 10); if (t > 0) total = t; } } catch (e) { /* header not readable: total stays unknown */ }
-    return { buf, total, whole: r.status === 200 };
+    let total = -1, hasCR = false;
+    try { const cr = r.headers.get('Content-Range'); if (cr) { hasCR = true; if (cr.indexOf('/') > 0) { const t = parseInt(cr.split('/')[1], 10); if (t > 0) total = t; } } } catch (e) { /* header not readable: total stays unknown */ }
+    // 0.0.354: some paths answer a Range request with status 200 and NO Content-Range (the 0.0.353 code took that 4 MB piece for the whole file).
+    // 200 without Content-Range: longer than asked = the server ignored Range (whole file); not longer = a normal piece, and a short one is the last.
+    const plain200 = r.status === 200 && !hasCR;
+    return { buf, total, whole: plain200 && buf.byteLength > CH, last: plain200 && buf.byteLength < CH };
   }
   async function readPage(url, a, b) {
     const r = await viaPageBin(url, { headers: { Range: 'bytes=' + a + '-' + b } });
     if (!r) throw new Error('the video page could not read the piece');
     const buf = await r.arrayBuffer();
-    return { buf, total: -1, whole: buf.byteLength > CH }; // longer than asked = the server ignored Range
+    return { buf, total: -1, whole: buf.byteLength > CH, last: buf.byteLength < CH }; // longer than asked = the server ignored Range; a short piece = the end
   }
   const STAGES = [['direct', readDirect], ['page', readPage]];
 
@@ -42,6 +45,7 @@
         throw e;
       }
       const len = res.buf.byteLength;
+      if (n < 2) dbg('dl', 'piece ' + n + ': got ' + len + ' B, whole=' + res.whole + ', total=' + res.total); // 0.0.354: shows in the log what the server really answers
       if (res.whole) { if (a > 0) throw new Error('server sent the whole file in the middle'); return new Blob([res.buf]); }
       if (len === 0) { if (a === 0) throw new Error('empty answer'); break; }
       parts.push(new Blob([res.buf]));
@@ -51,9 +55,11 @@
         status('Downloading... ' + fmtSize(a) + (total > 0 ? ' / ' + fmtSize(total) : ''));
         progress(a, total > 0 ? total : 0);
       } catch (e) { /* display only */ }
-      if (total > 0 ? a >= total : len < CH) break;
+      if (res.last && total <= 0) break; // reader says this was the last piece (no size known)
+      if (total > 0 && a >= total) break; // 0.0.354: a SHORT piece is NOT the end (a server may answer less than asked). End = size reached, an empty answer, or 416
     }
     if (!parts.length) throw new Error('nothing received');
+    if (total > 0 && a < total) throw new Error('incomplete: ' + a + ' of ' + total + ' B'); // never hand over a half file: next stage / old way
     return new Blob(parts);
   }
 
