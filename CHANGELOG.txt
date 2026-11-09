@@ -1,3 +1,11 @@
+0.0.352 (FIX: Episodes / chapters sheet scroll)
+- WHY: scrolling the episode list moved the whole sheet down and a small drag closed it (user screen recording).
+- Root cause: NativeBatch.kt ~268 plain ScrollView in a BottomSheetDialog = no nested scrolling, the sheet took the touch. Working sheets use NestedScrollView.
+- Fix: NestedScrollView + isDraggable = false (try / catch). Changed: NativeBatch.kt only (+ version, docs).
+- BROKEN / BHENGE-NI: nothing, except swipe-down no longer closes THIS sheet (CLOSE, back, tap outside do).
+- Same bug class left alone: BmUi.kt, GrabSet.kt.
+- NOT tested: Gradle (CI), device. Files: app/src/main/java/com/jabra/mgb/NativeBatch.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt
+
 0.0.351 (ADD: saved-subtitle delay from V82; engine + native row)
 - WHY: user gave the real media-grabber_V82_FULL.zip. File-by-file diff against assets/ext: Thazir is a superset; the only V82 feature Thazir really lacked was V81/V82 'Subtitle delay (ms)' for subtitle FILES that are saved (Thazir only had the live player delay).
 - Changed: ext shared.js (default subDelayMs 0, subShiftCues, subConvert(text, fmt, srcExt, delayMs), negative allowed for subDelayMs in the settings check, export), background.js saveSubText + downloader.js saveSub (pass the setting), options.html (row), SubName.kt (native row Subtitle delay (saved files)).

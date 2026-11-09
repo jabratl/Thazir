@@ -10,11 +10,13 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import androidx.core.widget.NestedScrollView
 import android.widget.TextView
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -265,7 +267,8 @@ object NativeBatch {
         val range = EditText(act).apply { hint = "Range, e.g. 1-12 (numbers of the list)"; setSingleLine(); setTextColor(cText); setHintTextColor(cDim) }
         val allCb = CheckBox(act).apply { text = "Select all shown"; setTextColor(cText) }
         val listBox = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
-        val scroll = ScrollView(act).apply { addView(listBox) }
+        // 0.0.352: NestedScrollView (like DetectedPanel / DlEngine sheets). A plain ScrollView does not pass its scroll to the BottomSheet, so the sheet itself got the finger and slid down / closed while the list was scrolled.
+        val scroll = NestedScrollView(act).apply { overScrollMode = View.OVER_SCROLL_NEVER; addView(listBox) }
         val status = TextView(act).apply { setTextColor(cDim); setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); setPadding(0, dp(6), 0, dp(6)) }
         fun pill(t: String, bg: Int, fg: Int) = TextView(act).apply {
             text = t
@@ -448,6 +451,7 @@ object NativeBatch {
         d.setOnDismissListener { polling = false }
         d.setContentView(root)
         d.behavior.skipCollapsed = true
+        try { d.behavior.isDraggable = false } catch (e: Exception) { /* old behaviour: swipe-down closes */ } // 0.0.352: a scroll on the list can never drag / close the sheet; CLOSE, back and a tap outside still close it
         d.show()
         d.behavior.state = BottomSheetBehavior.STATE_EXPANDED
     }
