@@ -796,7 +796,7 @@ async function subFetch(tabId, item, ref) {
 async function saveSubText(text, rec, item, fmt) {
   const isVtt = /^\uFEFF?WEBVTT/.test(text);
   const srcExt = isVtt ? 'vtt' : (extOf(item.url) && !/^(php|html?|aspx?|json|xml)$/.test(extOf(item.url)) ? extOf(item.url) : (/^\s*[\[{]/.test(text) ? 'json' : /<tt[\s>]|<transcript|<timedtext/i.test(text.slice(0, 600)) ? 'ttml' : 'txt'));
-  const out = subConvert(text, fmt, srcExt);
+  const out = subConvert(text, fmt, srcExt, S.subDelayMs); // 0.0.351 (V82)
   if (fmt !== 'orig' && !out.converted) dbg('subs', 'format not understood, saved as it is: ' + item.url.slice(0, 120));
   const filename = buildFileName(S, nameVars(rec, item, { suffix: item.lang || item.label || '' }), out.ext);
   await chrome.downloads.download({ url: 'data:text/plain;charset=utf-8,' + encodeURIComponent('\uFEFF' + out.text), filename, conflictAction: 'uniquify' });

@@ -245,6 +245,14 @@ object SubName {
             pick(sc, "Format", FMT_NAMES[fi].substringBefore(" ("), "ASS, TTML, DFXP, SBV and JSON are converted") {
                 single("Subtitle format", FMT_NAMES, fi) { i -> put("subFmt", FMT[i]) }
             }
+            run { // 0.0.351 (V82): time shift of every SAVED subtitle file (the player has its own live delay). 0 = off = file saved as before
+                val cur = try { ChromeBridge.sync.get("subDelayMs").optInt("subDelayMs", 0) } catch (e: Exception) { 0 }
+                val vals = intArrayOf(-5000, -2000, -1000, -500, -250, 0, 250, 500, 1000, 2000, 5000).toMutableList().also { if (!it.contains(cur)) { it.add(cur); it.sort() } }
+                fun lbl(v: Int) = if (v == 0) "Off" else (if (v > 0) "+" else "") + (v / 1000f).toString().removeSuffix(".0") + " s"
+                pick(sc, "Subtitle delay (saved files)", lbl(cur), "+ = later, - = earlier. A shifted file is saved as .srt / .vtt") {
+                    single("Subtitle delay (saved files)", vals.map { lbl(it) }.toTypedArray(), vals.indexOf(cur)) { i -> put("subDelayMs", vals[i]) }
+                }
+            }
             sw(sc, "Check inside each file", "Skips thumbnail / preview tracks and the wrong language", "subCheck", true)
             val fb = str("subFallback", "any")
             pick(sc, "If a wanted language is missing", if (fb == "none") "Save nothing" else "Save another one", null) {

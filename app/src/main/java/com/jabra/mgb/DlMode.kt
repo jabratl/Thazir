@@ -115,7 +115,7 @@ object DlMode {
     fun dialog(act: Activity, done: () -> Unit) {
         val names = arrayOf(
             "Smart (recommended)\nOne Grabber button per page, opens the Files detected panel. The video button hides itself when the Grabber button shows. No double buttons.",
-            "Grabber only\nMedia Grabber (V77) button and the button on video players. Native buttons off.",
+            "Grabber only\nMedia Grabber (V82) button and the button on video players. Native buttons off.",
             "Native only\nNative video button and the native download button. Grabber page buttons off.",
             "Manual\nYou switch each button yourself (below)."
         )

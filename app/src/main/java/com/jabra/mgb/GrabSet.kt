@@ -59,7 +59,7 @@ object GrabSet {
             setPadding(dp(4), 0, 0, dp(2))
         })
         root.addView(TextView(act).apply {
-            text = "The other V77 options: buttons, downloader window, sites and backup. Some need a page reload."
+            text = "The other V82 options: buttons, downloader window, sites and backup. Some need a page reload."
             setTextColor(cDim); setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); setPadding(dp(4), 0, 0, dp(6))
         })
         val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
@@ -189,7 +189,7 @@ object GrabSet {
 
             box.addView(head("Backup and help"))
             val g5 = card()
-            action(g5, "Copy all settings (JSON)", "Saves every V77 setting to the clipboard") {
+            action(g5, "Copy all settings (JSON)", "Saves every V82 setting to the clipboard") {
                 try { clip(act, ChromeBridge.sync.get(null as Any?).toString()); Util.toast(act, "Settings copied") } catch (e: Exception) { Util.toast(act, "Could not read the settings") }
             }
             action(g5, "Paste settings from clipboard", "Restores settings copied before") {
@@ -211,8 +211,8 @@ object GrabSet {
             action(g5, "Clear debug log", null) {
                 try { ChromeBridge.storageSet("local", JSONObject().put("mgLog", JSONArray())); Util.toast(act, "Log cleared") } catch (e: Exception) { /* not ready */ }
             }
-            action(g5, "Reset all settings", "Every V77 option back to its default") {
-                MaterialAlertDialogBuilder(act).setTitle("Reset all settings").setMessage("Reset every V77 setting to default? Followed manga, history and schedule stay.")
+            action(g5, "Reset all settings", "Every V82 option back to its default") {
+                MaterialAlertDialogBuilder(act).setTitle("Reset all settings").setMessage("Reset every V82 setting to default? Followed manga, history and schedule stay.")
                     .setPositiveButton("Reset") { _, _ ->
                         try { ChromeBridge.sync.clear(); Util.toast(act, "Reset. Reload the pages."); fill() } catch (e: Exception) { Util.toast(act, "Reset failed") }
                     }

@@ -24,6 +24,7 @@ const DEFAULTS = {
   maxHeight: 0,            // preferred max video height for "best" (0 = highest available)
   audioOnly: false,        // D4: streams are saved as audio only when they carry a separate audio track (DASH / HLS); off = as before
   batchOrganize: false,    // D5: batch items go in a sub-folder named after the show / page, file name gets "01 - " (Plex naming wins)
+  subDelayMs: 0,           // 0.0.351 (V82): move every SAVED subtitle by this many ms (+ later / - earlier). 0 = off = nothing changes
   preferContainer: 'any', // D3: DASH video pick: any | mp4 | webm (a preference between equal heights, never a conversion)
   notify: true,            // desktop notification when downloads finish
   blockAds: true,          // ignore ad videos / ad banners / sponsored links
@@ -775,10 +776,19 @@ function cuesToSrt(cues) { return cues.map((c, i) => `${i + 1}\n${subFmtTime(c.s
 function cuesToVtt(cues) { return 'WEBVTT\n\n' + cues.map((c) => `${subFmtTime(c.s)} --> ${subFmtTime(c.e)}\n${c.t}`).join('\n\n') + '\n'; }
 function cuesToTxt(cues) { return cues.map((c) => c.t.replace(/<[^>]+>/g, '').replace(/\n/g, ' ')).join('\n') + '\n'; }
 // text of any subtitle file -> { text, ext } in the wanted format ('srt' | 'vtt' | 'txt' | 'orig'); never throws, falls back to the original
-function subConvert(text, fmt, srcExt) {
+// 0.0.351 (V82): move all cue times by delayMs (+ later / - earlier); cues never start before 0; a cue fully before 0 is dropped. The original text is never changed, only the saved copy.
+function subShiftCues(cues, delayMs) {
+  const d = (+delayMs || 0) / 1000;
+  if (!d) return cues;
+  return cues.map((c) => ({ ...c, s: Math.max(0, c.s + d), e: Math.max(0, c.e + d) })).filter((c) => c.e > c.s);
+}
+function subConvert(text, fmt, srcExt, delayMs) {
+  const dly = +delayMs || 0;
+  if (dly && (fmt === 'orig' || !fmt)) fmt = /^(vtt)$/i.test(srcExt || '') ? 'vtt' : 'srt'; // a shifted file has to be rewritten, so "original" becomes srt / vtt
   if (fmt === 'orig' || !fmt) return { text, ext: srcExt || 'txt', converted: false };
-  const cues = subCuesFrom(text, srcExt);
+  let cues = subCuesFrom(text, srcExt);
   if (!cues.length) return { text, ext: srcExt || 'txt', converted: false };
+  if (dly) cues = subShiftCues(cues, dly);
   if (fmt === 'vtt') return { text: cuesToVtt(cues), ext: 'vtt', converted: true, n: cues.length };
   if (fmt === 'txt') return { text: cuesToTxt(cues), ext: 'txt', converted: true, n: cues.length };
   return { text: cuesToSrt(cues), ext: 'srt', converted: true, n: cues.length };
@@ -823,7 +833,7 @@ function mgHealthSettings(stored, defaults) {
     const v = stored[k], d = defaults[k];
     let ok = true;
     if (Array.isArray(d)) ok = Array.isArray(v) && v.every((x) => typeof x === 'string');
-    else if (typeof d === 'number') ok = (typeof v === 'number' || (typeof v === 'string' && v.trim() !== '')) && isFinite(+v) && +v >= 0; // selects store numbers as text
+    else if (typeof d === 'number') ok = (typeof v === 'number' || (typeof v === 'string' && v.trim() !== '')) && isFinite(+v) && (+v >= 0 || k === 'subDelayMs'); // selects store numbers as text (subDelayMs may be negative)
     else if (typeof d === 'boolean') ok = typeof v === 'boolean';
     else if (typeof d === 'string') ok = typeof v === 'string' && (!ENUM[k] || ENUM[k].includes(v));
     if (!ok) { let t = ''; try { t = JSON.stringify(v); } catch (e) { t = String(v); } bad.push({ key: k, value: String(t).slice(0, 40) }); }
@@ -831,7 +841,7 @@ function mgHealthSettings(stored, defaults) {
   return bad;
 }
 
-if (typeof module !== 'undefined') module.exports = { mgHealthSettings, libraryPlan, seriesBase, liveRecoverPlan, mergeJobSnapshot, seriesName, parseNumList, epNumOf, expandPattern, patternFromUrl, seasonOf, sxeOf, galleryRun, expectedFromText, galleryFill, viewerNum, chaptersFromHtml, diagnose, padNumbers, siteFormat, sanitize, extOf, vttToSrt, subCuesFrom, subConvert, cuesToSrt, cuesToVtt, cuesToTxt, makeName, hlsInfo, dashInfo, buildFileName, parseMedia, parseMaster, hlsProtected, isoDur };
+if (typeof module !== 'undefined') module.exports = { mgHealthSettings, libraryPlan, seriesBase, liveRecoverPlan, mergeJobSnapshot, seriesName, parseNumList, epNumOf, expandPattern, patternFromUrl, seasonOf, sxeOf, galleryRun, expectedFromText, galleryFill, viewerNum, chaptersFromHtml, diagnose, padNumbers, siteFormat, sanitize, extOf, vttToSrt, subCuesFrom, subConvert, subShiftCues, cuesToSrt, cuesToVtt, cuesToTxt, makeName, hlsInfo, dashInfo, buildFileName, parseMedia, parseMaster, hlsProtected, isoDur };
 
 
 // ---------- recorded page headers: replay the headers the real player sent (Referer / Origin / Authorization / X-...) ----------

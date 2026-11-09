@@ -1,3 +1,4 @@
+Media Grabber 2.82.0 (Thazir engine) + 0.0.351: 'Subtitle delay (ms)' (subDelayMs) for saved subtitles, taken from V82 (V81 part). 0 = off.
 Media Grabber 2.82.0 (Thazir engine, V77 + V78 / V79 / V80 / V82 parts)  - see Thazir CHANGELOG 0.0.348
 - V79 playlist text from the player, V80 size / resolution of single-quality playlists, V78 disguised playlist + file signature sniff + fake picture header cut, V82 siteMax.js readers (+ siteMaxFetch setting). V81 parts NOT included (Thazir does them natively).
 

@@ -601,7 +601,7 @@ async function runSubtitle(url, auto) {
   if (text.includes('#EXTM3U')) return offerSubtitle(await mergeVtt(parseMedia(text, url)), auto);
   if (/^\uFEFF?WEBVTT/.test(text) && (auto ? ['srt', 'vtt', 'txt', 'orig'].includes(SUBFMT) : true)) return offerSubtitle(text, auto);
   const srcExt = extOf(url) && !/^(php|html?|aspx?)$/.test(extOf(url)) ? extOf(url) : (/^\s*[\[{]/.test(text) ? 'json' : 'txt');
-  const out = subConvert(text, auto ? SUBFMT : 'srt', srcExt);
+  const out = subConvert(text, auto ? SUBFMT : 'srt', srcExt, SET.subDelayMs); // 0.0.351 (V82)
   if (!auto && out.converted) { // not WebVTT (ASS, TTML, JSON ...): let the person choose the format
     const cues = subCuesFrom(text, srcExt);
     status('Subtitle ready.'); addTitle('Save subtitle');

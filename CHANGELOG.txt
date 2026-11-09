@@ -1,3 +1,20 @@
+0.0.351 (ADD: saved-subtitle delay from V82; engine + native row)
+- WHY: user gave the real media-grabber_V82_FULL.zip. File-by-file diff against assets/ext: Thazir is a superset; the only V82 feature Thazir really lacked was V81/V82 'Subtitle delay (ms)' for subtitle FILES that are saved (Thazir only had the live player delay).
+- Changed: ext shared.js (default subDelayMs 0, subShiftCues, subConvert(text, fmt, srcExt, delayMs), negative allowed for subDelayMs in the settings check, export), background.js saveSubText + downloader.js saveSub (pass the setting), options.html (row), SubName.kt (native row Subtitle delay (saved files)).
+- FALLBACK by design: 0 (default) or unreadable value = same code path as 0.0.350; unreadable subtitle = saved as it is (old rule).
+- BROKEN / BHENGE-NI: nothing. Not copied from V82 on purpose (Thazir native is better / already has it): download rules, popup / queue pages, filter / sort / select, Pause all, New link, Link inbox. Older V82 files were NOT copied over Thazir files.
+- NOT ported: libav, DRM key tricks / Mouflon keys (not built), smart naming page (not in the V82 zip), native-messaging app.
+- Tested: node --check x3, node unit test 11 / 11 OK, settings check. NOT tested: Gradle build (CI), device.
+- Files: app/build.gradle.kts, app/src/main/java/com/jabra/mgb/SubName.kt, app/src/main/assets/ext/{shared.js, background.js, downloader.js, options.html, CHANGELOG.txt}, CHANGELOG.txt, HANDOFF.txt
+
+0.0.350 (TEXT: visible name V77 -> V82 in the native app)
+- WHY: the app screens still called the grabber engine "V77" although assets/ext has been V82 (2.82.0) since 0.0.348.
+- Changed: only text shown to the user, in DlMode.kt (1), DiagReport.kt (4), SettingsScreen.kt (4 lines), GrabSet.kt (4), NativeBatch.kt (1). Each edit was line-exact; names with letters after 77 (V77Alt) were skipped by pattern.
+- BROKEN / BHENGE-NI: nothing. No key, class, message, setting or logic touched (v77_backup / v77_prev_mode keys stay, so saved settings and backups still work).
+- V82 lackings: V82 source zip was not provided, so nothing ported. Still not ported: libav remux, Mouflon keys, smart naming page, DRM key tricks (not built on purpose). Needs the V82 zip + a decision.
+- NOT tested: Gradle build (CI), device. Only brace / paren balance of the 5 files checked = OK.
+- Files: app/src/main/java/com/jabra/mgb/{DlMode,DiagReport,SettingsScreen,GrabSet,NativeBatch}.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt
+
 0.0.349 (FIX: built-in grabber engine could not register scripts, so "Switch off MediaSource on these sites" did nothing; full repo = 0.0.347 + 0.0.348 + this)
 - WHY: open item 2 of 0.0.345 / 0.0.348. Grabber settings > "Switch off MediaSource on these sites" is meant to inject assets/ext/siteNoMse.js (MAIN, document_start) on the listed sites, so a player falls back to a plain MP4 / HLS link that can be detected. The log said "MediaSource-off sync failed: Not implemented: scripting.registerContentScripts".
 - Root cause: ChromeBridge.kt (handler lookup, line ~186) uses handlers["ext.<api>"] only for INSTALLED extensions; the built-in engine (EXT_ID) falls to handlers["scripting.registerContentScripts"], which did not exist (TabsApi.kt header says "NOT here: scripting.registerContentScripts"; ExtApi has them only as "ext.scripting.*"). So background.js syncNoMse() always failed inside its own try / catch, siteNoMse.js was never injected. Same bug class checked: the engine calls scripting.registerContentScripts / unregisterContentScripts only in syncNoMse (grep background.js); no other engine call to a missing scripting.* handler found (scripting.executeScript / insertCSS exist in TabsApi).

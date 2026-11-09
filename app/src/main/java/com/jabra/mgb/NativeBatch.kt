@@ -181,7 +181,7 @@ object NativeBatch {
                 closePanel()
                 DiagScreen.open(act, null, tabId)
             },
-            ToolsSheet.Item(R.drawable.ic_share, "Open full Grabber", "Pick pages, job list and the V77 page") {
+            ToolsSheet.Item(R.drawable.ic_share, "Open full Grabber", "Pick pages, job list and the V82 page") {
                 EngineApi.send(JSONObject().put("type", "open-panel").put("tabId", tabId))
                 closePanel()
             }

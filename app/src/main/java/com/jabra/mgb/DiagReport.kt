@@ -139,8 +139,8 @@ object DiagReport {
         setL.add("Download folder set: " + (if (tree != null) "yes" else "no (default)"))
         val sync = safe(null) { ChromeBridge.sync.get(null) }
         if (sync != null) {
-            for (k in listOf("blockAds", "mergeAV", "concurrency", "maxJobs", "sniffSeconds")) if (sync.has(k)) setL.add("V77 $k = " + sync.opt(k))
-        } else { setL.add("V77 settings: not readable (engine not started?)"); setLevel = WARN }
+            for (k in listOf("blockAds", "mergeAV", "concurrency", "maxJobs", "sniffSeconds")) if (sync.has(k)) setL.add("V82 $k = " + sync.opt(k))
+        } else { setL.add("V82 settings: not readable (engine not started?)"); setLevel = WARN }
         secs.add(Section("settings", "Browser", "Settings", setLevel, setL))
 
         // ---- Page / tab
@@ -181,7 +181,7 @@ object DiagReport {
         for (j in jobs) { val s = j.optString("state").ifBlank { "?" }; states[s] = (states[s] ?: 0) + 1 }
         val failedJobs = jobs.filter { it.optString("state") == "error" || it.optString("state") == "failed" }
         val jl = ArrayList<String>()
-        jl.add("V77 jobs: " + (if (jobs.isEmpty()) "none" else states.entries.joinToString(", ") { it.key + " " + it.value }))
+        jl.add("V82 jobs: " + (if (jobs.isEmpty()) "none" else states.entries.joinToString(", ") { it.key + " " + it.value }))
         for (j in failedJobs.take(3)) jl.add("  - failed: " + Diag.mask(jobErr(j).take(120)) + " " + Diag.maskUrl(j.optString("url")))
         val dFail5 = Diag.countSince("download", now - FIVE_MIN, null)
         if (dFail5 > 0) jl.add("Download failures logged in the last 5 min: $dFail5")
@@ -199,7 +199,7 @@ object DiagReport {
         val log = safe(null) { ChromeBridge.local.get("mgLog").optJSONArray("mgLog") }
         val ll = ArrayList<String>()
         if (log == null || log.length() == 0) ll.add("Empty") else for (i in maxOf(0, log.length() - 30) until log.length()) ll.add("  " + Diag.mask(log.optString(i)).take(300))
-        secs.add(Section("mglog", "Video", "V77 log (last 30)", INFO, ll))
+        secs.add(Section("mglog", "Video", "V82 log (last 30)", INFO, ll))
 
         // ---- Recent native errors
         val errs = Diag.recent(20, null, true)

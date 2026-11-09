@@ -754,7 +754,7 @@ object SettingsScreen {
             card.addView(header, LinearLayout.LayoutParams(MATCH, WRAP))
             val links = listOf(
                 Row(R.drawable.ic_download, "Downloads", "", "Files, queue, quality, folder, rules") { openPage("downloads") },
-                Row(R.drawable.ic_settings, "Grabber and buttons", "", "Engine, download buttons, V77 backup") { openPage("grabber") },
+                Row(R.drawable.ic_settings, "Grabber and buttons", "", "Engine, download buttons, V82 backup") { openPage("grabber") },
                 Row(R.drawable.ic_pl_speed, "Player", "", "Gestures, speed, defaults") { openPage("player") }
             )
             for (i in links.indices) {
@@ -1097,7 +1097,7 @@ object SettingsScreen {
                 Sub("Engine"),
                 Row(R.drawable.ic_settings, "Download engine", engSummary(), "Speed, retries, limits, live recording") { DlEngine.open(act) },
                 Row(R.drawable.ic_settings, "Grabber settings", "", "Sites, theme, backup, reset") { GrabSet.open(act) },
-                Row(R.drawable.ic_screen, "All V77 options page", "", "The full original settings page") { ext("options.html") },
+                Row(R.drawable.ic_screen, "All V82 options page", "", "The full original settings page") { ext("options.html") },
                 Sub("Player and buttons"),
                 Row(R.drawable.ic_play, "Play video links in built-in player", if (WebPlay.linksEnabled(act)) "ON" else "OFF") { // S39
                     WebPlay.setLinksEnabled(act, !WebPlay.linksEnabled(act))
@@ -1136,9 +1136,9 @@ object SettingsScreen {
                     fill()
                 },
                 Sub("Backup downloader"), // S65; 0.0.323: moved last
-                Row(R.drawable.ic_play, "V77 Grabber (backup)", if (V77Alt.on(act)) "ON" else "OFF", "Original Media Grabber instead of the native downloader, for when it is under maintenance") {
+                Row(R.drawable.ic_play, "V82 Grabber (backup)", if (V77Alt.on(act)) "ON" else "OFF", "Original Media Grabber instead of the native downloader, for when it is under maintenance") {
                     V77Alt.set(act, !V77Alt.on(act))
-                    Util.toast(act, if (V77Alt.on(act)) "V77 Grabber ON. Reload open pages" else "Native downloader is main again. Reload open pages")
+                    Util.toast(act, if (V77Alt.on(act)) "V82 Grabber ON. Reload open pages" else "Native downloader is main again. Reload open pages")
                     fill()
                 }
             ))
