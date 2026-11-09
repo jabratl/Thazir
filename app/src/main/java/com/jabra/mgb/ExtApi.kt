@@ -748,6 +748,8 @@ object ExtApi {
         ChromeBridge.onSync("ext.scripting.getRegisteredContentScripts") { c ->
             ContentInjector.regList(app ?: throw IllegalStateException("Not ready"), c.extId, idsOf(c))
         }
+        // 0.0.349: same 4 calls for the BUILT-IN grabber engine (plain names; installed extensions keep the "ext." ones above). Failing here changes nothing else.
+        try { BuiltinReg.install({ app }) { regDone() } } catch (e: Exception) { android.util.Log.e("MGB.builtinReg", "install failed", e) }
 
         // 0.0.111 (S1): ports
         ChromeBridge.on("ext.runtime.connect") { c -> portUi {

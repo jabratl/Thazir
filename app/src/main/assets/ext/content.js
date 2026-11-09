@@ -111,14 +111,19 @@
     const d = e.data;
     if (e.source === window && d && d.__mg === 1 && d.kind === 'eplist') { onEpList(d); return; }
     if (e.source === window && d && d.__mg === 1 && d.kind === 'xhrlog') { hookAlive = true; if (Array.isArray(d.rows)) apiInv = d.rows.slice(0, 40); return; }
+    if (e.source === window && d && d.__mg === 1 && d.kind === 'pltext' && d.url && typeof d.text === 'string' && !siteOff() && live()) { // V79: playlist text the player received
+      const pk = 'pt|' + d.url; if (sent.has(pk)) return; sent.add(pk);
+      send({ type: 'playlist-text', url: d.url, text: d.text }); return;
+    }
     if (e.source !== window || !d || d.__mg !== 1 || !d.url || !d.kind || siteOff() || !live()) return;
     if (d.site && S.siteModules === false) return;
-    const u = abs(d.url);
-    if (!u || adUrl(u)) return;
-    const k = d.kind + '|' + u;
+    const inl = !!(d.site && d.inline && /^data:/i.test(d.url) && d.url.length < 400000); // V82: siteMax.js hands over a playlist as a data: URL (bilibili / iQIYI / Facebook)
+    const u = inl ? d.url : abs(d.url);
+    if (!u || (!inl && adUrl(u))) return;
+    const k = d.kind + '|' + (inl ? u.length + ':' + u.slice(-64) : u);
     if (sent.has(k)) return;
     sent.add(k);
-    send({ type: 'dom-items', items: [{ url: u, kind: d.kind, ref: location.href }] });
+    send({ type: 'dom-items', items: [{ url: u, kind: d.kind, ref: location.href, label: d.site && d.label ? String(d.label).slice(0, 80) : '', lang: d.site && d.lang ? String(d.lang).slice(0, 40) : '' }] });
   });
   if (window === window.top) { setTimeout(scanInlineEps, 1800); setTimeout(scanInlineEps, 7000); askEpList(); let lastPath = location.pathname; setInterval(() => { if (location.pathname !== lastPath) { lastPath = location.pathname; askEpList(); } }, 1500); }
 
@@ -1352,10 +1357,11 @@ document.documentElement.append(pillHost);
     if (info.live) meta.push('<span class="tag w">LIVE</span>');
     let srcLbl = '';
     try { const u = new URL(it.url); srcLbl = u.hostname.replace(/^www\./, '') + ' / ' + (u.pathname.split('/').filter(Boolean).pop() || ''); } catch (e) { /* ignore */ }
-    const res = info.variants && info.variants[0] && info.variants[0].h ? info.variants[0].h + 'p' : '';
+    const res = info.variants && info.variants[0] && info.variants[0].h ? info.variants[0].h + 'p' : (info.estH ? (info.estGuess ? '~' : '') + info.estH + 'p' : '');
     if (res) meta.push(res);
     if (isAud && dur) meta.push(fmtDur(dur));
     if (it.size && !(it.kind === 'hls' || it.kind === 'dash')) meta.push(fmtSize(it.size));
+    else if (info.estSize) meta.push('~' + fmtSize(info.estSize)); // V80
     if (isSub) {
       const si = subInfo(it.url), lg = normLang(it.lang || si.lang);
       if (lg) meta.push(`<span class="tag">${esc(lg.toUpperCase())}</span>`);
@@ -2123,13 +2129,13 @@ document.documentElement.append(ovHost);
   chrome.storage.onChanged.addListener((c, area) => {
     if (area !== 'sync') return;
     for (const k in c) S[k] = c[k].newValue === undefined ? DEFAULTS[k] : c[k].newValue;
-    try { document.documentElement.dataset.mgSite = S.siteModules === false ? 'off' : 'on'; } catch (e) { /* ignore */ }
+    try { document.documentElement.dataset.mgSite = S.siteModules === false ? 'off' : 'on'; document.documentElement.dataset.mgMaxFetch = S.siteMaxFetch === false ? 'off' : 'on'; } catch (e) { /* ignore */ }
     renderAll();
   });
 
   (async () => {
     try { S = await getSettings(); } catch (e) { /* ignore */ }
-    try { document.documentElement.dataset.mgSite = S.siteModules === false ? 'off' : 'on'; } catch (e) { /* ignore */ }
+    try { document.documentElement.dataset.mgSite = S.siteModules === false ? 'off' : 'on'; document.documentElement.dataset.mgMaxFetch = S.siteMaxFetch === false ? 'off' : 'on'; } catch (e) { /* ignore */ }
     pend = await getPending();
     epPend = await getEpPend();
     scan();

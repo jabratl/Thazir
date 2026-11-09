@@ -567,12 +567,51 @@ object ContentInjector {
         keep?.add(h)
     }
 
+    /**
+     * 0.0.349: entries for the scripts the built-in engine registered (BuiltinReg: only siteNoMse.js, world MAIN).
+     * The script gets its own full url check: if the WebView refuses an origin rule, addScript falls back to "*",
+     * and this script (it removes MediaSource) must never run on a site that is not in the list.
+     * A bad entry is skipped, the others and every old feature are not affected.
+     */
+    private fun builtinRegEntries(ctx: Context): List<Entry> {
+        val out = ArrayList<Entry>()
+        val app = ctx.applicationContext
+        for (o in BuiltinReg.all(app)) {
+            try {
+                val js = o.optJSONArray("js") ?: continue
+                val src = StringBuilder()
+                for (j in 0 until js.length()) {
+                    val f = js.getString(j)
+                    src.append("\n/* ").append(f).append(" */\n").append(read(app, "ext/$f")).append("\n;\n")
+                }
+                if (src.isEmpty()) continue
+                val matches = o.optJSONArray("matches")
+                val origins = originsOf(matches)
+                if (origins.isEmpty()) continue
+                val pre = StringBuilder()
+                pre.append("var __u=location.href;var __m=").append(regexList(matches)).append(";")
+                pre.append("if(!__m.some(function(r){return new RegExp(r).test(__u)}))return;\n")
+                out.add(Entry(origins, wrap(src.toString(), true, o.optString("runAt", "document_start"),
+                    o.optBoolean("allFrames", false), "{}", pre.toString())))
+            } catch (ex: Exception) {
+                Log.e(TAG, "builtin reg entry skipped", ex)
+            }
+        }
+        return out
+    }
+
     private fun addExtScripts(ctx: Context, web: WebView) {
         val keep = ArrayList<ScriptHandler>()
         // S2: installed extensions (a failing entry is skipped, others still run)
         for (e in extEntries(ctx)) {
             try { addScript(web, e.script, e.origins, keep) } catch (ex: Exception) { Log.e(TAG, "ext entry failed", ex) }
         }
+        // 0.0.349: scripts the built-in grabber engine registered itself (siteNoMse.js for the "MediaSource off" sites); empty list = nothing happens
+        try {
+            for (e in builtinRegEntries(ctx)) {
+                try { addScript(web, e.script, e.origins, keep) } catch (ex: Exception) { Log.e(TAG, "builtin reg entry failed", ex) }
+            }
+        } catch (ex: Exception) { Log.e(TAG, "builtin reg failed", ex) }
         // S6: extension pages opened as tabs (tabs.create) get window.chrome too
         try { addScript(web, extPageScript(ctx), setOf(EXT_ORIGIN), keep) } catch (ex: Exception) { Log.e(TAG, "ext page script failed", ex) }
         synchronized(extHandles) { extHandles[web] = keep }

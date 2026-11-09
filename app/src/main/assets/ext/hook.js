@@ -22,6 +22,15 @@
       window.postMessage({ __mg: 1, url: u, kind }, '*');
     } catch (e) { /* ignore */ }
   };
+  // V79: the playlist text the player itself received (the CDN often refuses a second request from the extension, so the quality list could not be read)
+  const sendText = (url, t) => {
+    try {
+      t = String(t || '').replace(/^\uFEFF/, '');
+      if (!/^\s*(#EXTM3U|<\?xml[^>]*>\s*<MPD|<MPD)/i.test(t.slice(0, 200)) || t.length > 600000) return;
+      const u = new URL(url, location.href).href;
+      if (/^https?:/i.test(u)) window.postMessage({ __mg: 1, kind: 'pltext', url: u, text: t }, '*');
+    } catch (e) { /* ignore */ }
+  };
   const fromText = (url, t) => {
     t = String(t || '').replace(/^\uFEFF/, '').trimStart();
     if (/^#EXTM3U/.test(t)) emit(url, 'hls');
@@ -191,7 +200,7 @@
       try {
         const url = typeof input === 'string' ? input : (input && input.url) || String(input);
         const k = kindOf(url);
-        if (k) emit(url, k);
+        if (k) { emit(url, k); if (k === 'hls' || k === 'dash') p.then((r) => { if (r && r.ok) r.clone().text().then((t) => sendText(url, t)).catch(() => {}); }).catch(() => {}); } // V79
         else p.then((r) => {
           if (!r || !r.ok) return;
           const ct = (r.headers.get('content-type') || '').toLowerCase();
@@ -199,7 +208,7 @@
           if (/mpegurl/.test(ct)) return emit(url, 'hls');
           if (/dash\+xml/.test(ct)) return emit(url, 'dash');
           if (!worthProbing(url, ct, parseInt(r.headers.get('content-length'), 10) || 0)) return;
-          r.clone().text().then((t) => fromText(url, t.slice(0, 1024))).catch(() => {});
+          r.clone().text().then((t) => { fromText(url, t.slice(0, 1024)); sendText(url, t); }).catch(() => {});
         }).catch(() => {});
       } catch (e) { /* never break the page */ }
       return p;
@@ -210,7 +219,17 @@
   XMLHttpRequest.prototype.open = function (method, url) {
     try {
       const u = String(url), k = kindOf(u);
-      if (k) emit(u, k);
+      if (k) {
+        emit(u, k);
+        if (k === 'hls' || k === 'dash') this.addEventListener('load', () => { // V79
+          try {
+            if (this.status !== 200 && this.status !== 206) return;
+            const rt = this.responseType;
+            if (rt === '' || rt === 'text') sendText(u, String(this.responseText));
+            else if (rt === 'arraybuffer' && this.response && this.response.byteLength < 600000) sendText(u, new TextDecoder().decode(new Uint8Array(this.response)));
+          } catch (e) { /* ignore */ }
+        });
+      }
       else this.addEventListener('load', () => {
         try {
           if (this.status !== 200 && this.status !== 206) return;
@@ -221,7 +240,7 @@
           const rt = this.responseType;
           const len = parseInt(this.getResponseHeader('content-length'), 10) || (rt === 'arraybuffer' && this.response ? this.response.byteLength : 0);
           if (!worthProbing(u, ct, len)) return;
-          if (rt === '' || rt === 'text') fromText(u, String(this.responseText).slice(0, 1024));
+          if (rt === '' || rt === 'text') { fromText(u, String(this.responseText).slice(0, 1024)); sendText(u, String(this.responseText)); }
           else if (rt === 'arraybuffer' && this.response) fromText(u, new TextDecoder().decode(new Uint8Array(this.response, 0, Math.min(1024, this.response.byteLength))));
         } catch (e) { /* ignore */ }
       });

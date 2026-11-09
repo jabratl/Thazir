@@ -365,6 +365,8 @@ object DetectedPanel {
         val dur = e.info.optDouble("dur", 0.0)
         val bw = e.variants?.optJSONObject(0)?.optLong("bw", 0) ?: 0L
         if (e.isStream && dur > 0 && bw > 0) return Pair((bw * dur / 8).toLong(), true)
+        val es = e.info.optLong("estSize", 0L) // 0.0.348: size measured by the engine for a single-quality playlist (V80 probeMedia); absent = as before
+        if (es > 0L) return Pair(es, true)
         return Pair(0L, false)
     }
 
@@ -1009,6 +1011,7 @@ object DetectedPanel {
                 hs.isNotEmpty() -> if (capNow > 0 && got != hs.first()) "Gets ${got}p of ${hs.first()}p" else "${hs.first()}p best"
                 e.isStream && vr != null && vr.optString("res").isNotBlank() -> vr.optString("res")
                 e.isStream && vr != null && vr.optInt("h", 0) > 0 -> vr.optInt("h").toString() + "p"
+                e.isStream && e.info.optInt("estH", 0) > 0 -> (if (e.info.optInt("estGuess", 0) == 1) "~" else "") + e.info.optInt("estH").toString() + "p" // 0.0.348: V80 measured / guessed height
                 meta != null && meta.w > 0 && meta.h > 0 -> "${meta.w}x${meta.h}"
                 else -> ""
             }

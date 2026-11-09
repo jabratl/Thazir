@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Media Grabber",
-  "version": "2.79.2",
-  "version_name": "V77",
+  "version": "2.82.0",
+  "version_name": "V82 (Thazir engine)",
   "author": "MohmShawon",
   "description": "Auto-detects videos, audio, HLS/DASH streams and subtitles, and shows a download button right on the page. Also grabs manga / doujinshi pages and whole chapters (CBZ), skipping ads.",
   "permissions": [
@@ -91,6 +91,27 @@
       ],
       "js": [
         "siteHook.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "*://*.bilibili.com/*",
+        "*://*.bilibili.tv/*",
+        "*://*.iq.com/*",
+        "*://*.iqiyi.com/*",
+        "*://*.facebook.com/*",
+        "*://*.instagram.com/*",
+        "*://*.vimeo.com/*",
+        "*://*.twitcasting.tv/*",
+        "*://*.showroom-live.com/*",
+        "*://*.cntv.cn/*",
+        "*://*.weverse.io/*"
+      ],
+      "js": [
+        "siteMax.js"
       ],
       "all_frames": true,
       "run_at": "document_start",

@@ -107,7 +107,7 @@ chrome.webRequest.onBeforeSendHeaders.addListener((d) => {
 }, { urls: ['<all_urls>'], types: ['media', 'xmlhttprequest', 'other'] }, ['requestHeaders', 'extraHeaders']);
 
 async function withReferer(url, ref, fn) {
-  if (/[*^|]/.test(url)) return fn();
+  if (/[*^|]/.test(url) || /^data:/i.test(url)) return fn(); // V82: a data: URL (playlist handed over by siteMax.js) needs no header rule
   await hdrReady;
   const ent = hdrCache[hostOf(url)];
   if (!ent && !ref) return fn();
@@ -259,6 +259,124 @@ async function pageFetchBin(tabId, url, range, ms = 15000) {
 async function pageFetch(tabId, url, ms = 9000) { // chain: top page -> every frame of the tab
   try { return await pageFetchTop(tabId, url, ms); } catch (e1) { dbg('net', 'top page could not read the playlist (' + (e1.message || e1) + '), asking every frame'); return await pageFetchAll(tabId, url, ms); }
 }
+// V79: playlist text captured from the player's own request (hook.js -> content.js -> here); analyze() reads it first, so no second request is needed
+const plText = new Map();
+const plKey = (u) => normKey(u);
+function plPut(url, text) {
+  plText.set(plKey(url), text);
+  if (plText.size > 60) plText.delete(plText.keys().next().value);
+}
+// V80: a single-quality (media) playlist has no RESOLUTION line, so no resolution / size was shown (animepahe: kwik uwu.m3u8). Both are now measured:
+// size = bytes of 3 sample segments (HEAD) scaled to the whole length; resolution = read from the H.264 header (SPS) inside the first segment (AES-128 handled);
+// if that fails the resolution is guessed from the bit rate. Shown with "~" because it is an estimate.
+function bitReader(u) {
+  let p = 0;
+  const bit = () => { const v = (u[p >> 3] >> (7 - (p & 7))) & 1; p++; return v; };
+  const bits = (n) => { let v = 0; while (n-- > 0) v = v * 2 + bit(); return v; };
+  const ue = () => { let z = 0; while (!bit() && z < 32) z++; return z ? (Math.pow(2, z) - 1) + bits(z) : 0; };
+  const se = () => { const k = ue(); return k & 1 ? (k + 1) / 2 : -(k / 2); };
+  return { bit, bits, ue, se, left: () => u.length * 8 - p };
+}
+function parseSps(nal) { // nal: bytes after the 00 00 01 start code, first byte = NAL header; returns {w, h} or null
+  const u = []; // remove emulation prevention bytes (00 00 03)
+  for (let i = 0; i < nal.length; i++) { if (i >= 2 && nal[i] === 3 && nal[i - 1] === 0 && nal[i - 2] === 0) continue; u.push(nal[i]); }
+  const r = bitReader(Uint8Array.from(u.slice(1, 80)));
+  const prof = r.bits(8); r.bits(16); r.ue();
+  if ([100, 110, 122, 244, 44, 83, 86, 118, 128, 138, 139, 134, 135].includes(prof)) {
+    if (r.ue() === 3) r.bit();
+    r.ue(); r.ue(); r.bit();
+    if (r.bit()) return null; // scaling lists: not parsed
+  }
+  r.ue();
+  const poc = r.ue();
+  if (poc === 0) r.ue(); else if (poc === 1) { r.bit(); r.se(); r.se(); const n = r.ue(); if (n > 8) return null; for (let i = 0; i < n; i++) r.se(); }
+  r.ue(); r.bit();
+  const wm = r.ue() + 1, hm = r.ue() + 1, fmo = r.bit();
+  if (!fmo) r.bit();
+  r.bit();
+  let cl = 0, cr = 0, ct = 0, cb = 0;
+  if (r.bit()) { cl = r.ue(); cr = r.ue(); ct = r.ue(); cb = r.ue(); }
+  const w = wm * 16 - 2 * (cl + cr), h = (2 - fmo) * hm * 16 - 2 * (2 - fmo) * (ct + cb);
+  return w > 0 && h > 0 && w < 8200 && h < 8200 ? { w, h } : null;
+}
+function spsFromTs(u) { // u: MPEG-TS bytes -> {w, h} from the first H.264 SPS found
+  let s = 0;
+  if (u[0] !== 0x47) { for (let i = 0; i < Math.min(u.length - 376, 8192); i++) if (u[i] === 0x47 && u[i + 188] === 0x47 && u[i + 376] === 0x47) { s = i; break; } }
+  const by = {};
+  for (let p = s; p + 188 <= u.length; p += 188) {
+    if (u[p] !== 0x47) continue;
+    const pid = ((u[p + 1] & 0x1f) << 8) | u[p + 2], afc = (u[p + 3] >> 4) & 3;
+    let o = 4; if (afc === 2) continue; if (afc === 3) o += 1 + u[p + 4];
+    if (o >= 188) continue;
+    (by[pid] || (by[pid] = [])).push(u.subarray(p + o, p + 188));
+  }
+  for (const pid of Object.keys(by)) {
+    const n = by[pid].reduce((a, c) => a + c.length, 0), v = new Uint8Array(n); let q = 0;
+    for (const c of by[pid]) { v.set(c, q); q += c.length; }
+    for (let i = 0; i + 4 < v.length; i++) if (v[i] === 0 && v[i + 1] === 0 && v[i + 2] === 1 && (v[i + 3] & 0x1f) === 7 && !(v[i + 3] & 0x80)) { const wh = parseSps(v.subarray(i + 3, i + 3 + 100)); if (wh) return wh; }
+  }
+  return null;
+}
+async function headLen(url, ref) { // size of one file without downloading it
+  return withReferer(url, ref, async () => {
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 7000);
+    try {
+      let r = await fetch(url, { method: 'HEAD', credentials: 'include', signal: ac.signal });
+      let n = r.ok ? parseInt(r.headers.get('content-length'), 10) || 0 : 0;
+      if (!n) { r = await fetch(url, { credentials: 'include', headers: { Range: 'bytes=0-0' }, signal: ac.signal }); const m = (r.headers.get('content-range') || '').match(/\/(\d+)$/); n = m ? +m[1] : 0; try { r.body && r.body.cancel(); } catch (e) { /* ignore */ } }
+      return n;
+    } catch (e) { return 0; } finally { clearTimeout(t); }
+  });
+}
+async function fetchBytes(url, ref, max, ms = 12000) { // the first `max` bytes
+  return withReferer(url, ref, async () => {
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), ms);
+    try {
+      const r = await fetch(url, { credentials: 'include', headers: { Range: 'bytes=0-' + (max - 1) }, signal: ac.signal });
+      if (!r.ok || !r.body) return null;
+      const rd = r.body.getReader(), parts = []; let n = 0;
+      while (n < max) { const { value, done } = await rd.read(); if (done) break; parts.push(value); n += value.length; }
+      try { rd.cancel(); ac.abort(); } catch (e) { /* ignore */ }
+      const out = new Uint8Array(Math.min(n, max)); let q = 0;
+      for (const c of parts) { const k = Math.min(c.length, out.length - q); out.set(c.subarray(0, k), q); q += k; if (q >= out.length) break; }
+      return out;
+    } catch (e) { return null; } finally { clearTimeout(t); }
+  });
+}
+async function segResolution(seg, ref) { // {w, h} of the first segment, or null
+  let u = await fetchBytes(seg.url, ref, 393216);
+  if (!u || u.length < 400) return null;
+  if (seg.key && seg.key.uri) { // AES-128: decrypt the first blocks (a picture header in front of the data is skipped first)
+    let off = 0;
+    if (u[0] === 0x89 && u[1] === 0x50) { let p = 8; while (p + 12 <= u.length) { const len = ((u[p] << 24) | (u[p + 1] << 16) | (u[p + 2] << 8) | u[p + 3]) >>> 0, t = String.fromCharCode(u[p + 4], u[p + 5], u[p + 6], u[p + 7]); p += 12 + len; if (t === 'IEND') { off = p; break; } } }
+    else if (u[0] === 0xff && u[1] === 0xd8) { for (let i = 2; i < u.length - 1; i++) if (u[i] === 0xff && u[i + 1] === 0xd9) { off = i + 2; break; } }
+    const n = Math.floor((u.length - off) / 16) * 16;
+    if (n < 160) return null;
+    const kb = await fetchBytes(seg.key.uri, ref, 16);
+    if (!kb || kb.length !== 16) return null;
+    const hex = seg.key.iv ? String(seg.key.iv).replace(/^0x/i, '').padStart(32, '0') : '';
+    const iv = hex ? Uint8Array.from(hex.match(/../g).map((x) => parseInt(x, 16))) : (() => { const v = new Uint8Array(16); new DataView(v.buffer).setUint32(12, seg.seq >>> 0); return v; })();
+    const key = await crypto.subtle.importKey('raw', kb, { name: 'AES-CBC' }, false, ['encrypt', 'decrypt']);
+    const ct = u.slice(off, off + n);
+    const pad = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-CBC', iv: ct.slice(n - 16) }, key, new Uint8Array(0))); // an encrypted padding block lets a partial stream be decrypted
+    const all = new Uint8Array(n + pad.length); all.set(ct, 0); all.set(pad, n);
+    u = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, key, all));
+  } else if (u[0] === 0x89 || (u[0] === 0xff && u[1] === 0xd8)) { /* picture header, not encrypted: the TS scan below finds the sync bytes */ }
+  return spsFromTs(u);
+}
+async function probeMedia(url, text, ref) {
+  const out = {};
+  const segs = parseMedia(text, url).segs;
+  if (!segs.length) return out;
+  const total = segs.reduce((a, s) => a + (s.dur || 0), 0);
+  const idx = [0, Math.floor(segs.length / 2), Math.max(0, segs.length - 2)].filter((v, i, a) => a.indexOf(v) === i);
+  let by = 0, du = 0;
+  for (const i of idx) { const n = await headLen(segs[i].url, ref); if (n) { by += n; du += segs[i].dur || 0; } }
+  if (by && du && total) { out.estSize = Math.round(by / du * total); out.estBw = Math.round(out.estSize * 8 / total); }
+  try { const wh = await segResolution(segs[0], ref); if (wh) { out.estH = stdLabel(wh.w, wh.h).lh; out.estRes = wh.w + 'x' + wh.h; } } catch (e) { dbg('net', 'resolution probe failed: ' + (e.message || e)); }
+  if (!out.estH && out.estBw) { const l = stdLabel(0, 0, '', '', out.estBw).lh; if (l) { out.estH = l; out.estGuess = 1; } }
+  return out;
+}
 async function analyze(tabId, itemKey) {
   const rec = await getRec(tabId);
   const item = rec.items.find((i) => i.key === itemKey);
@@ -267,12 +385,15 @@ async function analyze(tabId, itemKey) {
   let info;
   try {
     let text;
-    try { text = await fetchText(item.url, ref); } catch (e1) { text = await pageFetch(tabId, item.url); }
+    text = plText.get(plKey(item.url)); // V79
+    if (!text) { try { text = await fetchText(item.url, ref); } catch (e1) { text = await pageFetch(tabId, item.url); } }
     if (item.kind === 'hls') {
       info = hlsInfo(text, item.url);
+      if (!info.master && info.dur > 0 && !info.live && !info.protected) { try { Object.assign(info, await probeMedia(item.url, text, ref)); } catch (e) { /* optional */ } } // V80
       if (info.master && info.variants[0]) { // peek into the best variant for duration / DRM
         try {
-          const sub = hlsInfo(await fetchText(info.variants[0].url, ref), info.variants[0].url);
+          const have = info.variants.find((v) => plText.has(plKey(v.url))) || info.variants[0]; // V79: a variant the player itself loaded needs no new request
+          const sub = hlsInfo(plText.get(plKey(have.url)) || await fetchText(have.url, ref), have.url);
           info.dur = sub.dur; info.segs = sub.segs; info.live = sub.live;
           info.protected = info.protected || sub.protected;
         } catch (e) { /* optional */ }
@@ -308,35 +429,57 @@ async function sniffHead(url, ref) {
     const to = setTimeout(() => ac.abort(), 6000);
     try {
       const r = await fetch(url, { credentials: 'include', headers: { Range: 'bytes=0-1023' }, signal: ac.signal });
-      if (!r.ok || !r.body) return '';
+      if (!r.ok || !r.body) return null;
       const rd = r.body.getReader();
       const { value } = await rd.read();
       try { rd.cancel(); ac.abort(); } catch (e) { /* ignore */ }
-      return value ? new TextDecoder('utf-8', { fatal: false }).decode(value.slice(0, 1024)) : '';
-    } catch (e) { return ''; } finally { clearTimeout(to); }
+      return value ? value.slice(0, 1024) : null; // V78: raw bytes (text and file signatures are both checked by the caller)
+    } catch (e) { return null; } finally { clearTimeout(to); }
   });
 }
+// V78: file signature of a media file whose address / content-type say nothing (what MAX Video Downloader finds by reading the first bytes)
+function magicKind(u) {
+  if (u.length >= 12 && u[4] === 0x66 && u[5] === 0x74 && u[6] === 0x79 && u[7] === 0x70) return { kind: 'video', ext: 'mp4' }; // ftyp
+  if (u.length >= 4 && u[0] === 0x1a && u[1] === 0x45 && u[2] === 0xdf && u[3] === 0xa3) return { kind: 'video', ext: 'webm' };
+  if (u.length >= 4 && u[0] === 0x46 && u[1] === 0x4c && u[2] === 0x56 && u[3] === 1) return { kind: 'video', ext: 'flv' };
+  if (u.length >= 4 && u[0] === 0x4f && u[1] === 0x67 && u[2] === 0x67 && u[3] === 0x53) return { kind: 'audio', ext: 'ogg' };
+  if (u.length >= 3 && u[0] === 0x49 && u[1] === 0x44 && u[2] === 0x33) return { kind: 'audio', ext: 'mp3' };
+  if (u.length >= 4 && u[0] === 0x66 && u[1] === 0x4c && u[2] === 0x61 && u[3] === 0x43) return { kind: 'audio', ext: 'flac' };
+  return null;
+}
+const OCTET_CT = new Set(['', 'application/octet-stream', 'binary/octet-stream', 'application/force-download', 'application/x-download']);
 function maybeSniff(d, ct) {
   if (!['xmlhttprequest', 'other', 'media'].includes(d.type)) return;
   ct = (ct || '').toLowerCase().split(';')[0].trim();
-  if (!AMBIG_CT.has(ct)) return;
+  // V78: a playlist can be sent as image/*, text/html or xml (a disguised address + content-type); such a body is small, so only small ones are probed
+  const disguised = (/^image\//.test(ct) && ct !== 'image/svg+xml') || ct === 'text/html' || ct === 'application/xml' || ct === 'text/xml';
+  if (!AMBIG_CT.has(ct) && !disguised) return;
   if (SKIP_EXT.has(extOf(d.url)) || SEGMENT_EXT.has(extOf(d.url))) return;
-  const len = parseInt(header(d.responseHeaders, 'content-length'), 10) || 0;
-  if (len > 2 * 1024 * 1024) return;
+  const cr = header(d.responseHeaders, 'content-range').match(/\/(\d+)$/);
+  const len = cr ? parseInt(cr[1], 10) : (parseInt(header(d.responseHeaders, 'content-length'), 10) || 0);
+  const big = len > 2 * 1024 * 1024;
+  if (big && !OCTET_CT.has(ct)) return; // V78: a big untyped file is probed for a video signature (below); big html / image bodies are not
+  if (disguised && len > 300 * 1024) return;
   let dir = d.url;
   try { const u = new URL(d.url); dir = u.origin + u.pathname.replace(/[^/]*$/, ''); } catch (e) { /* keep */ }
   const st = sniffState[d.tabId] || (sniffState[d.tabId] = { n: 0, dirs: {} });
   if (st.n >= 60 || (st.dirs[dir] || 0) >= 2) return; // do not probe hundreds of segments
   st.dirs[dir] = (st.dirs[dir] || 0) + 1; st.n++;
   const ref = d.documentUrl || d.initiator || '';
-  sniffHead(d.url, ref).then(async (head) => {
-    const h = head.replace(/^\uFEFF/, '').trimStart();
-    const kind = /^#EXTM3U/.test(h) ? 'hls' : /^<\?xml[^>]*>\s*<MPD|^<MPD/i.test(h) ? 'dash' : /^WEBVTT/.test(h) ? 'subtitle' : '';
+  sniffHead(d.url, ref).then(async (bytes) => {
+    if (!bytes || !bytes.length) return;
+    const head = new TextDecoder('utf-8', { fatal: false }).decode(bytes).replace(/^\uFEFF/, '').trimStart();
+    let kind = /^#EXTM3U/.test(head) ? 'hls' : /^<\?xml[^>]*>\s*<MPD|^<MPD/i.test(head) ? 'dash' : /^WEBVTT/.test(head) ? 'subtitle' : '';
+    let sz = 0, why = 'content';
+    if (!kind && big) { // V78: file signature (mp4 / webm / flv / ogg / mp3 / flac) of a big file with no useful address or content-type
+      const mk = magicKind(bytes);
+      if (mk && len >= Math.max(1, S.minSizeKB || 0) * 1024) { kind = mk.kind; sz = len; why = 'file signature ' + mk.ext; }
+    }
     if (!kind) return;
     const tab = await chrome.tabs.get(d.tabId).catch(() => null);
     if (!tab || siteDisabled(tab.url)) return;
-    dbg('sniff', `${kind} found by content: ${d.url}`);
-    addItems(d.tabId, { title: tab.title, pageUrl: tab.url, top: true }, [{ url: d.url, kind, ct, size: 0, ref: ref || tab.url }]);
+    dbg('sniff', `${kind} found by ${why}: ${d.url}`);
+    addItems(d.tabId, { title: tab.title, pageUrl: tab.url, top: true }, [{ url: d.url, kind, ct, size: sz, ref: ref || tab.url }]);
   });
 }
 chrome.tabs.onRemoved.addListener((id) => { delete sniffState[id]; delete uiTabFor[id]; });
@@ -1283,13 +1426,25 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
   const fromExt = !!(sender.url && sender.url.startsWith(chrome.runtime.getURL('')));
   const tabId = (fromExt && msg.tabId != null) ? msg.tabId : (sender.tab ? sender.tab.id : msg.tabId);
 
+  if (msg.type === 'playlist-text' && sender.tab) { // V79
+    plPut(msg.url, String(msg.text || ''));
+    const tid = sender.tab.id, k = normKey(msg.url);
+    setTimeout(async () => { // an item that was analysed before the text arrived (and failed / has no quality list) is analysed again
+      try {
+        const rec = await getRec(tid);
+        for (const it of rec.items) if ((it.kind === 'hls' || it.kind === 'dash') && normKey(it.url) === k && (!it.info || it.info.error)) analyze(tid, it.key);
+        for (const it of rec.items) if (it.kind === 'hls' && it.info && !it.info.error && it.info.master && !it.info.dur) analyze(tid, it.key); // master seen, variant text came later
+      } catch (e) { /* ignore */ }
+    }, 400);
+    return;
+  }
   if (msg.type === 'dom-items' && sender.tab) {
     settingsReady.then(() => {
       if (!S.enabled || siteDisabled(sender.tab.url)) return;
       const items = [];
       for (const it of msg.items) {
         const kind = classify(it.url, '', it.kind);
-        if (S.blockAds && isAdUrl(it.url)) continue;
+        if (S.blockAds && !/^data:/i.test(it.url) && isAdUrl(it.url)) continue; // V82: data: playlists are never an ad address
         if (kind) items.push({ url: it.url, kind, label: it.label || '', lang: it.lang || '', ref: it.ref || sender.tab.url });
       }
       if (items.length) addItems(sender.tab.id, { title: sender.tab.title, pageUrl: sender.tab.url, top: true }, items);

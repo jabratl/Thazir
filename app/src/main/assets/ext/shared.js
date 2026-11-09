@@ -49,7 +49,8 @@ const DEFAULTS = {
   convertMaxMB: 0,         // HLS .ts bigger than this many MB is saved as .ts without the (slow) MP4 conversion; 0 = always convert
   minDurationSec: 0,       // hide HLS/DASH streams shorter than this many seconds (ads, previews). 0 = off
   liveMaxMin: 120,         // live HLS recording: stop and save after this many minutes (0 = until you press Stop)
-  siteModules: true,       // site modules: TikTok, Douyin, Vimeo, SoundCloud, Bandcamp readers + Telegram Web button
+  siteModules: true,       // site modules: TikTok, Douyin, Vimeo, SoundCloud, Bandcamp (siteHook.js) + Bilibili, iQIYI, Facebook, Instagram, TwitCasting, Showroom, CNTV, Weverse (siteMax.js, V82) readers + Telegram Web button
+  siteMaxFetch: true,      // 0.0.348: Facebook / Instagram reader reads the page's own HTML again after an address change (one same-origin request, min 1.5 s apart). Off = only the HTML already in the page
   msOffSites: 'ok.ru',     // sites where MediaSource is switched off so the player falls back to a downloadable URL (one domain per line)
   speedLimitKBps: 0,       // bandwidth limit for stream downloads in KB/s per download (0 = unlimited)
   theme: 'auto',           // auto | dark | light (settings, history, pages screen, reader)

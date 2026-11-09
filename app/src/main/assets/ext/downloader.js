@@ -181,6 +181,53 @@ async function viaPageBin(url, opts) {
   } catch (pe) { if (PGBIN !== 1 && ++PGBIN_FAIL >= 3) PGBIN = -1; }
   return null;
 }
+
+// V78: some CDNs hide each segment behind a fake picture header (PNG / JPEG / GIF / BMP / WEBP bytes, then the real .ts or fMP4 data).
+// Players cut it off; here it is cut off before saving, so the merged file plays. Only runs when the data starts with a picture signature.
+function stripFakeHead(buf) {
+  try {
+    const u = new Uint8Array(buf), n = u.length;
+    if (n < 64) return buf;
+    const pic = (u[0] === 0x89 && u[1] === 0x50 && u[2] === 0x4e && u[3] === 0x47) || (u[0] === 0xff && u[1] === 0xd8 && u[2] === 0xff) ||
+      (u[0] === 0x47 && u[1] === 0x49 && u[2] === 0x46 && u[3] === 0x38) || (u[0] === 0x42 && u[1] === 0x4d) ||
+      (u[0] === 0x52 && u[1] === 0x49 && u[2] === 0x46 && u[3] === 0x46 && u[8] === 0x57 && u[9] === 0x45 && u[10] === 0x42 && u[11] === 0x50);
+    if (!pic) return buf;
+    const lim = Math.min(n - 8, 262144);
+    const box = (i) => { // fMP4 box start: size + known type
+      const t = String.fromCharCode(u[i + 4], u[i + 5], u[i + 6], u[i + 7]);
+      if (!/^(ftyp|styp|moof|moov|sidx|emsg)$/.test(t)) return false;
+      const sz = ((u[i] << 24) | (u[i + 1] << 16) | (u[i + 2] << 8) | u[i + 3]) >>> 0;
+      return sz >= 8 && i + sz <= n;
+    };
+    for (let i = 4; i < lim; i++) {
+      if (u[i] === 0x47 && i + 376 < n && u[i + 188] === 0x47 && u[i + 376] === 0x47) return buf.slice(i); // MPEG-TS: sync byte every 188 bytes
+      if (u[i + 4] === 0x66 || u[i + 4] === 0x73 || u[i + 4] === 0x6d || u[i + 4] === 0x65) { if (box(i)) return buf.slice(i); }
+    }
+  } catch (e) { /* keep the data as it is */ }
+  return buf;
+}
+
+// V78: for an ENCRYPTED segment the picture sits in front of the encrypted data: its end is found from the picture itself (PNG: IEND chunk, JPEG: end marker)
+function stripFakePic(buf) {
+  try {
+    const u = new Uint8Array(buf), n = u.length;
+    let off = 0;
+    if (u[0] === 0x89 && u[1] === 0x50 && u[2] === 0x4e && u[3] === 0x47) { // PNG: walk the chunks to IEND
+      let p = 8;
+      while (p + 12 <= n) {
+        const len = ((u[p] << 24) | (u[p + 1] << 16) | (u[p + 2] << 8) | u[p + 3]) >>> 0;
+        const t = String.fromCharCode(u[p + 4], u[p + 5], u[p + 6], u[p + 7]);
+        p += 12 + len;
+        if (t === 'IEND') { off = p; break; }
+      }
+    } else if (u[0] === 0xff && u[1] === 0xd8 && u[2] === 0xff) {
+      for (let i = 2; i < Math.min(n - 1, 262144); i++) if (u[i] === 0xff && u[i + 1] === 0xd9) { off = i + 2; break; }
+    }
+    if (off > 0 && off < n && (n - off) % 16 === 0) return buf.slice(off);
+  } catch (e) { /* keep */ }
+  return buf;
+}
+
 async function fetchRetry(url, opts = {}, tries = 6) {
   const alt = withMasterQuery(url);
   if (opts.bin && PGBIN === 1) { const pr = await viaPageBin(url, opts); if (pr) return pr; }
@@ -367,8 +414,10 @@ async function downloadSegments(pl, label) {
     let buf = await (await fetchRetry(s.url, { headers: rangeHdr(s.range), bin: true })).arrayBuffer();
     if (s.key) {
       const k = await getKey(s.key.uri);
+      buf = stripFakePic(buf); // V78
       buf = await crypto.subtle.decrypt({ name: 'AES-CBC', iv: s.key.iv ? hexToBytes(s.key.iv) : seqToIv(s.seq) }, k, buf);
     }
+    buf = stripFakeHead(buf); // V78
     totalBytes += buf.byteLength;
     if (SET.speedLimitKBps > 0) { // bandwidth limit: wait until the average speed is back under the limit
       const ahead = (totalBytes / (SET.speedLimitKBps * 1024)) * 1000 - (Date.now() - t0);
@@ -628,8 +677,10 @@ async function recordLive(plUrl, firstText, label, S) {
         let buf = await (await fetchRetry(s.url, { headers: rangeHdr(s.range) }, 4)).arrayBuffer();
         if (s.key) {
           const k = await getKey(s.key.uri);
+          buf = stripFakePic(buf); // V78
           buf = await crypto.subtle.decrypt({ name: 'AES-CBC', iv: s.key.iv ? hexToBytes(s.key.iv) : seqToIv(s.seq) }, k, buf);
         }
+        buf = stripFakeHead(buf); // V78
         S.bytes += buf.byteLength;
         parts.push(await Disk.put(dk, idx++, buf));
         S.segs++; lastNew = Date.now(); note(idx === 1);

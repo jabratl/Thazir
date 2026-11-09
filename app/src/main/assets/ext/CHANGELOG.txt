@@ -1,3 +1,6 @@
+Media Grabber 2.82.0 (Thazir engine, V77 + V78 / V79 / V80 / V82 parts)  - see Thazir CHANGELOG 0.0.348
+- V79 playlist text from the player, V80 size / resolution of single-quality playlists, V78 disguised playlist + file signature sniff + fake picture header cut, V82 siteMax.js readers (+ siteMaxFetch setting). V81 parts NOT included (Thazir does them natively).
+
 Media Grabber 2.79.2 (V77)  - Quetta: subtitle downloads, then the episode tab closes and the video fails
 - CAUSE: the helper tab of a batch episode was closed 15s after queueing. The subtitle is done by then, the video is not; if the player still had to ask
   again (first token refused with 403, seen on Quetta, not on Kiwi) the tab it needed was already gone.
