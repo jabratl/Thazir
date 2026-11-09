@@ -1,4 +1,4 @@
-// Media Grabber - 0.0.361: mgPartsFile = same parts stage for the plain file mode (downloadFile). 0.0.360: NEW first stage 'parts' = N parallel 4 MB pieces (setting partsN, default 1 = off). 0.0.356: mgWholeFile = last way with progress. 0.0.355: progress is now also sent to the app (report) + stats row. 0.0.353: read ONE big file (a DASH Representation that is only a BaseURL, e.g. Bilibili video / audio) in pieces.
+// Media Grabber - 0.0.362: parts stage = slow start (2 connections, +1 after 2 good pieces) + a failed piece goes back in the queue and halves the connections (S6; Bilibili 502 with 8 at once). 0.0.361: mgPartsFile = same parts stage for the plain file mode (downloadFile). 0.0.360: NEW first stage 'parts' = N parallel 4 MB pieces (setting partsN, default 1 = off). 0.0.356: mgWholeFile = last way with progress. 0.0.355: progress is now also sent to the app (report) + stats row. 0.0.353: read ONE big file (a DASH Representation that is only a BaseURL, e.g. Bilibili video / audio) in pieces.
 // WHY: the old code asked for the whole file in ONE request and held it as one blob: on a phone one dropped connection = "Failed to fetch" for the
 // whole file, and nothing was kept. Here every piece (4 MB) has its own retry (fetchRetry), so a single hiccup no longer kills the job.
 // DESIGN: this file only ADDS. downloader.js calls fileBlob() (a small hook); if anything here fails or returns null, the OLD whole-file code runs.
@@ -15,8 +15,8 @@
   const isCancel = (e) => !!e && (e.message === 'Cancelled' || e.name === 'AbortError');
 
   // each reader returns { buf: ArrayBuffer, total: number (-1 unknown), whole: boolean (server ignored Range and sent everything), last: boolean (a short piece that ends the file) }
-  async function readDirect(url, a, b) {
-    const r = await fetchRetry(url, { headers: { Range: 'bytes=' + a + '-' + b } });
+  async function readDirect(url, a, b, tries) { // 0.0.362: optional 4th param (undefined = fetchRetry default 6 = old behaviour)
+    const r = await fetchRetry(url, { headers: { Range: 'bytes=' + a + '-' + b } }, tries);
     const buf = await r.arrayBuffer();
     let total = -1, hasCR = false;
     try { const cr = r.headers.get('Content-Range'); if (cr) { hasCR = true; if (cr.indexOf('/') > 0) { const t = parseInt(cr.split('/')[1], 10); if (t > 0) total = t; } } } catch (e) { /* header not readable: total stays unknown */ }
@@ -51,41 +51,57 @@
     res[0] = new Blob([first.buf]);
     let got = first.buf.byteLength, next = 1, fail = null, active = 0;
     const workers = Math.max(1, Math.min(n, count - 1));
+    let limit = Math.min(workers, 2), okRun = 0, streak = 0, bad = 0, inflight = 0;
     const show = () => {
       try {
         const sec = (Date.now() - ft0) / 1000 || 1, bps = got / sec;
         const left = bps ? fmtDur(Math.max(0, total - got) / bps) : '';
         status('Downloading... ' + fmtSize(got) + ' / ' + fmtSize(total));
         progress(got, total);
-        const txt = (label ? label + ': ' : '') + fmtSize(got) + ' / ' + fmtSize(total) + ' - ' + workers + ' parts' + (bps ? ' - ' + fmtSpeed(bps) : '') + (left ? ' - ' + left + ' left' : '');
+        const txt = (label ? label + ': ' : '') + fmtSize(got) + ' / ' + fmtSize(total) + ' - ' + Math.min(limit, workers) + ' parts' + (bps ? ' - ' + fmtSpeed(bps) : '') + (left ? ' - ' + left + ' left' : '');
         report('run', got / total, txt);
         setStats({ speed: fmtSpeed(bps), size: fmtSize(got), eta: left, seg: Math.round(got / total * 100) + '%', sub: label || 'File' });
       } catch (e) { /* display only */ }
     };
     show();
-    async function worker() {
-      active++;
+    // 0.0.362 (S6): slow start + adaptive. Was: ALL workers at once and one bad piece killed the stage (live Bilibili: 8 at once = "Failed to fetch" / 502, then the sequential stage got 502 too).
+    // Now: start with 2 connections, +1 after 2 good pieces (up to the setting); a failed piece goes back in the queue, connections are halved (min 1), short pause; stage fails only after 4 bad pieces in a row.
+    const retryQ = [];
+    const idle = () => retryQ.length === 0 && next >= count && inflight === 0;
+    async function worker(k) {
       try {
         while (!fail) {
-          const i = next++;
-          if (i >= count) break;
+          if (idle()) break;
           await gate();
-          const a = i * CH, b = Math.min(total, a + CH) - 1, want = b - a + 1;
-          let r, ok = false;
-          for (let t = 0; t < 2 && !ok; t++) { // one extra try for a piece (fetchRetry already retries inside)
-            try { r = await readDirect(url, a, b); ok = true; }
-            catch (e) { if (isCancel(e) || t === 1) throw e; await gate(); }
-          }
-          if (r.whole || r.last || r.buf.byteLength !== want) throw new Error('piece ' + i + ' has a wrong size (' + r.buf.byteLength + ' of ' + want + ' B)');
-          if (r.total > 0 && r.total !== total) throw new Error('file size changed during download');
-          res[i] = new Blob([r.buf]);
-          got += want;
-          show();
+          if (k >= limit || (retryQ.length === 0 && next >= count)) { await sleep(250); continue; } // not allowed yet / nothing to take: wait
+          const i = retryQ.length ? retryQ.shift() : next++;
+          if (i >= count) continue;
+          inflight++;
+          let pause = 0;
+          try {
+            const a = i * CH, b = Math.min(total, a + CH) - 1, want = b - a + 1;
+            const r = await readDirect(url, a, b, 3);
+            if (r.whole) { const he = new Error('server ignores Range'); he.hard = true; throw he; }
+            if (r.last || r.buf.byteLength !== want) throw new Error('piece ' + i + ' has a wrong size (' + r.buf.byteLength + ' of ' + want + ' B)');
+            if (r.total > 0 && r.total !== total) { const he = new Error('file size changed during download'); he.hard = true; throw he; }
+            res[i] = new Blob([r.buf]);
+            got += want; streak = 0;
+            if (++okRun >= 2 && limit < workers) { limit++; okRun = 0; }
+            show();
+          } catch (e) {
+            if (isCancel(e) || (e && e.hard)) throw e;
+            retryQ.push(i); streak++; bad++; okRun = 0;
+            const old = limit; limit = Math.max(1, Math.floor(limit / 2));
+            dbg('dl', 'parts: piece ' + i + ' failed (' + String((e && e.message) || e).slice(0, 80) + '), connections ' + old + ' -> ' + limit);
+            if (streak >= 4 || bad >= 40) throw e;
+            pause = Math.min(8000, 1500 * streak);
+          } finally { inflight--; }
+          if (pause) await sleep(pause);
         }
-      } catch (e) { if (!fail) fail = e; } finally { active--; }
+      } catch (e) { if (!fail) fail = e; }
     }
     const jobs = [];
-    for (let k = 0; k < workers; k++) jobs.push(worker());
+    for (let k = 0; k < workers; k++) jobs.push(worker(k));
     await Promise.all(jobs);
     if (fail) throw fail;
     for (let i = 0; i < count; i++) if (!res[i]) throw new Error('piece ' + i + ' missing');
@@ -145,6 +161,7 @@
       } catch (e) {
         if (isCancel(e)) throw e;
         dbg('dl', 'big file: stage parts failed, sequential pieces instead (' + String((e && e.message) || e).slice(0, 120) + ')');
+        try { await sleep(3000); await gate(); } catch (e2) { if (isCancel(e2)) throw e2; } // 0.0.362: let a throttling server calm down before the next stage
       }
     }
     for (const [name, read] of STAGES) {

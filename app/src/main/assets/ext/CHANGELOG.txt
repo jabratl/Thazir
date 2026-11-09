@@ -1,3 +1,4 @@
+Media Grabber 2.82.0 (Thazir engine) + 0.0.362: bigfile.js readParts - slow start (2 connections, +1 per 2 good pieces), failed piece is re-queued and halves the connections, 3 s pause before the sequential stage. partsN 1 = untouched.
 Media Grabber 2.82.0 (Thazir engine) + 0.0.361: bigfile.js mgPartsFile + downloader.js downloadFile() guarded hook - plain file mode can use parts too (partsN > 1, chunkFile on, nothing received yet). Any problem = the old stream code.
 Media Grabber 2.82.0 (Thazir engine) + 0.0.360: bigfile.js - NEW first stage 'parts': N parallel 4 MB pieces for a big single file (setting partsN, default 1 = off). Any problem = the old sequential stages.
 Media Grabber 2.82.0 (Thazir engine) + 0.0.356: bigfile.js mgWholeFile - the last way (whole file, one request) now shows progress too; any problem = the old plain way.

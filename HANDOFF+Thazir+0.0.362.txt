@@ -1,0 +1,8 @@
+================================================================================
+HANDOFF - Thazir 0.0.362 - S6 BUGFIX (parts 502 + Diagnose)  [S1-S5 DONE, S6 DONE, device test todo]
+================================================================================
+STATUS 0.0.362 (S6): see CHANGELOG 0.0.362 (top entry). bigfile.js readParts adaptive (slow start / re-queue / halve), DiagRules.kt subtitle false verdict fixed + rule dl-5xx.
+Live evidence: 8 parts on bilibili.tv -> Failed to fetch x15, 0 B piece, then 502 on the old stage too. Cause is from the code + log; NOT proven live yet.
+NEXT: (1) push zip, CI must build (S1-S6 Kotlin never compiled; if it fails send the Kotlin error line). (2) Device test: Bilibili with parts 2 and 4 first, then 8; send a new Diagnose report. (3) If 502 still comes with 2 parts: Bilibili CDN may not allow Range pieces in parallel at all -> keep parts OFF for engine ("Also for big grabber files" switch) and tell me. (4) T1-T13 from HANDOFF 0.0.361 section 8. (5) Then flip defaults ON (1 line each).
+Open: Resume of a plain file with parts; stage 'page' untested; pieces already got are thrown away when the parts stage fails (sequential restarts from 0).
+READ ONLY THIS TOP PART, older handoff = HANDOFF+Thazir+0.0.361.txt (grep only).
