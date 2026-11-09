@@ -1,4 +1,4 @@
-// Media Grabber - 0.0.360: NEW first stage 'parts' = N parallel 4 MB pieces (setting partsN, default 1 = off). 0.0.356: mgWholeFile = last way with progress. 0.0.355: progress is now also sent to the app (report) + stats row. 0.0.353: read ONE big file (a DASH Representation that is only a BaseURL, e.g. Bilibili video / audio) in pieces.
+// Media Grabber - 0.0.361: mgPartsFile = same parts stage for the plain file mode (downloadFile). 0.0.360: NEW first stage 'parts' = N parallel 4 MB pieces (setting partsN, default 1 = off). 0.0.356: mgWholeFile = last way with progress. 0.0.355: progress is now also sent to the app (report) + stats row. 0.0.353: read ONE big file (a DASH Representation that is only a BaseURL, e.g. Bilibili video / audio) in pieces.
 // WHY: the old code asked for the whole file in ONE request and held it as one blob: on a phone one dropped connection = "Failed to fetch" for the
 // whole file, and nothing was kept. Here every piece (4 MB) has its own retry (fetchRetry), so a single hiccup no longer kills the job.
 // DESIGN: this file only ADDS. downloader.js calls fileBlob() (a small hook); if anything here fails or returns null, the OLD whole-file code runs.
@@ -155,6 +155,22 @@
         if (isCancel(e)) throw e;
         dbg('dl', 'big file: stage ' + name + ' failed (' + String((e && e.message) || e).slice(0, 120) + ')');
       }
+    }
+    return null;
+  };
+
+  // 0.0.361: plain file mode (downloadFile in downloader.js) - same parts stage, only when partsN > 1. Returns a Blob, or null (= caller runs its old stream code unchanged).
+  // Always starts at byte 0 (the caller only asks when nothing was received yet). Throws only for Cancelled.
+  window.mgPartsFile = async function (url, label) {
+    let pn = 1;
+    try { pn = parseInt(SET && SET.partsN, 10) || 1; } catch (e) { pn = 1; }
+    if (pn <= 1) return null;
+    try {
+      const b = await readParts(url, label, Math.min(pn, 16));
+      if (b && b.size > 0) { dbg('dl', 'plain file read in parts (' + Math.min(pn, 16) + '): ' + fmtSize(b.size)); return b; }
+    } catch (e) {
+      if (isCancel(e)) throw e;
+      dbg('dl', 'plain file: parts failed, normal download instead (' + String((e && e.message) || e).slice(0, 120) + ')');
     }
     return null;
   };

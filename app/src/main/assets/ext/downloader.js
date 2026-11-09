@@ -892,6 +892,13 @@ const FST = { chunks: [], got: 0 };
 async function downloadFile() {
   LAST = downloadFile; RUNNING = true; setState('run', 'Downloading');
   $('#cancel').hidden = false; $('#pause').hidden = false;
+  // 0.0.361: parts for a plain file (only partsN > 1, chunkFile on, nothing received yet). null / any problem = the old stream code below, unchanged.
+  if (!FST.got && SET.chunkFile !== false && (parseInt(SET.partsN, 10) || 1) > 1 && typeof mgPartsFile === 'function') {
+    try {
+      const pb = await mgPartsFile(SRC, 'File');
+      if (pb) { await save(pb, EXT, Q.get('kind') === 'audio' ? 'audio' : ''); FST.chunks = []; FST.got = 0; finish('Finished. Check your Downloads folder.'); return; }
+    } catch (e) { if (e && (e.message === 'Cancelled' || e.name === 'AbortError')) throw e; dbg('dl', 'parts for the plain file failed, normal download: ' + String((e && e.message) || e).slice(0, 100)); }
+  }
   const r = await fetchRetry(SRC, FST.got ? { headers: { Range: `bytes=${FST.got}-` } } : {});
   if (FST.got && r.status !== 206) { FST.chunks = []; FST.got = 0; } // server ignored the range: start over
   const len = parseInt(r.headers.get('content-length'), 10) || 0;

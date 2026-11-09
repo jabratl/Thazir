@@ -141,6 +141,11 @@ object DiagReport {
         if (sync != null) {
             for (k in listOf("blockAds", "mergeAV", "concurrency", "maxJobs", "sniffSeconds")) if (sync.has(k)) setL.add("V82 $k = " + sync.opt(k))
         } else { setL.add("V82 settings: not readable (engine not started?)"); setLevel = WARN }
+        // 0.0.361: Download in parts (native prefs + engine key partsN)
+        setL.add(safe("Download in parts: not readable") {
+            val up = ctx.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
+            "Download in parts: " + (if (up.getBoolean("dp_on", false)) "on" else "off") + ", " + up.getInt("dp_n", 4) + " parts, only files over " + up.getInt("dp_min_mb", 8) + " MB, grabber files " + (sync?.optInt("partsN", 1) ?: 1)
+        })
         secs.add(Section("settings", "Browser", "Settings", setLevel, setL))
 
         // ---- Page / tab
@@ -186,6 +191,7 @@ object DiagReport {
         val dFail5 = Diag.countSince("download", now - FIVE_MIN, null)
         if (dFail5 > 0) jl.add("Download failures logged in the last 5 min: $dFail5")
         for (e in Diag.recent(3, "download", false)) jl.add(fmtEvent(e))
+        for (e in Diag.recent(3, "dlparts", false)) jl.add(fmtEvent(e)) // 0.0.361: last parts download lines (start / fallback)
         secs.add(Section("jobs", "Download", "Queue / jobs", if (failedJobs.isNotEmpty() || dFail5 > 0) WARN else INFO, jl))
 
         // ---- Novel / Manga (native side: only the events, the page side is in the V77 report)
@@ -223,6 +229,7 @@ object DiagReport {
         x.engineErrors = Diag.countSince("engine", now - FIVE_MIN, "E")
         x.detected = items?.length() ?: 0
         x.dlCodes = Diag.recent(30, "download", false).filter { it.ts >= now - TEN_MIN && it.msg.startsWith("failed ") }.map { it.msg.removePrefix("failed ").trim() }
+        x.partsMsgs = Diag.recent(30, "dlparts", false).filter { it.ts >= now - TEN_MIN }.map { it.msg.lowercase() } // 0.0.361
         x.sniffFails = Diag.recent(40, "sniffer", false).filter { it.ts >= now - TEN_MIN && it.msg.startsWith("probe failed") }.sumOf { maxOf(1, it.n) }
         // S87.1 facts for rules 21-40 (all text lower-case; urls only via maskUrl, error text via mask)
         fun evTxt(tag: String, sinceMs: Long) = Diag.recent(30, tag, false).filter { it.ts >= now - sinceMs }.map { (it.msg + " " + it.extra).lowercase() }

@@ -1,0 +1,214 @@
+================================================================================
+HANDOFF - Thazir 0.0.361 - PLAN: "DOWNLOAD IN PARTS" (1DM style)  [S1-S5 DONE, device test todo]
+================================================================================
+
+--------------------------------------------------------------------------------
+STATUS 0.0.361 (S5 done: plain file mode + Diagnose + help; PLAN S1-S5 ALL BUILT, switches still OFF)
+--------------------------------------------------------------------------------
+Done (S5): bigfile.js window.mgPartsFile(url,label) (wrapper of readParts; null if partsN <= 1 or any problem). downloader.js downloadFile(): guarded block (FST.got == 0, chunkFile != false, partsN > 1) before the old fetch; Blob -> save() + finish(); null / error = old stream code. DiagReport.kt: settings line "Download in parts: ..." + last 3 "dlparts" lines in Queue / jobs + Facts partsMsgs. DiagRules.kt: Facts.partsMsgs + rule dl-parts-fallback (info, fix "settings"). HowToUse.kt: 1 step in "Downloads and Grabber".
+Changes vs plan: zip = changed files only (prompt), not the full assets/ext folder. Helper text "Parts" in rule says Settings > Downloads > Download in parts.
+Checks done: node --check bigfile.js + downloader.js; node mock Range server for mgPartsFile (parts ok, partsN 1 = null + 0 requests, Range ignored, size unknown, cancel, piece fails 2x); Kotlin brace / paren / bracket delta 0 (3 files), no comment-open added.
+NOT tested: Gradle build (CI; S1-S5 Kotlin never compiled), device, live sites, 360 / 1280dp, dark + light, rotation.
+NEXT: no more build steps. (1) Push all S1-S5 zips, if CI fails send the Kotlin error line. (2) Device test T1-T13 (section 8), write results into the next HANDOFF. (3) After a good test flip defaults to ON: DlParts.enabled() default (dp_on) + shared.js partsN default, 1 line each. Open (not part of plan): Resume of a plain file with parts (starts from 0 only), stage 'page' still untested.
+
+READ ONLY THIS TOP PART (until the line "=== OLDER HANDOFF BELOW (history, STATUS 0.0.360 first; open only with grep when a step needs it) ===
+--------------------------------------------------------------------------------
+STATUS 0.0.360 (S4 done: engine parts for big single files; default OFF)
+--------------------------------------------------------------------------------
+Done (S4): bigfile.js readParts(url,label,n) + mgBigFile tries it FIRST when SET.partsN > 1 (then old stages direct / page unchanged). shared.js DEFAULTS partsN: 1. options.html row data-k="partsN" (number 1-16, after chunkFile). DlPartsUi.kt: switch row "Also for big grabber files" (gParts()/gPut(): chrome.storage.sync partsN via ChromeBridge; ON = dp_n, OFF = 1; changing dp_n while ON updates partsN).
+Changes vs plan: (1) prompt said "ONLY added/modified files", so the zip holds only the 3 changed ext files + ext CHANGELOG (NOT the full assets/ext folder of A6). (2) Parts need total >= 2 pieces (8 MB). (3) A piece gets 1 extra try on top of fetchRetry. Prompt template had empty placeholders: assumed Thazir, S4, MODIFY, prev 0.0.359.
+Checks done: node --check bigfile.js + shared.js; no duplicate ids in options.html; Kotlin brace / paren / bracket balance of DlPartsUi.kt = 0; node mock Range server: (a) 5 parts bytes equal, 4 parallel (b) Range ignored -> next stage (c) piece fails 2x -> ok (d) cancel (e) partsN 1 = old stage only, 1 connection (f) total unknown -> next stage (g) piece always fails -> next stages (h) small file -> next stage.
+NOT tested: Gradle build (CI), device, live Bilibili, stage 'page', 360 / 1280dp render of the new sheet row and options row, dark + light, rotation. S1-S4 Kotlin never compiled: if CI fails, send the Kotlin error line first.
+NEXT: S5 v0.0.361 (PLAIN FILE MODE + DIAGNOSE + HELP + FINAL REGRESSION). Kickoff: "Thazir parts plan: read HANDOFF+Thazir+0.0.360.txt (top part only), do S5 only. Patch only, changed files only, switch OFF = old behaviour, stop at 85% session, final reply max 8 lines, reply in Banglish." S5 needs bigfile.js + downloader.js (downloadFile hook) from the repo (repo may still be 0.0.356 for these: S4 files are in Thazir_S4_v0_0_360.zip).
+
+
+--------------------------------------------------------------------------------
+STATUS 0.0.359 (S3 done: settings sheet + parts UI; the switch can be turned ON now)
+--------------------------------------------------------------------------------
+Done (S3): DlPartsUi.kt NEW (open(act, onClose) sheet: switch dp_on, Parts dp_n 2/4/6/8/16, Only files bigger than dp_min_mb 2/8/32; summary(ctx); PartsBar view; bar(ctx, fractions); infoText(row) = "4 parts · 3.1 MB/s · 0:42 left"). SettingsScreen.kt: 1 row "Download in parts" in Downloads > Quality and files (before "Download rules"), KW search keywords, dp_on / dp_n / dp_min_mb in the "downloads" RESET list. DownloadsScreen.kt: jobRow shows PartsBar + text only when row has "parts"; render() sig also sees parts / eta / speed. DownloadsApi.kt: plainJobs() optional fields parts / speed / eta (running + not paused only). DlParts.kt: snapshot(id), speed(id), speed meter (Run.tick, called in the 250 ms loop).
+Changes vs plan: extra optional field "eta" in plainJobs (plan had parts + speed). Parts bar is not shown while a row is paused (runs map is empty then). Prompt template had empty placeholders (project / step): assumed Thazir, S3, BUILD, prev 0.0.358.
+Checks done: brace / paren / bracket balance of 5 Kotlin files = same as before the patch (delta 0), every new name found by grep (EngineApi.fmtSize, Util.dp, ThazirSwitch.tint, R.color.mg_*), RESET has the 3 keys, search keyword added, diff scope = 5 Kotlin files + gradle + CHANGELOG + HANDOFF. No JS changed (node --check not needed), no XML / res changed (no id added).
+NOT tested: Gradle build (CI), device, live sites, 360 / 1280dp render, dark + light, rotation with the sheet open (S1, S2, S3 never compiled). First thing next chat: if CI fails, send the Kotlin error line.
+NEXT: S4 v0.0.360 (ENGINE PARTS for big single files, bigfile.js). Kickoff: "Thazir parts plan: read HANDOFF+Thazir+0.0.359.txt (top part only), do S4 only. Patch only, changed files only (engine step = FULL assets/ext folder + changed Kotlin patch), switch OFF = old behaviour, stop at 85% session, final reply max 8 lines, reply in Banglish."
+
+
+User note: the person is NOT a coder. Reply in Banglish, short, plain numbered steps. The person wants the WHOLE plan built before any device test (no mid-way testing): after a step, go on with the next one in a new chat, do not wait for test results.
+
+--------------------------------------------------------------------------------
+0. ASSUMPTIONS (stated, not asked)
+--------------------------------------------------------------------------------
+A1. "1DM Download in parts" = ONE file is cut into N byte ranges (parts), N parallel connections fetch them (HTTP Range), progress per part, pause / resume keeps every part, result = one file. N user choice (2 / 4 / 6 / 8 / 16).
+A2. Main place = NATIVE Kotlin Downloader (OkHttp). It is the transfer for every http(s) native download (tab link downloads via DownloadsApi.startPlain AND chrome.downloads items started by extensions). Today it uses ONE connection (Range only for resume).
+A3. Second place = engine file assets/ext/bigfile.js (Bilibili-type big single files: 4 MB pieces, SEQUENTIAL). The 0.0.356 handoff already said: "NEXT = 1DM-style multi-part download, build on bigfile.js STAGES + report path, keep chunkFile switch and old fallback, extension engine, no new permission". So the engine gets a parallel stage too.
+A4. Both new switches are OFF by default until the device test. Turning default ON later = 1 line each (see section 9). Reason: Rule 0 (do not change how current downloads behave before it is tested).
+A5. Old standing rule "do not change DownloadService/Downloader" belonged to the Social plan; 0.0.353 already edited DownloadService.kt (why()). Here DownloadService.kt gets ONLY the small hooks listed in S1/S2 (no rewrite). Vault*, PasswordStore, CI workflow, EngineHost / ChromeBridge / ExtApi, Backup JSON shape stay untouched.
+A6. "Extension file changed = full zip": steps that change files under assets/ext (S4, S5) deliver the FULL app/src/main/assets/ext/ folder as a zip (+ the changed Kotlin files as a patch zip). Native-only steps deliver changed files only.
+
+--------------------------------------------------------------------------------
+1. PROJECT SUMMARY
+--------------------------------------------------------------------------------
+Thazir = Android browser (Kotlin, package com.jabra.mgb, ~190 .kt files, WebView tabs) with a BUNDLED Chrome-extension engine ("V82 Thazir engine", assets/ext, JS) for the media grabber / downloader. Version: app/build.gradle.kts line 6 val appVersionName = "0.0.356". minSdk 24, OkHttp 4.12.0 already a dependency (no new dependency needed). CI = GitHub Actions Gradle (no Gradle in chat sandbox; node IS available for JS checks, kotlinc is NOT).
+Two download paths:
+ (N) NATIVE: DownloadsApi.kt (DlItem model, items map, startPlain, plainJobs / plainControl, change(), save() / load()) + DownloadService.kt (object Downloader: OkHttp, cookie jar shared with WebView, runHttp / runBlob / runData, finish / publish; class DownloadService = foreground service + notification).
+ (E) ENGINE: assets/ext/downloader.js (page "downloader.html" / offscreen). fileBlob(url,label) hook -> bigfile.js mgBigFile (stage direct, stage page) -> mgWholeFile -> old fetchRetry(url).blob(). downloadFile() = plain file mode (one stream, held in memory chunks FST.chunks).
+
+--------------------------------------------------------------------------------
+2. FILE MAP + KEY NAMES (found by grep, 0.0.356)
+--------------------------------------------------------------------------------
+NATIVE (app/src/main/java/com/jabra/mgb/):
+- DownloadService.kt (~25 KB). object Downloader { pool = newFixedThreadPool(3) (l59); partFile(id) = filesDir/dl/<id>.part (l95); start(item) l101; abort(item) l106 = item.call?.cancel(); checkStop(item) l108 (paused or state != in_progress -> Stop(null)); run(item) l112 (catch IOException / Exception: "if (item.paused || item.state != in_progress) return" = SILENT stop, so a DlParts that throws IOException on pause / cancel is handled quietly); open(item, have) l176 (private; builds headers: User-Agent, Accept, headerProvider, item.headers; adds Range "bytes=have-" + If-Range validator when have > 0; sets item.call; client.newCall.execute); runHttp(item) l230 (part = partFile(id); have = part.length(); 416 handling; 206 append; writes 64 KB buffer to FileOutputStream(part, append); sets total / received / validator / mime / canResume / rel name via DownloadsApi.change); finish(item) l389 -> publish(item, part) moves the .part into Downloads (MediaStore / legacy). OkHttpClient `client` (l88, 20 s connect, 60 s read, cookieJar jar).
+- DownloadsApi.kt (~39 KB). class DlItem (l39): id, url, finalUrl, rel, filename, uri, mime, state ("in_progress" | "interrupted" | "complete"), paused, canResume, error, received (Long), total (Long, -1 unknown), validator, headers JSONArray, method, body, call (okhttp3.Call?), plain, lock. change(item){...} l213 (thread safe update + event). save() l182 / load() l188: after process death an http item with a .part gets state interrupted, canResume = part.exists(); non-resumable items delete the part. startPlain l258. plainJobs() l287 = JSON rows {key "nat:<id>", title, state run|done|fail, paused, pct, text, url, native:true, canResume, updated}. plainControl(msg) l305 (job-pause / job-cancel / job-remove; cancel does Downloader.partFile(i.id).delete()). pauseAll / resumeAll / cancelAll ~l352-370. Places that delete the part file: l196 (load), l236, l319, l344, l705, l754 (grep "Downloader.partFile"). notifyDone / addSaved l370+.
+- DownloadsScreen.kt (~26 KB): jobRow(j: JSONObject) l368 (title, ProgressBar horizontal l386, buttons; native rows with canResume get "Resume" l401).
+- EngineApi.kt: send() l26 routes "nat:" keys to DownloadsApi.plainControl; jobs() l37 merges DownloadsApi.plainJobs() (try/catch).
+- SettingsScreen.kt (~84 KB): Downloads card rows; syncInt / syncStr helpers l936-939 (read engine keys via ChromeBridge.sync); engSummary() l941; RESET map l91 (key "general" list = pref keys cleared by "Reset to default"; new prefs MUST be added in the same step).
+- DlEngine.kt: native sheet for engine options (BottomSheetDialog + NestedScrollView + num(parent,title,hint,key,def,values,label) l125 writes a chrome.storage.sync key via ChromeBridge). Good chrome to copy for the new sheet.
+- AppearancePrefs.kt l35: sp(c) = getSharedPreferences("mgb_ui", MODE_PRIVATE): pref style (get / set pairs). Util.dp(ctx,n), Util.toast. ThazirSwitch.kt = switch row style. Diag.log(level, tag, msg, extra) l83 = log line shown in Diagnose.
+- DiagReport.kt (~20 KB): report text (labels "V82 settings / jobs / log"), DiagRules.kt (~37 KB) = rule texts for failures, HowToUse.kt (~39 KB) = help topics.
+ENGINE (app/src/main/assets/ext/):
+- bigfile.js (126 l): CH = 4 MB, readDirect / readPage return {buf,total,whole,last}; STAGES = [['direct',readDirect],['page',readPage]] (ordered DATA); readAll(read,url,label) sequential loop with gate(), status(), progress(), report('run',pct,text), setStats({speed,size,eta,seg,sub}); window.mgBigFile (loops STAGES, try / catch, null = caller goes on), window.mgWholeFile (stream + progress, null on any problem).
+- downloader.js (66 KB): let SET (l15) = settings object (getSettings l1086); report() l32, setStats() l48, gate() l152 (pause / cancel), fetchRetry(url,opts,tries=6) l231 (header modes, 403 -> next header mode, adaptive CONC l22 / l245), downloadFile() l892, fileBlob(url,label) l994 (hook: chunkFile -> mgBigFile -> mgWholeFile -> old), runDash l1003.
+- shared.js: DEFAULTS (l3; chunkFile l54, maxJobs l20); options.html: row pattern  <label class="row cb" data-k="chunkFile">  (l149); options.js / options-ui.js bind data-k rows.
+BUILD/CHANGELOG: root CHANGELOG.txt (prepend newest entry on top), assets/ext/CHANGELOG.txt (engine changelog, prepend for engine steps), root HANDOFF.txt (old, latest STATUS 0.0.356).
+
+--------------------------------------------------------------------------------
+3. NEW DESIGN (all steps build on this; do not change names without a reason in CHANGELOG)
+--------------------------------------------------------------------------------
+Native (Kotlin):
+- NEW file DlParts.kt: object DlParts { fun enabled(): Boolean (pref dp_on); fun run(item: DlItem): Boolean; fun abort(item: DlItem); fun clean(id: Int); fun snapshot(id: Int): List<Double>? ; own executor for part workers (NOT Downloader.pool: only 3 threads, they run the coordinators) }.
+- run(item) returns TRUE = whole file is complete in Downloader.partFile(item.id) (caller then goes on to finish() as today); FALSE = parts mode not usable (setting off, POST, not http(s), no Range support, size unknown, file smaller than min size, Content-Encoding present, not enough disk, any failure) = caller runs the OLD single-connection code unchanged. Throws IOException when the user paused / cancelled (Downloader.run already stops silently on that).
+- Final fallback = the old code. Stage list: 1) parts, 2) old single connection (already exists).
+- Probe: one GET with Range "bytes=0-0": need 206 + Content-Range total (> 0) (or HEAD with Accept-Ranges: bytes + Content-Length); validator = ETag or Last-Modified (not weak "W/").
+- Data file: files/dl/<id>.pp (preallocated RandomAccessFile / FileChannel, workers write at their offsets, 64 KB buffers). State file: files/dl/<id>.pp.json = {"v":1,"url","total","validator","n","parts":[{"s":start,"e":end,"d":doneBytes},...]} (saved about every 1 s and on pause). When all parts are full: rename .pp -> Downloader.partFile(id) (the old .part) so finish() / publish() stay byte for byte unchanged. On any parts failure BEFORE completion: delete .pp + .pp.json and return false (old code starts from 0; never mix files).
+- Request headers: reuse Downloader.open() (cookies, UA, Referer, headerProvider). open() gets 2 OPTIONAL params with defaults = old behaviour: rangeEnd: Long = -1L, track: Boolean = true (track=false: do not write item.call, DlParts keeps its own call list for abort). Visibility private -> internal. Nothing else in open() changes.
+- Progress: item.received = sum of parts done, item.total = total (via DownloadsApi.change so listeners keep working).
+- Prefs (SharedPreferences "mgb_ui"): dp_on (Boolean, default false), dp_n (Int, default 4; allowed 2,4,6,8,16), dp_min_mb (Int, default 8; smaller files use the single connection). All 3 keys go into the SettingsScreen RESET list (S3).
+- Adaptive safety: HTTP 429 / 403 / 5xx or a part that gets 200 instead of 206 -> fewer connections for the rest (n -> n/2 down to 2), two bad rounds -> return false (old single connection). A global cap of 16 part workers over all running downloads.
+- plainJobs() JSON gets OPTIONAL new fields only: "parts": [fractions 0..1 per part], "speed": bytes per second. Old fields stay as they are.
+Engine (JS):
+- bigfile.js: STAGES (ordered list) gets a NEW first entry ['parts', readParts]. readParts = first piece 0..CH-1 via readDirect to learn total (needs a real total from Content-Range and total >= 2*CH, else throw = next stage), then N workers take the next piece index from a queue, every piece through readDirect (fetchRetry inside), results stored by index, Blob assembled in order, progress = sum, same report() / setStats() path, label text "Video: 12 MB / 80 MB - 3 parts - 4 MB/s". Never hand over a half file (same rule as readAll). Old stages 'direct' and 'page', mgWholeFile and the old plain way stay exactly as they are.
+- Setting partsN in shared.js DEFAULTS (default 1 = off; 2..8 = workers). chunkFile = false still switches ALL big-file stages off.
+- S5: window.mgPartsFile(url,label) thin wrapper + a guarded hook in downloadFile() (only when partsN > 1 and FST.got == 0; null = old stream code).
+
+--------------------------------------------------------------------------------
+4. DESIGN RULES (audited: HANDOFF.txt section 3 + res/values/colors.xml + DlEngine / DownloadsScreen code)
+--------------------------------------------------------------------------------
+Colours ONLY via R.color.mg_* (act.getColor at build time): mg_bg #F8F8FC|#0B0D13, mg_surface #FFFFFF|#141722, mg_surface_variant #F0F1F7|#202435, mg_primary #5947C7|#B6A8FF (violet), mg_on_primary, mg_text #191A24|#F0EFF8, mg_text_dim #626477|#B0B2C2, mg_outline #D9DCE7|#34384A, mg_error, mg_success. Dark + light both first-class.
+Fonts: system sans only. Sheet title 20sp bold; subtitle 12sp dim; group header 11sp bold mg_primary uppercase letterSpacing 0.08. Spacing via Util.dp(ctx,n): sheet padding 14/16/14/18, screens 14-20 horizontal, rows >= 52dp, touch >= 44dp.
+Shapes: cards GradientDrawable fill mg_surface radius 20dp stroke 1dp mg_outline; controls 12-16dp; pills fully rounded; no glow.
+Components to reuse: BottomSheetDialog + NestedScrollView (NEVER a plain ScrollView in a sheet: 0.0.352 bug), ThazirSwitch rows, MaterialAlertDialogBuilder, MaterialButton, existing ic_* drawables. No emoji icons. Only PUBLIC android: attributes in new XML (0.0.347 lesson).
+Motion 150-250 ms, skip when TabPrefs.reduce(ctx). Dialogs rebuilt on rotation, state in object. Phone-first, width cap 560dp. Test sizes: 360dp portrait + landscape + 1280dp, dark + light.
+Parts bar (S3): N small segments in one row, track mg_outline, fill mg_primary, 6dp high, 2dp gaps, no animation needed. Text under it: "4 parts - 3.1 MB/s - 0:42 left" (12sp mg_text_dim).
+Engine pages (options.html): reuse the existing <label class="row cb" data-k="..."> row style of theme.css; no new CSS.
+
+--------------------------------------------------------------------------------
+5. VERSION / CHANGELOG / OUTPUT CONVENTION
+--------------------------------------------------------------------------------
+Versions: S1 0.0.357, S2 0.0.358, S3 0.0.359, S4 0.0.360, S5 0.0.361 (confirm real value in app/build.gradle.kts first). appVersionName line 6 is bumped in every step.
+CHANGELOG.txt: prepend "0.0.357 (ADD: short title)" then "- " bullets: WHY, What, Safe / fallback, BROKEN / BHENGE-NI, NOT tested, files. Engine steps also prepend assets/ext/CHANGELOG.txt.
+HANDOFF: every step writes HANDOFF+Thazir+<version>.txt = new STATUS block + this plan with [x] updated, previous handoff kept BELOW the marker line.
+Zip: ONLY changed / new files, root folder Thazir-main/, exact repo paths; name Thazir_S<n>_v0_0_<NNN>.zip; always include app/build.gradle.kts + CHANGELOG.txt + HANDOFF. Engine steps: FULL app/src/main/assets/ext/ folder (A6). Never .github. Diff every shipped file against the old version and check no file got lost.
+Checks possible in the chat sandbox: Kotlin brace / paren balance, single-match patch audit, no "/*" inside Kotlin comments, XML well-formed, duplicate id check, changed-files scope; JS: node --check + node mock tests (local HTTP server with Range support is possible). NOT possible: Gradle / Kotlin compile (CI), device, live sites -> always write "NOT tested: Gradle build (CI), device, live sites".
+
+--------------------------------------------------------------------------------
+6. STANDING RULES (every step)
+--------------------------------------------------------------------------------
+0. RULE 0: never break / slow / rename any existing feature, setting, key, message type, UI, data format. Switch OFF = old behaviour byte for byte. A new thing that fails = silent fallback to the old thing (design, not words).
+1. ONE step per chat. Read the top of this file + FILES.txt, then ONLY the files that step lists (grep + line ranges, big files never read fully).
+2. PATCH only (no file rewrite). New code in NEW files, old files get small hooks. New code in try / catch: an error must never break the app / page / old flow.
+3. Bug / root cause first, no guessing. If not proven say "not sure yet".
+4. New permission / network call / tracking / data share = ask first. (This plan needs none: OkHttp and Range requests to the same URL the old code already fetches.)
+5. Never hard-code token / key / password. Before deleting or overwriting user data (files, saved items) ask for confirmation (parts leftovers .pp / .pp.json of the SAME download are internal and may be cleaned).
+6. Every UI step: dark + light, Reduce motion, 360dp, landscape, rotation-safe.
+7. SESSION GUARD: no new sub-task after ~85 %, hard stop ~90 % (then deliver files + HANDOFF + 1 line "ki korchilam / ki baki"). If a step is cut: mark [~] with exact leftovers.
+8. Same-bug-class grep after each fix. State in the RESULT what was only reasoned (not tested).
+9. Final chat reply max 8 lines: what done / fallback where / what to test / what is left + zip name + next kickoff line. End with a Banglish checklist "kon screen e ki korle ki dekhle thik".
+
+--------------------------------------------------------------------------------
+7. STEP PLAN   ([ ] todo  [~] partial  [x] done)    size = % of ONE chat session (estimate)
+--------------------------------------------------------------------------------
+[x] S1  v0.0.357  BUILD  size M (~45%)  NATIVE CORE (parts download, switch OFF, no UI)
+    Goal: DlParts.kt downloads one file in N parallel Range parts into one file; hooked into Downloader with 3 tiny hooks; falls back to the old single connection on anything unusual.
+    Add: app/src/main/java/com/jabra/mgb/DlParts.kt
+    Modify: DownloadService.kt (open(): private -> internal + 2 optional params; runHttp first line: try { if (DlParts.run(item)) return } catch (e: IOException) { throw e } catch (e: Exception) { log + go on with the old code }; abort(): + DlParts.abort(item)), app/build.gradle.kts (version), CHANGELOG.txt, HANDOFF.
+    Read-only: DownloadsApi.kt (DlItem, change), AppearancePrefs.kt (pref style), Diag.kt (log).
+    Deps: none. Design note: no UI. Pref dp_on default OFF (no screen switch yet: for a quick test the pref can only be set from S3, so S1 is built "dark"; verified by reading + brace check).
+    Checks: brace balance; hook sits BEFORE the old code and old code unchanged; dp_on OFF = DlParts.run returns false at once (old path byte for byte); open() old callers compile (defaults); POST / blob / data skipped; exceptions: pause = IOException; cancel = same; no partFile touched until complete.
+    Rollback: delete DlParts.kt, remove the 3 hook lines in DownloadService.kt (open() default params can stay), version back to 0.0.356.
+[x] S2  v0.0.358  MODIFY size M (~40%)  RESUME + SAFETY (pause / resume / app restart without losing parts)
+    Goal: state file <id>.pp.json saved while running; Pause / Resume, process death, "Resume" button continue every part from its own offset; wrong server answer never mixes files.
+    Modify: DlParts.kt (state save / restore, validator check with If-Range, part retry + backoff, adaptive fewer connections, disk space check with StatFs before preallocation, global worker cap, optional: an idle worker splits the biggest remaining part), DownloadService.kt (nothing new unless a bug), DownloadsApi.kt (load() l196: canResume also true when <id>.pp.json exists; the 5 places that delete partFile also call DlParts.clean(id)), CHANGELOG, HANDOFF, version.
+    Read-only: DownloadService.kt (Downloader.run / finish), DlControl.kt (Pause all / Stop all).
+    Deps: S1. Design: none. 
+    Checks: brace balance; every Downloader.partFile(...).delete() site has a clean(id) next to it (grep list in RESULT); restore with changed total / validator = start again (never reuse); cancel deletes .pp + .pp.json; complete file = rename to .part before finish.
+    Rollback: remove the DlParts.clean(...) lines in DownloadsApi.kt and the restore branch in load(); put back DlParts.kt from 0.0.357 (state file leftovers in files/dl are harmless).
+[x] S3  v0.0.359  BUILD  size M (~40%)  SETTINGS + PARTS UI (the first time the user can turn it on)
+    Goal: Settings > Downloads row "Download in parts" opens a sheet (switch, parts 2 / 4 / 6 / 8 / 16, "only files bigger than" 2 / 8 / 32 MB); Downloads screen row shows a segmented parts bar + "4 parts - 3.1 MB/s - 0:42 left".
+    Add: DlPartsUi.kt (sheet + PartsBar view; copy chrome of DlEngine.kt).
+    Modify: SettingsScreen.kt (1 row in the Downloads card + summary text + RESET list gets dp_on / dp_n / dp_min_mb), DownloadsScreen.kt (jobRow: if j has "parts" show PartsBar under the ProgressBar, else nothing changes), DownloadsApi.kt (plainJobs adds optional "parts" + "speed" from DlParts.snapshot), DlParts.kt (snapshot + speed meter, small), CHANGELOG, HANDOFF, version.
+    Read-only: DlEngine.kt (num() sheet pattern), ThazirSwitch.kt, Util.kt, res/values/colors.xml.
+    Deps: S1 (S2 for a meaningful resume). Design note: DESIGN RULES section 4, parts bar spec there.
+    Checks: brace / XML; search still finds the new row (SettingsScreen search list); Reset on the card clears the 3 keys; row without "parts" field looks exactly as before; 360dp + 1280dp, dark + light, landscape, rotation with the sheet open.
+    Rollback: delete DlPartsUi.kt, remove the Settings row + the 3 RESET keys + the PartsBar block in jobRow + the 2 optional fields in plainJobs.
+[ ] S4  v0.0.360  MODIFY size M (~35%)  ENGINE PARTS for big single files (bigfile.js)
+    Goal: Bilibili-type big files can use N parallel 4 MB pieces (new FIRST stage 'parts'); anything wrong = old sequential stages.
+    Modify: assets/ext/bigfile.js (readParts + STAGES entry), assets/ext/shared.js (DEFAULTS partsN: 1), assets/ext/options.html (1 row data-k="partsN" next to chunkFile l149; check options.js / options-ui.js binding for number rows first), DlPartsUi.kt (1 row "Also for big grabber files" -> sync key partsN: off = 1, on = same number as dp_n), assets/ext/CHANGELOG.txt, CHANGELOG, HANDOFF, version.
+    Read-only: assets/ext/downloader.js (fetchRetry, gate, report, CONC), options.js, options-ui.js.
+    Deps: S3 for the sheet row (the JS part alone is independent). Design: options row style only.
+    Checks: node --check on 3 JS files; node mock test with a local HTTP Range server: (a) 5 parts file ok and bytes equal, (b) server ignores Range = throws -> next stage, (c) one worker fails 2x then ok, (d) cancel mid way, (e) partsN 1 = old stages only, (f) total unknown = next stage. Stage 'page' stays "NOT tested".
+    Rollback: delete the readParts function + the first STAGES entry (and partsN default); engine files from 0.0.359 can be put back as a folder.
+[ ] S5  v0.0.361  MODIFY size S-M (~30%)  PLAIN FILE MODE + DIAGNOSE + HELP + FINAL REGRESSION
+    Goal: downloadFile() (engine plain file mode) can use parts too (guarded); Diagnose shows parts info; help text; final checklist and open list.
+    Modify: assets/ext/bigfile.js (mgPartsFile), assets/ext/downloader.js (guarded hook in downloadFile, only partsN > 1 and FST.got == 0, null = old stream code unchanged), DiagReport.kt (settings line "Download in parts: on/off, n, min MB" + last DlParts log lines), DiagRules.kt (1 rule text: parts fell back -> server may not allow several connections, try fewer parts), HowToUse.kt (1 topic text), CHANGELOG(s), HANDOFF, version.
+    Read-only: Diag.kt (log), DlParts.kt (log tags).
+    Deps: S1-S4. Design: text only.
+    Checks: node --check + node mock test for mgPartsFile (resume start 0 only); brace balance; the guarded hook does nothing when partsN is 1.
+    Rollback: remove the hook lines in downloader.js + mgPartsFile; remove the Diag / HowTo lines.
+    Open after S5 (not part of the plan): flip defaults to ON after a good device test (dp_on default in DlParts.enabled(), partsN default in shared.js).
+
+--------------------------------------------------------------------------------
+8. DEVICE TEST CHECKLIST (for the very end, after S5; write results into the next HANDOFF)
+--------------------------------------------------------------------------------
+T1  Settings > Downloads > Download in parts: switch ON, parts 4. Reset on the card turns it back OFF.
+T2  Open a site with a big plain file (100 MB+, a server that allows Range), tap the link: Downloads shows ONE row with 4 bars growing together, speed higher than with the switch OFF.
+T3  Same file with the switch OFF: old behaviour (one connection) still works, same file size and it plays / opens.
+T4  Pause, wait 10 s, Resume: bars continue from where they were (not from 0). Cancel: row ends, no leftover (Settings > storage does not grow).
+T5  Kill the app while downloading, open again: row shows Resume, tap it: parts continue, final file size equal to the server size.
+T6  A file smaller than "only files bigger than": normal single download. A link where the server gives no size: normal single download.
+T7  Airplane mode 10 s in the middle, then back: download goes on or shows Resume (never a broken finished file).
+T8  Several downloads at the same time (3 big files): all move, app stays smooth, no crash.
+T9  A site that blocks Range or many connections: the file still downloads (fallback), Diagnose log shows a "dlparts" fallback line.
+T10 Blob / data: link download and a chrome.downloads item from an extension: unchanged.
+T11 Bilibili (bilibili.tv) Download with engine row ON: card shows Video / Audio X / Y MB with parts text; switch OFF: as 0.0.356.
+T12 360dp + 1280dp, dark + light, rotate while the sheet / Downloads screen is open.
+T13 Diagnose report shows the parts line; send it if anything failed.
+
+--------------------------------------------------------------------------------
+9. OPEN / RISKS (known before any code)
+--------------------------------------------------------------------------------
+- Signed / one-time / cookie-bound links and some CDNs refuse Range or several connections: handled by fallback, but the server answer is NOT known until a device test.
+- Many connections can trigger 429 / 403 on the same CDN: adaptive n + fallback; default stays OFF.
+- Downloader.pool has only 3 threads (coordinators); part workers must use their own executor (S1) or parts would starve each other.
+- DownloadsApi.load() currently deletes .part for non-resumable items: S2 must do the same for .pp / .pp.json or leftovers pile up in files/dl.
+- Writing at random offsets into a preallocated file: if the app dies, the .pp file has holes: ONLY the state file tells what is really done (S2: state saved after the bytes are written, never before).
+- Engine blobs are held in memory (existing design): parallel pieces do not add more memory than the sequential stage (all pieces are kept either way).
+- Stage 'page' of bigfile.js is still NOT tested (older open item). The new engine stage 'parts' is also NOT tested on a live site until the device test.
+- Flip to default ON later: DlParts.enabled() default (S1) + shared.js partsN default (S4), 1 line each.
+
+--------------------------------------------------------------------------------
+10. KICKOFF LINE FOR THE NEXT CHAT (attach: Thazir repo zip + this file)
+--------------------------------------------------------------------------------
+"Thazir parts plan: read HANDOFF+Thazir+0.0.359.txt (top part only, until the line '=== OLDER HANDOFF BELOW') and FILES.txt, then do S4 only. Patch only, changed files only, switch OFF = old behaviour, stop at 85% session, final reply max 8 lines, reply in Banglish."
+(Quick check that the repo is current: app/build.gradle.kts says appVersionName = "0.0.359".)
+After S4 use the same line with "do S5 only" (version numbers in section 5).
+
+=== OLDER HANDOFF BELOW (history, STATUS 0.0.358 first; open only with grep when a step needs it) ===
+--------------------------------------------------------------------------------
+STATUS 0.0.358 (S2 done: resume + safety, switch still OFF)
+--------------------------------------------------------------------------------
+Done: DlParts.kt: state file <id>.pp.json (saved ~1 s + on pause, after bytes), restore on start, probe re-check (total / validator / If-Range 200 = start again), adaptive connections (workers take unfinished parts; 429 / 403 / 200 / 5xx halve, min 2, 2nd bad round = single connection), network loss keeps state (KeepIo -> interrupted + Resume), hasState(id), disk check only on fresh start. DownloadsApi.kt: DlParts.clean(id) at all 5 partFile().delete() sites + load() (canResume with state, cleanup). DownloadService.kt: fail() canResume counts parts state (1 line).
+Changes vs plan: none. Skipped optional "idle worker splits biggest part".
+Checks done: brace / paren balance 0 / 0 (3 files), every delete site has clean(id), diff scope, no comment-open in Kotlin comments.
+NOT tested: Gradle build (CI), device, live sites. First thing next chat: if CI fails, send the Kotlin error line (S1 + S2 both never compiled).
+Pending S3 note: DlParts.snapshot(id) + speed meter are NOT written yet (S3 adds them). dp_on / dp_n / dp_min_mb still have no UI.
+NEXT: S3 v0.0.359 (SETTINGS + PARTS UI). Kickoff: "Thazir parts plan: read HANDOFF+Thazir+0.0.358.txt (top part only), do S3 only. Patch only, changed files only, switch OFF = old behaviour, stop at 85% session, final reply max 8 lines, reply in Banglish."
+S1 STATUS (0.0.357): DlParts.kt (new) + 3 hooks in DownloadService.kt (runHttp first line, abort, open() internal + rangeEnd / onCall, nameFromResponse internal). Prefs dp_on / dp_n / dp_min_mb from mgb_ui. S1 limits (pause = restart from 0, .pp.json not written) are FIXED in S2. Older history (0.0.356 and before): repo root HANDOFF.txt.

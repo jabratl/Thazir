@@ -38,6 +38,7 @@ object DiagRules {
         var detected = 0
         var dlCodes: List<String> = emptyList()      // failed codes in the last 10 min (FILE_NO_SPACE ...)
         var sniffFails = 0              // sniffer probe failed in the last 10 min
+        var partsMsgs: List<String> = emptyList()    // 0.0.361: Diag tag dlparts msgs (lower-case), last 10 min
         var notifDenied = false         // API 33+ and POST_NOTIFICATIONS not granted
         var bgRestricted = false        // API 28+ background restricted
         // ---- S87.1 (all lower-case text, already masked; empty list = nothing known)
@@ -110,6 +111,7 @@ object DiagRules {
         // 14-16 download failure codes
         if (x.dlCodes.contains("NETWORK_TIMEOUT")) out.add(f("dl-timeout", W, "A download timed out.", "The server is slow or the connection dropped. Press Resume; if it repeats, try Wi-Fi.", "downloads", "Open Downloads"))
         if (x.dlCodes.contains("NETWORK_FAILED")) out.add(f("dl-network", W, "A download lost the connection.", "Check Wi-Fi / data and press Resume. An expired link needs a fresh one from the page.", "downloads", "Open Downloads"))
+        if (x.partsMsgs.any { it.startsWith("fallback to single connection") || it.startsWith("server limits connections") }) out.add(f("dl-parts-fallback", I, "Download in parts fell back: the server may not allow several connections.", "The file still downloads on one connection. Try fewer parts (Settings > Downloads > Download in parts) or switch it off for this site.", "settings", "Open settings"))
         if (x.dlCodes.contains("FILE_FAILED")) out.add(f("dl-file", B, "A download could not write the file.", "Choose the download folder again in Settings (the folder may be gone or no longer allowed).", "settings", "Open Settings"))
 
         // 17-19 grabber / sniffer / blocker

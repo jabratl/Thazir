@@ -75,7 +75,8 @@ object HowToUse {
                 "Menu > Downloads shows progress, finished files and lets you open, share, rename or delete them.",
                 "Menu > Grabber and Menu > Queue help with bigger or many downloads.",
                 "Menu > Media Library collects detected, downloaded and saved media in one place.",
-                "Novel grabber (in the menu) turns web novels into EPUB, DOCX or TXT."
+                "Novel grabber (in the menu) turns web novels into EPUB, DOCX or TXT.",
+                "Big file slow? Settings > Downloads > Download in parts fetches one file in 2 to 16 pieces at the same time. If a site refuses, Thazir goes back to one connection by itself."
             ), "Settings > Downloads has quality, folder and speed options. See Download settings in Advanced.",
             listOf(
                 "Open a page with a video. Tap the Grabber button on the page, pick a quality, download. Watch it in Menu > Downloads.",
