@@ -1,3 +1,8 @@
+0.0.394 (FIX: leftover download files + app data size report)
+- WHY: "User data" was GBs while little was downloaded. Found with the report: app_webview/Default (website data) was 4.2 GB.
+- What: removing or failing an unfinished download now deletes its ID.part / ID.pp; a download whose file could not be saved drops its full copy and shows a message; startup sweep deletes files in files/dl that nothing can resume; Settings > Downloads > "Leftover download files" (size + delete); Report center has a new "App data size" section (folders, WebView profile, files/dl) measured off the main thread.
+- CHANGED BEHAVIOUR (on purpose): a removed or failed unfinished download cannot be resumed any more; a picked download folder that fails shows "saved in Downloads instead".
+
 0.0.392 (NEW: PW6a 2FA codes (TOTP) inside the login detail sheet)
 - WHY: plan step PW6a (gap C): no 2FA codes. Offline, so no new permission, network call or dependency. Camera QR scan is NOT added (needs a camera permission = ask first): the owner pastes the setup key or the otpauth:// link.
 - What: NEW Totp.kt (RFC 6238: base32 secret or otpauth link, 6-8 digits, 10-120 s period, SHA1 / SHA256 / SHA512; checked against the 3 RFC test values in a Python copy). Login detail sheet: button "Add 2FA code" (screen lock, paste, check) / "2FA code" (screen lock, live code with seconds left, Copy = sensitive clipboard cleared after 60 s, Remove with confirm). Secret is Vault-encrypted in the optional file key t (written only when set); kept when a login is saved again; travels inside the encrypted backup (.mgbpw).

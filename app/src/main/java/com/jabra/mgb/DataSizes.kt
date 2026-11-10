@@ -40,6 +40,14 @@ object DataSizes {
             for ((f, s) in rows) out.add(f.name + (if (f.isDirectory) "/" else "") + ": " + mb(s))
             top(ctx.filesDir, "files", 8, out)
             top(File(root, "app_webview"), "app_webview", 5, out)
+            // 0.0.393: inside the big WebView profile: top entries, and the children of every entry over 200 MB
+            val wd = File(root, "app_webview/Default")
+            val wkids = (try { wd.listFiles() } catch (e: Exception) { null } ?: emptyArray()).map { it to size(it, intArrayOf(MAX_FILES)) }.sortedByDescending { it.second }.take(10)
+            for ((f, sz) in wkids) {
+                if (sz < 1048576L) continue
+                out.add("    Default/" + f.name + (if (f.isDirectory) "/" else "") + ": " + mb(sz))
+                if (f.isDirectory && sz >= 200L * 1048576L) top(f, "      " + f.name, 6, out)
+            }
             val dl = File(ctx.filesDir, "dl")
             val dlFiles = dl.listFiles()?.filter { it.isFile } ?: emptyList()
             out.add("files/dl: " + dlFiles.size + " file(s), " + mb(dlFiles.sumOf { it.length() }) + ", leftovers nobody can resume: " + mb(DlLeftovers.bytes()))
