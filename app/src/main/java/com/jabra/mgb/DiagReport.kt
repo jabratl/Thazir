@@ -101,6 +101,10 @@ object DiagReport {
         val ex = extra // 0.0.397
         secs.add(ex.crash)
         secs.add(ex.exits)
+        secs.add(ex.exts) // 0.0.401
+        val pw = safe(null) { DiagExtra.power(ctx) } // 0.0.399
+        secs.add(pw?.section ?: Section("power", "Device", "Battery and notifications", INFO, listOf("not readable")))
+        secs.add(safe(Section("stalls", "Device", "UI stalls", INFO, listOf("not readable"))) { UiStall.section(now) }) // 0.0.398
         val wv = safe("?") { WebView.getCurrentWebViewPackage()?.let { it.packageName + " " + it.versionName } ?: "unknown" }
         val wvMajor = safe(0) { wv.substringAfterLast(' ').substringBefore('.').toInt() }
         secs.add(Section("webview", "Browser", "WebView", if (wvMajor in 1..99) WARN else INFO, listOf(
@@ -219,6 +223,7 @@ object DiagReport {
         for (e in Diag.recent(3, "download", false)) jl.add(fmtEvent(e))
         for (e in Diag.recent(3, "dlparts", false)) jl.add(fmtEvent(e)) // 0.0.361: last parts download lines (start / fallback)
         for (e in Diag.recent(2, "autoresume", false)) jl.add(fmtEvent(e)) // 0.0.374 (N6): last auto-resume lines
+        secs.add(safe(Section("dlerrors", "Download", "Download errors", INFO, listOf("not readable"))) { DiagExtra.downloadErrors(now) }) // 0.0.400
         secs.add(Section("jobs", "Download", "Queue / jobs", if (failedJobs.isNotEmpty() || dFail5 > 0) WARN else INFO, jl))
 
         // ---- Novel / Manga (native side: only the events, the page side is in the V77 report)
@@ -253,6 +258,7 @@ object DiagReport {
         x.adblock = AdBlock.enabled
         x.folderSet = tree != null
         x.folderLost = folderLost // 0.0.397
+        x.notifOff = pw?.notifOff == true; x.activeDownloads = pw?.activeDownloads ?: 0 // 0.0.399
         x.exitLowMem = ex.lowMem24h; x.exitAnr = ex.anr24h // 0.0.397
         x.engineAnswered = state != null
         x.engineErrors = Diag.countSince("engine", now - FIVE_MIN, "E")

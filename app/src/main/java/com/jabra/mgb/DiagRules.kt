@@ -34,6 +34,8 @@ object DiagRules {
         var adblock = false
         var folderSet = true
         var folderLost = false          // 0.0.397: a folder was picked but its permission is gone
+        var notifOff = false            // 0.0.399: notifications switched off for the app (any Android version)
+        var activeDownloads = 0         // 0.0.399: running or resumable downloads
         var exitLowMem = 0              // 0.0.397: OS exits with LOW_MEMORY in the last 24 h
         var exitAnr = 0                 // 0.0.397: OS exits with ANR in the last 24 h
         var engineAnswered = true       // get-state answered (only meaningful when pageIsWeb)
@@ -129,6 +131,7 @@ object DiagRules {
         if (x.folderLost) out.add(f("folder-lost", W, "The folder you picked lost its permission. Files go to Downloads.", "Choose the download folder again in Settings.", "settings", "Open Settings")) // 0.0.397
         if (!x.folderSet && !x.folderLost) out.add(f("folder-unset", I, "No download folder was chosen.", "Files go to the default Downloads folder. Choose a folder in Settings if you want another place.", "settings", "Open Settings"))
         if (x.notifDenied) out.add(f("notif-denied", I, "Notifications are not allowed.", "Download progress will not show in the notification bar. Allow notifications for MGB.", "notif", "Open notification settings"))
+        if (x.notifOff && !x.notifDenied && x.activeDownloads > 0) out.add(f("notif-off-downloads", W, "Notifications are off and downloads exist.", "Progress will not show in the notification bar. Turn notifications on for MGB.", "appinfo", "Open app settings")) // 0.0.399
         if (x.bgRestricted) out.add(f("bg-restricted", W, "Android restricts MGB in the background.", "Long downloads may be stopped. Set battery use for MGB to Unrestricted.", "appinfo", "Open app settings"))
 
         rules21to40(x, out)

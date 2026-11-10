@@ -1,3 +1,39 @@
+0.0.401 (NEW: Report center "Extensions" (list, storage size, last problem))
+- WHY: When an extension misbehaves the report did not say which extensions are installed, how big their data is, or which one failed last. Plan item 7.
+- What: DiagExtra.extensions(): new section "Extensions" (Browser group), measured off the main thread: installed / on count, then per extension: name, short id, version, on / off, storage size of filesDir/exts_data/<id>, and the newest logged problem (time, text). No new ring was needed: ExtBackground, ExtApi, ExtScreen, ExtSafety and ExtListScreen already write problems to the Diag ring (tag ext, extra = name: detail, saved to disk); the report matches them to the extension by name (longest name wins). WARN if a problem is less than 10 min old.
+- CHANGED BEHAVIOUR (on purpose): Report center has one more section. Nothing else.
+- Safe / fallback: Read only, try / catch, size walk is capped at 20000 files and runs on the worker thread. No new permission, network or dependency. No extension code, URL or page content is read.
+- NOT tested: Gradle build (CI), device. OPEN: page-side injection errors of ContentInjector are not kept anywhere, so they cannot show here yet (stage 2 baki: a small error ring in ContentInjector).
+- Rollback: remove the extensions block in DiagExtra.kt (and the exts / 5th Bundle field) and the 1 line in DiagReport.kt (or revert to 0.0.400).
+- Files: DiagExtra.kt, DiagReport.kt, app/build.gradle.kts.
+
+0.0.400 (NEW: Report center "Download errors" (last 10 interrupted downloads))
+- WHY: The report said a download failed but not WHICH one, with what code, from which site. Plan item 6.
+- What: DiagExtra.downloadErrors(): new section "Download errors" (Download group): count of interrupted (failed vs cancelled by you), then the newest 10: id, time, error code, HOST only, size (file size, or received of total), "can resume". WARN if a real failure (not USER_CANCELED) happened in the last 10 min. Source: the existing read-only DownloadsApi.interruptedList() (no change in DownloadsApi).
+- CHANGED BEHAVIOUR (on purpose): Report center has one more section. Nothing else.
+- Safe / fallback: Read only, in try / catch (failure = "not readable"). Only the host is shown, never the full url, query or file name. No new permission, network or dependency.
+- NOT tested: Gradle build (CI), device. Test: start a download, turn Wi-Fi off, open Report center.
+- Rollback: remove the downloadErrors block in DiagExtra.kt and the 1 line in DiagReport.kt (or revert to 0.0.399).
+- Files: DiagExtra.kt, DiagReport.kt, app/build.gradle.kts.
+
+0.0.399 (NEW: Report center shows battery optimisation and notification state)
+- WHY: Long downloads are stopped by battery saving, and progress is invisible when notifications are off. The report could not say which one it was. Plan item 5.
+- What: DiagExtra.power(): new section "Battery and notifications" (Device group): notifications allowed / OFF, battery optimisation for MGB ON / off, number of running or resumable downloads. WARN when downloads exist and notifications are off. New rule notif-off-downloads (warning, button opens app settings). It is skipped when the older rule notif-denied (Android 13 permission) already says the same.
+- CHANGED BEHAVIOUR (on purpose): Report center has one more section and one more rule. Nothing else.
+- Safe / fallback: Read only, in try / catch (unknown = a line saying unknown). NO new permission: REQUEST_IGNORE_BATTERY_OPTIMIZATIONS is NOT added (needs the owner OK). No network, no dependency.
+- NOT tested: Gradle build (CI), device. Test: turn notifications off for MGB in phone settings, start a download, open Report center.
+- Rollback: remove the power block in DiagExtra.kt, the 3 lines in DiagReport.kt (marked 0.0.399) and the rule + 2 Facts in DiagRules.kt (or revert to 0.0.398).
+- Files: DiagExtra.kt, DiagReport.kt, DiagRules.kt, app/build.gradle.kts.
+
+0.0.398 (NEW: Report center "UI stalls" (main thread stall watcher, ANR hint))
+- WHY: "Wallpaper makes the app stick and crash" had no stack trace. A stuck UI thread leaves no Java crash, so the cause (an image decode on the UI thread) could only be guessed. Plan item 4.
+- What: NEW UiStall.kt: while the app is on screen, a daemon thread posts a tiny task to the main thread every 1 s. If it did not run within 2.5 s, the top 6 frames of the main thread are logged (Diag tag stall) at once, and a second line says how long the stall lasted. Report center: new section "UI stalls" (count, last 3 with stack, WARN if one happened in the last 10 min). Hooks: MainActivity onStart / onStop (1 line each), DiagReport (1 line).
+- CHANGED BEHAVIOUR (on purpose): Report center has one more section. A small background thread runs while the app is open (one tiny post per second). Nothing else.
+- Safe / fallback: All in try / catch. Stops when the app goes to the background. Does not touch UI, settings or files. If it fails the report just shows "not readable" / nothing. No new permission, network or dependency. Only class + method names are logged (no page text, no URLs).
+- NOT tested: Gradle build (CI), device. To see it work, a real stall of 2.5 s or more is needed.
+- Rollback: remove the 2 UiStall lines in MainActivity and the 1 line in DiagReport, delete UiStall.kt (or revert to 0.0.397).
+- Files: UiStall.kt (new), MainActivity.kt, DiagReport.kt, app/build.gradle.kts.
+
 0.0.397 (NEW: Report center shows the last crash, why Android ended the app, and a lost download folder)
 - WHY: a report that shows the real cause saves a whole round. "Wallpaper sticks and crashes" came with no stack trace, and the crash text was deleted after the dialog was shown, so the report never had it. A kill by Android (low memory, not responding) never leaves a Java stack trace at all.
 - What: NEW DiagExtra.kt. (1) Section "Last crash": time, app version, thread, first 12 stack lines (+ the com.jabra.mgb lines if they are further down); BAD if less than 24 h ago. CrashLog.showLast first saves a copy (mgb_crash_last.txt) before it deletes mgb_crash.txt. (2) Section "App exits": the last 10 exits Android recorded (time, reason, was foreground / background, process, memory, description). Android 11+ only; older phones show one line. Rule: 3 or more LOW_MEMORY / ANR in 24 h = warning with a hint. (3) DownloadFolder.status() = NONE / OK / LOST; new rule "folder-lost" (warning, fix Settings); "folder-unset" now only when nothing was picked; Storage and Settings lines say LOST.

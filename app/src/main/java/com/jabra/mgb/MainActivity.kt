@@ -637,6 +637,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         SocialTime.start(this, tabs) // 0.0.261 (C3)
         VaultStore.onAppStart(this); VaultScreen.refresh() // V3: vault auto-lock
         AutoDiag.start(this, tabs) // S87.2
+        UiStall.start() // 0.0.398: main thread stall watcher (foreground only)
     }
 
     override fun onStop() {
@@ -647,6 +648,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         SocialQuick.onStop() // 0.0.307
         SocialTime.stop() // 0.0.261 (C3)
         AutoDiag.stop() // S87.2
+        UiStall.stop() // 0.0.398
         AdBlock.flushTotal() // S68
         super.onStop()
         MediaPrefs.onStop(this, tabs.active?.web) // 0.0.302: background play keeps the page running after the window is hidden
