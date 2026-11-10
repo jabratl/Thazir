@@ -1,3 +1,11 @@
+0.0.378 (NEW: tab menu - Close other tabs, Close tabs after this, Reload all tabs)
+- WHY: Chrome has these three; Thazir only had Close tab / Close all.
+- What (TabSwitcher.kt): tab card menu: "Close other tabs" (all other tabs of the list you are looking at: normal list, one group, or private list; search results while searching) and "Close tabs after this" (tabs after this card in the same list; shown only when it differs from Close other). Pinned tabs always stay. Both use closeList: Undo bar (same place, same group) and "Ask before Close all" confirm, as Close all. Switcher menu: "Reload all tabs" = every open page of this kind (normal or private), one every 150 ms; sleeping, home and extension tabs are skipped; toast with the count.
+- What (HowToUse.kt): 1 sentence.
+- Safe / fallback: menu items only, no pref, no id, no layout, no change to any existing action. Reload all does nothing to tabs that are not loaded.
+- NOT tested: Gradle build (CI), device, Undo of Close other (groups / pinned / order), confirm dialog ON, inside a group, private list, Reload all with 10+ tabs, 360 / 1280dp, dark + light.
+- Files: TabSwitcher.kt, HowToUse.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF+Thazir+0.0.378.txt (+ the 0.0.375 - 0.0.377 files).
+
 0.0.377 (NEW: address bar suggestions from bookmarks + history)
 - WHY: typing in the address bar showed no match from earlier pages; every address had to be typed in full.
 - What (UrlSuggest.kt NEW): while you type, up to 5 matching bookmarks / history pages show in a small card (above the bar when the bar is at the bottom, below it when the bar is on top; 360dp = bar width, wide screens max 640dp). Tap = open the page. Order: host starts with > address starts with > host contains > address contains > title contains > all words found; bookmarks first, then newest history; same page once. Not shown in private tabs, for empty text, for the current address, when nothing matches, or when the switch is OFF.

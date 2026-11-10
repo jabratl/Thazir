@@ -1020,6 +1020,7 @@ object TabSwitcher {
             if (onList) items.add(MI("Open links from clipboard", R.drawable.ic_paste) { // T1
                 TabBookmarks.fromClipboard(act, tm, mode == 1, if (mode == 2) openGroup else null, mode != 1 && openGroup == null) { render() }
             })
+            if (onList) items.add(MI("Reload all tabs", R.drawable.ic_reload) { reloadAll() }) // 0.0.378
             if (onList) dupTabs().let { d -> if (d.isNotEmpty()) items.add(MI("Close duplicates (" + d.size + ")", R.drawable.ic_close) { doCloseList(d) }) } // 0.0.287: Undo comes from doCloseList
             if (onList) items.add(MI(if (mode == 1) "Close all private tabs" else "Close all tabs", R.drawable.ic_trash) { closeAll() })
             items.add(MI("Delete browsing data", R.drawable.ic_trash) { deleteData() }) // S76
@@ -1086,6 +1087,12 @@ object TabSwitcher {
             if (!t.isExt && !t.priv) items.add(MI(if (t.pinned) "Unpin tab" else "Pin tab", R.drawable.ic_pin) { tm.setPinned(t, !t.pinned); animateNext = true; render() }) // 0.0.296
             val mh = if (t.home || t.isExt) "" else Util.host(t.url)
             if (mh.isNotBlank()) items.add(MI(if (SiteMute.isMuted(act, mh)) "Unmute site" else "Mute site", R.drawable.ic_mute) { SiteMute.toggle(act, tm, mh); render() }) // 0.0.296
+            // 0.0.378: Close other tabs / Close tabs after this (this list only, pinned tabs stay, Undo + "Ask before Close all" come from closeList)
+            val others = shown.filter { it !== t && !it.pinned }
+            val ix = shown.indexOf(t)
+            val after = if (ix >= 0) shown.drop(ix + 1).filter { !it.pinned } else emptyList()
+            if (others.isNotEmpty()) items.add(MI("Close other tabs", R.drawable.ic_close) { closeList(others) })
+            if (after.isNotEmpty() && after.size < others.size) items.add(MI("Close tabs after this", R.drawable.ic_close) { closeList(after) })
             items.add(MI("Close tab", R.drawable.ic_close) { closeAnimated(anchor, t) })
             popup(anchor, items, -anchor.height + dp(44))
         }
@@ -1367,6 +1374,17 @@ object TabSwitcher {
                 if (t === cur) { out.add(first); seen[k] = t } else out.add(t)
             }
             return out
+        }
+
+        /** 0.0.378: reload every open page of this kind (normal or private), one after the other (150 ms apart). Sleeping / home / extension tabs are left alone. */
+        private fun reloadAll() {
+            val list = tm.allTabs().filter { (if (mode == 1) it.priv else !it.priv) && !it.home && !it.isExt && !it.suspended && it.pending == null && (it.web.url ?: it.url).startsWith("http") }
+            if (list.isEmpty()) { Util.toast(act, "No open pages to reload"); return }
+            val h = android.os.Handler(android.os.Looper.getMainLooper())
+            list.forEachIndexed { i, t ->
+                h.postDelayed({ try { if (!t.suspended && tm.allTabs().contains(t)) t.web.reload() } catch (e: Exception) { } }, i * 150L)
+            }
+            Util.toast(act, "Reloading " + list.size + " tab" + (if (list.size == 1) "" else "s"))
         }
 
         private fun closeAll() = closeList(shown)
