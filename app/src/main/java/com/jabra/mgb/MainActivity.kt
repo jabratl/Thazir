@@ -84,6 +84,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         btnBack = findViewById(R.id.btn_back) // A1
         btnFwd = findViewById(R.id.btn_fwd) // A1
         btnTabs = findViewById(R.id.btn_tabs)
+        tabStroke0 = btnTabs.strokeColor // 0.0.380: the normal ring colour, restored when the active tab is in no group
         btnShield = findViewById(R.id.btn_shield) // S68
         btnNewTab = findViewById(R.id.btn_newtab) // 0.0.319
         btnNewTab.setOnClickListener { // same as Chrome: a private tab opens another private tab
@@ -102,7 +103,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         EngineHost.start(this) // S6 (A7b: safe twice, it starts once for the whole app): background.js engine (hidden WebView)
         tabs = TabManager(this, findViewById<FrameLayout>(R.id.web_container), this)
         if (shared) TabsApi.attach(tabs)
-        if (shared) { GroupStrip.attach(this, tabs); SocialDock.attach(this, tabs); TabSwitcher.onChanged = { GroupStrip.refresh() } } // S13
+        if (shared) { GroupStrip.attach(this, tabs); SocialDock.attach(this, tabs); TabSwitcher.onChanged = { GroupStrip.refresh(); refreshTabRing() } } // S13 (0.0.380: ring follows group changes)
         BookmarksScreen.tabsRef = tabs // S25
         if (shared) TabsApi.onNativePanel = { floating.openSheet() } // MGB S51: Grabber page button -> Files detected! panel
         window.decorView.post { DlMode.init(this) } // S54: Smart download buttons on first start
@@ -493,6 +494,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             }.start()
         }
         btnTabs.setTextColor(getColor(if (tab?.priv == true) R.color.mg_primary else R.color.mg_text)) // S26
+        refreshTabRing() // 0.0.380
         tintUrlBar(tab?.priv == true) // 0.0.287
         refreshUrlField()
         refreshShield()
@@ -558,16 +560,32 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         } catch (e: Exception) { }
     }
 
+    private var tabStroke0: android.content.res.ColorStateList? = null
+
+    /** 0.0.380: the ring of the tab counter takes the colour of the active tab's group (normal colour when it is in no group); the description tells the count and the group. */
+    private fun refreshTabRing() {
+        try {
+            val a = tabs.active
+            val g = if (a != null && !a.priv) TabSwitcher.groupInfoOf(a.id) else null
+            val c = if (g != null) android.content.res.ColorStateList.valueOf(g.color) else tabStroke0
+            if (c != null) btnTabs.strokeColor = c
+            val n = tabs.count
+            btnTabs.contentDescription = "Tabs, " + n + " open" + (if (g != null) ", group " + g.name else "")
+        } catch (e: Exception) { }
+    }
+
     override fun onTabsChanged() {
         syncPrivateSecure()
-        val tabCount = tabs.count.toString()
+        val tabCount = if (tabs.count > 99) "99+" else tabs.count.toString() // 0.0.380: 3 characters never overflow the 34dp box
         if (btnTabs.text.toString() != tabCount) { // S21c: the count pops when it changes
+            btnTabs.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, if (tabCount.length >= 3) 10f else if (tabCount.length == 2) 12f else 14f) // 0.0.380: size follows the digits
             btnTabs.text = tabCount
             btnTabs.animate().cancel()
             if (!TabPrefs.reduce(this)) btnTabs.scaleX = 1.35f
             if (!TabPrefs.reduce(this)) btnTabs.scaleY = 1.35f
             btnTabs.animate().scaleX(1f).scaleY(1f).setInterpolator(android.view.animation.OvershootInterpolator(2f)).setDuration(260).start()
         }
+        refreshTabRing() // 0.0.380
         GroupStrip.refresh() // S13
         SocialDock.refresh() // 0.0.272 (C1)
         if (!siteWin) { // 0.0.302: "Close all private tabs" notification

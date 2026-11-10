@@ -1,3 +1,10 @@
+0.0.380 (MODIFY: tab counter - cleaner count + group colour ring)
+- WHY: the counter showed 3-digit counts cramped / cut and looked the same whatever tab you were on.
+- What (MainActivity.kt only): (1) count text size follows the digits (1 digit 14sp, 2 digits 12sp, 100+ shows "99+" at 10sp); the pop animation stays (off with Reduce motion). (2) The ring (outline) of the counter takes the COLOUR OF THE ACTIVE TAB'S GROUP, back to the normal ring colour when that tab is in no group or is private. It updates on tab switch, page load, tab open / close and when groups change (group colour edit, Add to group, Open in new tab in group). contentDescription now says "Tabs, N open, group NAME".
+- Safe / fallback: no layout xml, no drawable, no pref, no id change; button stays 34dp with the same corner and stroke width. Any error = the old look stays.
+- NOT tested: Gradle build (CI), device, 1 / 2 / 3-digit counts, dark + light (ring contrast of every group colour), private tab, group colour change while the page is open, rotation, Reduce motion ON.
+- Files: MainActivity.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF+Thazir+0.0.380.txt (+ the 0.0.375 - 0.0.379 files).
+
 0.0.379 (MODIFY: link menu "Open in new tab in group" works like Chrome)
 - WHY: it asked for a group name every time, put the new tab at the END of the group and never added the tab you pressed the link in.
 - What (TabSwitcher.kt openInGroupHere, TabManager.kt link menu): the tab you pressed the link in already is in a group = the new tab joins that group right after it (no dialog). It is in no group = a NEW group (auto name "Group N", auto colour) is made with BOTH the tab you pressed and the new tab. Toast "Opened in group X"; the group strip shows it at once.
