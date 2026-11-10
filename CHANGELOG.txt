@@ -1,3 +1,11 @@
+0.0.377 (NEW: address bar suggestions from bookmarks + history)
+- WHY: typing in the address bar showed no match from earlier pages; every address had to be typed in full.
+- What (UrlSuggest.kt NEW): while you type, up to 5 matching bookmarks / history pages show in a small card (above the bar when the bar is at the bottom, below it when the bar is on top; 360dp = bar width, wide screens max 640dp). Tap = open the page. Order: host starts with > address starts with > host contains > address contains > title contains > all words found; bookmarks first, then newest history; same page once. Not shown in private tabs, for empty text, for the current address, when nothing matches, or when the switch is OFF.
+- What (MainActivity.kt): 1 attach() call + hide() when the field loses focus. SettingsScreen.kt: row "Address suggestions" (Settings > General, pref url_suggest, default ON, in the General RESET list, search words). HowToUse.kt: 1 sentence.
+- Safe / fallback: switch OFF = exactly the old address bar. Any error inside = the card just disappears. Nothing is stored, no network call, no new permission, no new layout xml / id. Enter still opens exactly what you typed.
+- NOT tested: Gradle build (CI), device, card position with keyboard open (bar bottom and bar top), landscape (few rows), 360 / 1280dp, dark + light, tap a row, rotation while typing, speed dial / home page, Paste & go.
+- Files: UrlSuggest.kt (new), MainActivity.kt, SettingsScreen.kt, HowToUse.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF+Thazir+0.0.377.txt (+ the 0.0.375 / 0.0.376 files).
+
 0.0.376 (MODIFY: Settings > Downloads: own "Downloader" group + clearer hints)
 - WHY: "App downloader" and "Download rules" sat at the end of "Quality and files"; "Download engine" (streams) and "App downloader" (files) both talked about speed.
 - What (SettingsScreen.kt only): new group Sub("Downloader") = Link inbox, App downloader, Download rules. Hint of App downloader: "For files (tab link, blob, grabber file): ..."; hint of Download engine: "For streams (HLS / DASH): ...". No id, pref, handler or logic change.

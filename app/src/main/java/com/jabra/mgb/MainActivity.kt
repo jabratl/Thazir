@@ -160,9 +160,11 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             if (focused) {
                 urlBar.setText(if (tabs.active?.home == true) "" else (tabs.active?.url ?: "")) // S13
                 urlBar.post { urlBar.selectAll() }
-            } else refreshUrlField()
+            } else { UrlSuggest.hide(); refreshUrlField() } // 0.0.377: suggestions go away with the focus
             refreshShield() // S68: shield hides while typing
         }
+        // 0.0.377: matching bookmarks / history under or above the bar while typing (Settings > Browser > Address suggestions)
+        UrlSuggest.attach(this, urlBar, { tabs.active?.priv == true }, { if (tabs.active?.home == true) "" else (tabs.active?.url ?: "") }) { u -> urlBar.setText(u); submitUrl() }
 
         urlBar.setOnLongClickListener { // 0.0.287 (#5): long-press the address (not while typing) = Copy link / Paste & go / Share
             val t = tabs.active

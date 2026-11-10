@@ -37,7 +37,7 @@ object HowToUse {
     private val TOPICS = listOf(
         Topic(R.drawable.ic_screen, "Browse and tabs", "Open, switch and close tabs",
             listOf(
-                "Type a site or a search in the address bar. Thazir uses the search engine you chose in Settings > General.",
+                "Type a site or a search in the address bar. Thazir uses the search engine you chose in Settings > General. While you type, matching bookmarks and history pages show in a small card by the bar (not in private tabs); tap one to open it. Switch: Settings > General > Address suggestions.",
                 "Tap the tab counter to see all tabs and groups. Open one by tapping it.",
                 "Close a tab with its X. If Settings > Tabs and motion has swipe on, swipe the tab card instead.",
                 "Closed one by mistake? Menu > Recently closed tabs brings it back.",
