@@ -519,7 +519,7 @@ class TabManager(
         PullRefresh.attach(w, container) { w.reload() } // S45: pull down at the top = reload
         ContentInjector.attach(ctx, w) // S5: V77 content scripts + chrome shim (before first load)
         Userscripts.attach(ctx, w, priv) // T7: userscripts (before first load; also for a WebView made again after suspend)
-        if (!priv) w.addJavascriptInterface(PasswordStore.Bridge(this), "MGBPW") // S30: save-login hook (before first load)
+        if (!priv || PwScreen.privFill(ctx)) w.addJavascriptInterface(PasswordStore.Bridge(this), "MGBPW") // S30: save-login hook (before first load)
         if (!priv) w.addJavascriptInterface(WebVideo.Bridge(this), "MGBVID") // S45: in-page video button
         w.addJavascriptInterface(SocialApp.Bridge(this, w), "MGBSOC") // 0.0.305: share sheet / keep screen on / haptic tick (social pages only call it)
         if (!priv) w.addJavascriptInterface(WebNotify.Bridge(this, w), "MGBNOT") // 0.0.284: website notifications
@@ -663,7 +663,7 @@ class TabManager(
             if (tab.desktop && !tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // S14
             if (tab.extWide && tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // 0.0.109
             if (!tab.isExt && view != null) EngineHost.noteUa(url ?: tab.url, view.settings.userAgentString) // 0.0.110: extension requests to this site use this user agent
-            if (!tab.isExt && !tab.priv && tab.url.startsWith("http")) view?.evaluateJavascript(PasswordStore.HOOK_JS, null) // S30
+            if (!tab.isExt && (!tab.priv || PwScreen.privFill(ctx)) && tab.url.startsWith("http")) view?.evaluateJavascript(PwSmart.hookJs(ctx), null) // S30 (0.0.388: smart hook, old hook = fallback)
             if (!tab.isExt && !tab.priv && tab.url.startsWith("http") && WebVideo.onFor(ctx, tab.url)) view?.evaluateJavascript(WebVideo.JS, null) // S45
             if (!tab.isExt) YtAds.flag(view, tab.url) // 0.0.105
             if (!tab.isExt) SiteMute.flag(view, tab.url) // 0.0.296

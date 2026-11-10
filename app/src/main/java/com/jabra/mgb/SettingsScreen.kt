@@ -1259,6 +1259,31 @@ object SettingsScreen {
                 Row(R.drawable.ic_download, "Import passwords (file or paste)") { fa?.let { PasswordStore.importChoice(it) } },
                 Row(R.drawable.ic_share, "Export passwords (CSV)") { fa?.let { PasswordStore.exportCsv(it) } },
                 Row(R.drawable.ic_lock, "Password generator") { fa?.let { PasswordStore.generatorDialog(it) } },
+                Row(R.drawable.ic_share, "Encrypted backup of passwords") { fa?.let { PwBackup.export(it) } }, // 0.0.387
+                Row(R.drawable.ic_download, "Restore passwords from backup") { fa?.let { PwBackup.restore(it) } }, // 0.0.387
+                Row(R.drawable.ic_list, "Sites never saved") { fa?.let { PwBackup.neverList(it) } }, // 0.0.387
+                Row(R.drawable.ic_lock, "Smarter login detection", if (PwSmart.on(act)) "ON" else "OFF") { // 0.0.388
+                    PwSmart.set(act, !PwSmart.on(act))
+                    Util.toast(act, "Reload the page")
+                    fill()
+                },
+                Row(R.drawable.ic_lock, "New password screens", if (PwScreen.on(act)) "ON" else "OFF", "Full screen list, save sheet, generator sheet. OFF = the old dialogs") { // 0.0.389
+                    PwScreen.flip(act, "newui", true)
+                    fill()
+                },
+                Row(R.drawable.ic_lock, "Fill chip near the bar", if (PwScreen.chipOn(act)) "ON" else "OFF", "OFF = the old bar at the bottom") { // 0.0.389
+                    PwScreen.flip(act, "chip", true)
+                    fill()
+                },
+                Row(R.drawable.ic_lock, "Fill in private tabs", if (PwScreen.privFill(act)) "ON" else "OFF", "Fills saved logins in private tabs opened from now on. Nothing is ever saved from a private tab") { // 0.0.389
+                    PwScreen.flip(act, "privfill", false)
+                    Util.toast(act, "Applies to private tabs opened from now on")
+                    fill()
+                },
+                Row(R.drawable.ic_lock, "Password health card", if (PwHealth.on(act)) "ON" else "OFF", "Weak and reused password check on the Passwords screen. Works only on this phone. OFF = no card") { // 0.0.390
+                    PwHealth.flip(act)
+                    fill()
+                },
                 Sub("Email alias"),
                 Row(R.drawable.ic_share, "addy.io API key", if (EmailAlias.hasKey(act)) "set" else "not set") { EmailAlias.keyDialog(act) { fill() } },
                 Row(R.drawable.ic_add, "Create email alias") { EmailAlias.create(act, "") },

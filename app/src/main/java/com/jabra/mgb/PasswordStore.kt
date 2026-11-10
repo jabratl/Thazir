@@ -44,7 +44,19 @@ object PasswordStore {
     private const val FILE = "mgb_pw.json"
     private val main = Handler(Looper.getMainLooper())
 
-    class Entry(val host: String, val user: String, val enc: String)
+    /** 0.0.391 (PW5): one replaced password (Vault-encrypted) and the time it was replaced. */
+    class Hist(val enc: String, val at: Long)
+
+    class Entry(val host: String, val user: String, val enc: String) {
+        // 0.0.391 (PW5): optional extras. Old files have none (stay empty / 0). Changed IN PLACE (same object) so open screens stay valid.
+        @Volatile var notes: String = "" // Vault.encrypt(text); "" = no note
+        @Volatile var created: Long = 0L
+        @Volatile var modified: Long = 0L // time the password was last changed
+        @Volatile var lastUsed: Long = 0L // last Fill (written at most once an hour)
+        @Volatile var fav: Boolean = false
+        @Volatile var totp: String = "" // 0.0.392 (PW6a): Vault.encrypt(2FA secret or otpauth link); "" = none
+        val hist = ArrayList<Hist>() // newest first, max 5
+    }
 
     private val list = ArrayList<Entry>()
     private var loaded = false
@@ -54,39 +66,181 @@ object PasswordStore {
 
     // ---- storage
 
+    // 0.0.387 (PW1): a file that cannot be read is NEVER treated as "empty" any more (see PwFile). readFailed = nothing is written until the user decides.
+    @Volatile var readFailed = false
+    private var failCopy: String? = null
+    private var notice: String? = null
+
+    @Synchronized
     private fun load(ctx: Context) {
         if (loaded) return
         loaded = true
         try {
-            val f = File(ctx.applicationContext.filesDir, FILE)
-            if (!f.exists()) return
-            val a = JSONArray(f.readText())
+            val r = PwFile.read(ctx)
+            if (r.state == 2) {
+                readFailed = true
+                failCopy = r.copy
+                return
+            }
+            if (r.state == 1) notice = "The password file was damaged. The last good copy was loaded."
+            val a = r.array ?: return
             for (i in 0 until a.length()) {
                 val o = a.optJSONObject(i) ?: continue
-                list.add(Entry(o.optString("h"), o.optString("u"), o.optString("p")))
+                list.add(try { PwMore.fromJson(o) } catch (x: Exception) { Entry(o.optString("h"), o.optString("u"), o.optString("p")) }) // 0.0.391: optional extras
             }
-        } catch (e: Exception) { Log.e(TAG, "load failed", e) }
+        } catch (e: Exception) { Log.e(TAG, "load failed", e); readFailed = true }
     }
 
-    private fun save(ctx: Context) {
-        try {
+    @Synchronized
+    private fun save(ctx: Context): Boolean {
+        if (readFailed) return false
+        return try {
             val a = JSONArray()
-            for (e in list) a.put(JSONObject().put("h", e.host).put("u", e.user).put("p", e.enc))
-            File(ctx.applicationContext.filesDir, FILE).writeText(a.toString())
-        } catch (e: Exception) { Log.e(TAG, "save failed", e) }
+            for (e in list) a.put(try { PwMore.toJson(e) } catch (x: Exception) { JSONObject().put("h", e.host).put("u", e.user).put("p", e.enc) }) // 0.0.391: h / u / p first, extras only when set
+            PwFile.write(ctx, a.toString())
+        } catch (e: Exception) { Log.e(TAG, "save failed", e); false }
     }
 
-    fun all(ctx: Context): List<Entry> { load(ctx); return list.sortedBy { it.host } }
-    fun forHost(ctx: Context, host: String): List<Entry> { load(ctx); return list.filter { it.host == host } }
+    /** Save the changed list; when it cannot be written the list goes back to what it was (memory = file). */
+    @Synchronized
+    private fun commit(ctx: Context, before: List<Entry>): Boolean {
+        if (save(ctx)) return true
+        list.clear(); list.addAll(before)
+        return false
+    }
 
-    private fun put(ctx: Context, host: String, user: String, pass: String) {
+    @Synchronized fun all(ctx: Context): List<Entry> { load(ctx); return list.sortedBy { it.host } }
+    @Synchronized fun forHost(ctx: Context, host: String): List<Entry> { load(ctx); return list.filter { it.host == host } }
+
+    /** true = saved. false = could not save (file damaged or disk problem); the list is unchanged. */
+    @Synchronized
+    private fun put(ctx: Context, host: String, user: String, pass: String, from: Entry? = null): Boolean {
         load(ctx)
+        if (readFailed) return false
+        val before = ArrayList(list)
+        val prev = list.firstOrNull { it.host == host && it.user == user } ?: from // 0.0.391: extras come from the login that is replaced
         list.removeAll { it.host == host && it.user == user }
-        list.add(Entry(host, user, Vault.encrypt(pass)))
-        save(ctx)
+        val ne = Entry(host, user, Vault.encrypt(pass))
+        try { PwMore.onPut(ne, prev, pass) } catch (x: Exception) { }
+        list.add(ne)
+        return commit(ctx, before)
     }
 
-    private fun remove(ctx: Context, e: Entry) { load(ctx); list.remove(e); save(ctx) }
+    @Synchronized
+    private fun remove(ctx: Context, e: Entry): Boolean {
+        load(ctx)
+        if (readFailed) return false
+        val before = ArrayList(list)
+        list.remove(e)
+        return commit(ctx, before)
+    }
+
+    /** 0.0.387: for the encrypted restore. Adds a login only when it is missing (or the saved one cannot be read). Never overwrites a readable one. */
+    @Synchronized
+    fun addIfMissing(ctx: Context, host: String, user: String, pass: String, meta: JSONObject? = null): Boolean {
+        load(ctx)
+        if (readFailed || host.isBlank() || pass.isEmpty()) return false
+        val old = list.firstOrNull { it.host == host && it.user == user }
+        if (old != null && Vault.decrypt(old.enc) != null) return false
+        val before = ArrayList(list)
+        if (old != null) list.remove(old)
+        val ne = Entry(host, user.take(200), Vault.encrypt(pass.take(500)))
+        try { if (meta != null) PwMore.applyBackup(ne, meta) } catch (x: Exception) { } // 0.0.391
+        list.add(ne)
+        return commit(ctx, before)
+    }
+
+    // ---- 0.0.389 (PW3): small hooks for PwScreen (nothing here changes the old screens)
+    internal fun forgetAuth() { authAt = 0L }
+    @Synchronized internal fun byAge(ctx: Context): List<Entry> { load(ctx); return list.reversed() } // newest saved first
+    internal fun addEntry(act: FragmentActivity, done: () -> Unit) = editDialog(act, null, done)
+    internal fun editEntry(act: FragmentActivity, e: Entry, done: () -> Unit) = guard(act, "Edit login") { editDialog(act, e, done) }
+    internal fun copyPlain(act: Activity, label: String, text: String) = copy(act, label, text, false)
+    internal fun copySecret(act: Activity, label: String, text: String) = copy(act, label, text, true) // sensitive flag + cleared after 60 s
+
+    // ---- 0.0.391 (PW5): notes / favourite / last used. Same Entry object is changed; a failed save puts the old value back.
+    @Synchronized internal fun byUse(ctx: Context): List<Entry> { load(ctx); return list.sortedWith(compareByDescending<Entry> { it.lastUsed }.thenBy { it.host }) }
+    @Synchronized internal fun favFirst(ctx: Context): List<Entry> { load(ctx); return list.sortedWith(compareByDescending<Entry> { it.fav }.thenBy { it.host }) }
+
+    /** [plain] blank = remove the note. true = saved. */
+    @Synchronized
+    internal fun setNotes(ctx: Context, e: Entry, plain: String): Boolean {
+        load(ctx)
+        if (readFailed) return false
+        val old = e.notes
+        e.notes = if (plain.isBlank()) "" else Vault.encrypt(plain)
+        if (save(ctx)) return true
+        e.notes = old
+        return false
+    }
+
+    /** [plain] blank = remove the 2FA secret. true = saved. */
+    @Synchronized
+    internal fun setTotp(ctx: Context, e: Entry, plain: String): Boolean {
+        load(ctx)
+        if (readFailed) return false
+        val old = e.totp
+        e.totp = if (plain.isBlank()) "" else Vault.encrypt(plain)
+        if (save(ctx)) return true
+        e.totp = old
+        return false
+    }
+
+    @Synchronized
+    internal fun setFav(ctx: Context, e: Entry, v: Boolean): Boolean {
+        load(ctx)
+        if (readFailed) return false
+        val old = e.fav
+        e.fav = v
+        if (save(ctx)) return true
+        e.fav = old
+        return false
+    }
+
+    /** Fill happened: remember the time. Written at most once an hour per login; any problem = ignored (Fill itself never depends on this). */
+    internal fun touch(ctx: Context, e: Entry) {
+        try {
+            val now = System.currentTimeMillis()
+            synchronized(this) {
+                if (readFailed || now - e.lastUsed < 3_600_000L) return
+                val old = e.lastUsed
+                e.lastUsed = now
+                if (!save(ctx)) e.lastUsed = old
+            }
+        } catch (x: Exception) { }
+    }
+
+    @Synchronized
+    private fun restoreEntry(ctx: Context, e: Entry) {
+        load(ctx)
+        if (readFailed || list.any { it.host == e.host && it.user == e.user }) return
+        val before = ArrayList(list)
+        list.add(e)
+        if (!commit(ctx, before)) Util.toast(ctx, failMsg())
+    }
+
+    /** Screen lock + confirm, then delete with an Undo bar (the old list keeps its own delete). */
+    internal fun deleteEntry(act: FragmentActivity, e: Entry, undoHost: View?, changed: () -> Unit) {
+        guard(act, "Delete login") {
+            MaterialAlertDialogBuilder(act).setMessage("Delete the saved login for ${e.host}?")
+                .setPositiveButton("Delete") { _, _ ->
+                    if (remove(act, e)) {
+                        changed()
+                        BmUndo.show(undoHost ?: act.findViewById<View>(android.R.id.content), "Login deleted") { restoreEntry(act, e); changed() }
+                    } else Util.toast(act, failMsg())
+                }
+                .setNegativeButton("Cancel", null).show()
+        }
+    }
+
+    fun neverHosts(ctx: Context): Set<String> = HashSet(prefs(ctx).getStringSet("never", emptySet()) ?: emptySet())
+    fun removeNever(ctx: Context, host: String) {
+        val s = neverHosts(ctx).toMutableSet()
+        s.remove(host)
+        prefs(ctx).edit().putStringSet("never", s).apply()
+    }
+
+    private fun failMsg() = if (readFailed) "The password file could not be read. Nothing was saved. Open Passwords to fix it." else "Could not save. Nothing was changed."
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("mgb_pw", Context.MODE_PRIVATE)
     private fun never(ctx: Context, host: String) = prefs(ctx).getStringSet("never", emptySet())?.contains(host) == true
@@ -168,7 +322,34 @@ return 'n'+n;
                 val t = tm.active ?: return@post
                 if (t.priv || t.isExt || !t.url.startsWith("http")) return@post
                 val act = tm.host() as? FragmentActivity ?: return@post
-                offerSave(act, Util.host(t.url), user.take(200), pass.take(500))
+                val host = Util.host(t.url)
+                val u = if (user.isBlank()) (try { PwSmart.takeUser(t.id.toString(), host) } catch (e: Exception) { "" }) else user.take(200) // 0.0.388: two-step login
+                offerSave(act, host, u, pass.take(500))
+            }
+        }
+
+        /** 0.0.388 (PW2): step 1 of a two-step login: remember the user name in memory only (2 minutes, this tab). */
+        @JavascriptInterface
+        fun onUser(user: String) {
+            main.post {
+                try {
+                    val t = tm.active ?: return@post
+                    if (t.priv || t.isExt || !t.url.startsWith("http")) return@post
+                    PwSmart.noteUser(t.id.toString(), Util.host(t.url), user.take(200))
+                } catch (e: Exception) { Log.e(TAG, "onUser failed", e) }
+            }
+        }
+
+        /** 0.0.388 (PW2): change-password form: [pass] is the NEW password; the account = user name on page / step-1 name / the only saved login. */
+        @JavascriptInterface
+        fun onChange(user: String, pass: String) {
+            main.post {
+                val t = tm.active ?: return@post
+                if (t.priv || t.isExt || !t.url.startsWith("http")) return@post
+                val act = tm.host() as? FragmentActivity ?: return@post
+                val host = Util.host(t.url)
+                val u = try { PwSmart.resolveUser(act, t.id.toString(), host, user.take(200)) } catch (e: Exception) { user.take(200) }
+                offerSave(act, host, u, pass.take(500))
             }
         }
 
@@ -217,15 +398,16 @@ return 'n'+n;
     private fun hint(tm: TabManager) {
         main.post {
             val t = tm.active ?: return@post
-            if (t.priv || t.isExt || !t.url.startsWith("http")) return@post
             val act = tm.host() as? FragmentActivity ?: return@post
+            if ((t.priv && !PwScreen.privFill(act)) || t.isExt || !t.url.startsWith("http")) return@post // 0.0.389: fill (never save) in private tabs only when the switch is ON
             val host = Util.host(t.url)
-            val es = forHost(act, host)
+            val es = try { PwSmart.forHostSmart(act, host) } catch (e: Exception) { forHost(act, host) } // 0.0.388: same site, other name; any error = exact host
             if (es.isEmpty()) return@post
             val key = t.id.toString() + "|" + t.url
             if (lastHint == key) return@post
             lastHint = key
             val who = if (es.size == 1) es[0].user.ifBlank { host } else "${es.size} logins"
+            if (try { PwScreen.chip(act, host, who) { fillWith(act, t, host, es) } } catch (e: Exception) { false }) return@post // 0.0.389: chip first, Snackbar = fallback
             try {
                 val sb = Snackbar.make(act.findViewById<View>(android.R.id.content), "Fill login: $who", 8000)
                 AppearancePrefs.snackAnchor(act)?.let { sb.setAnchorView(it) } // A5: none in top mode
@@ -249,12 +431,15 @@ return 'n'+n;
         val old = forHost(act, host).firstOrNull { it.user == user }
         if (old != null && Vault.decrypt(old.enc) == pass) return // nothing new
         val who = if (user.isBlank()) "(no user name)" else user
+        val sheet = try {
+            PwScreen.saveSheet(act, host, user, pass, old != null, { u -> if (put(act, host, u, pass)) Util.toast(act, "Password saved") else Util.toast(act, failMsg()) }, { setNever(act, host) })
+        } catch (e: Exception) { Log.e(TAG, "save sheet failed", e); false } // 0.0.389: bottom sheet first, old dialog = fallback
+        if (sheet) return
         MaterialAlertDialogBuilder(act)
             .setTitle(if (old != null) "Update password for $host?" else "Save password for $host?")
             .setMessage(who)
             .setPositiveButton(if (old != null) "Update" else "Save") { _, _ ->
-                put(act, host, user, pass)
-                Util.toast(act, "Password saved")
+                if (put(act, host, user, pass)) Util.toast(act, "Password saved") else Util.toast(act, failMsg()) // 0.0.387
             }
             .setNegativeButton("Not now", null)
             .setNeutralButton("Never here") { _, _ -> setNever(act, host) }
@@ -266,9 +451,9 @@ return 'n'+n;
     /** Menu: Fill password for the page in the active tab. */
     fun fill(act: FragmentActivity, tabs: TabManager) {
         val t = tabs.active ?: return
-        if (t.priv) { Util.toast(act, "Not available in a private tab"); return }
+        if (t.priv && !PwScreen.privFill(act)) { Util.toast(act, "Not available in a private tab"); return }
         val host = Util.host(t.url)
-        val es = forHost(act, host)
+        val es = try { PwSmart.forHostSmart(act, host) } catch (e: Exception) { forHost(act, host) } // 0.0.388
         if (es.isEmpty()) { Util.toast(act, "No saved login for $host"); return }
         fillWith(act, t, host, es)
     }
@@ -279,6 +464,7 @@ return 'n'+n;
                 val pass = Vault.decrypt(e.enc)
                 if (pass == null) Util.toast(act, "Cannot read this password")
                 else {
+                    touch(act, e) // 0.0.391 (PW5): last used (never throws)
                     val js = "(" + FILL_JS + ")(" + JSONObject.quote(e.user) + "," + JSONObject.quote(pass) + ")"
                     t.web.evaluateJavascript(js) { r ->
                         if (r != null && r.contains("nofield")) Util.toast(act, "No password field on this page")
@@ -320,6 +506,7 @@ return 'n'+n;
     }
 
     /** Returns how many logins were added / updated. */
+    @Synchronized
     fun importCsv(ctx: Context, text: String): Int {
         val rows = parseCsv(text.trim().removePrefix("\uFEFF"))
         if (rows.size < 2) return 0
@@ -330,17 +517,22 @@ return 'n'+n;
         if (iu < 0 || ip < 0) return -1
         var n = 0
         load(ctx)
+        if (readFailed) { Util.toast(ctx, failMsg()); return 0 } // 0.0.387
+        val before = ArrayList(list)
         for (r in rows.drop(1)) {
             val url = r.getOrNull(iu)?.trim().orEmpty()
             val pass = r.getOrNull(ip).orEmpty()
             if (pass.isEmpty() || !url.startsWith("http")) continue
             val user = if (iw >= 0) r.getOrNull(iw).orEmpty().trim() else ""
             val host = Util.host(url)
+            val prev = list.firstOrNull { it.host == host && it.user == user } // 0.0.391
             list.removeAll { it.host == host && it.user == user }
-            list.add(Entry(host, user.take(200), Vault.encrypt(pass.take(500))))
+            val ne = Entry(host, user.take(200), Vault.encrypt(pass.take(500)))
+            try { PwMore.onPut(ne, prev, pass.take(500)) } catch (x: Exception) { }
+            list.add(ne)
             n++
         }
-        save(ctx)
+        if (!commit(ctx, before)) { Util.toast(ctx, failMsg()); return 0 } // 0.0.387
         return n
     }
 
@@ -372,7 +564,7 @@ return 'n'+n;
     private const val CLIP_MS = 60_000L
     private const val SHOW_MS = 30_000L
 
-    private fun guard(act: FragmentActivity, why: String, ok: () -> Unit) {
+    internal fun guard(act: FragmentActivity, why: String, ok: () -> Unit) { // 0.0.387: internal (PwBackup uses it)
         if (System.currentTimeMillis() - authAt < GRACE_MS) { ok(); return }
         val auth = if (Build.VERSION.SDK_INT >= 30) BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
             else BiometricManager.Authenticators.BIOMETRIC_WEAK
@@ -393,11 +585,52 @@ return 'n'+n;
         }
     }
 
-    fun screen(act: FragmentActivity) = guard(act, "Unlock passwords") { screenOpen(act) }
+    fun screen(act: FragmentActivity) = guard(act, "Unlock passwords") { if (!problem(act) && !(try { PwScreen.open(act) } catch (e: Exception) { Log.e(TAG, "new screen failed", e); false })) screenOpen(act) } // 0.0.389: new screen first, old list = fallback
+
+    /** 0.0.387: true = a problem dialog was shown and the list was NOT opened (file unreadable / key lost). */
+    private fun problem(act: FragmentActivity): Boolean {
+        try {
+            notice?.let { Util.toast(act, it); notice = null }
+            load(act)
+            if (readFailed) {
+                MaterialAlertDialogBuilder(act)
+                    .setTitle("Password file could not be read")
+                    .setMessage("Nothing was deleted. A copy of the damaged file was kept" + (failCopy?.let { " ($it, in the app files)" } ?: "") +
+                        ". Restore your backup file, or start with an empty list (the copy stays).")
+                    .setPositiveButton("Restore backup") { _, _ -> readFailed = false; PwBackup.restore(act) }
+                    .setNeutralButton("Start empty") { _, _ ->
+                        MaterialAlertDialogBuilder(act).setMessage("Start with an empty password list? The damaged file copy is kept.")
+                            .setPositiveButton("Start empty") { _, _ -> readFailed = false }
+                            .setNegativeButton("Cancel", null).show()
+                    }
+                    .setNegativeButton("Not now", null).show()
+                return true
+            }
+            val es = all(act).take(10)
+            if (es.isNotEmpty() && es.all { Vault.decrypt(it.enc) == null }) {
+                MaterialAlertDialogBuilder(act)
+                    .setTitle("This phone cannot open the saved passwords")
+                    .setMessage("The lock key of this phone is gone (new phone, reinstall or cleared security data). Restore the passwords from your encrypted backup file.")
+                    .setPositiveButton("Restore backup") { _, _ -> PwBackup.restore(act) }
+                    .setNegativeButton("Close", null).show()
+                return true
+            }
+        } catch (e: Exception) { Log.e(TAG, "problem check failed", e) }
+        return false
+    }
 
     /** 0.0.382: delete ALL saved logins (Delete browsing data). Asks the screen lock first; the caller already asked the user. */
     fun wipeAll(act: FragmentActivity, done: () -> Unit) = guard(act, "Unlock to delete passwords") {
-        try { load(act); list.clear(); save(act); done() } catch (e: Exception) { Util.toast(act, "Could not delete passwords") }
+        try {
+            var ok = false
+            synchronized(this) {
+                load(act)
+                val before = ArrayList(list)
+                list.clear()
+                ok = commit(act, before)
+            }
+            if (ok) done() else Util.toast(act, "Could not delete passwords") // 0.0.387: no false "deleted"
+        } catch (e: Exception) { Util.toast(act, "Could not delete passwords") }
     }
 
     private fun screenOpen(act: FragmentActivity) {
@@ -466,13 +699,15 @@ return 'n'+n;
         // the dialog stays open after Add / More: the list refreshes when the work is done
         dlg.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener { editDialog(act, null) { render() } }
         dlg.getButton(android.app.AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
-            val items = arrayOf("Generate a password", "Import from a CSV file", "Import by paste", "Export as CSV file")
+            val items = arrayOf("Generate a password", "Import from a CSV file", "Import by paste", "Export as CSV file", "Encrypted backup file", "Restore from backup file")
             MaterialAlertDialogBuilder(act).setItems(items) { _, i ->
                 when (i) {
                     0 -> generatorDialog(act)
                     1 -> importFile(act) { render() }
                     2 -> importDialog(act)
-                    else -> exportCsv(act)
+                    3 -> exportCsv(act)
+                    4 -> PwBackup.export(act)
+                    else -> PwBackup.restore(act) { render() }
                 }
             }.show()
         }
@@ -528,7 +763,7 @@ return 'n'+n;
                     4 -> guard(act, "Edit login") { editDialog(act, e, changed) }
                     else -> MaterialAlertDialogBuilder(act)
                         .setMessage("Delete the saved login for ${e.host}?")
-                        .setPositiveButton("Delete") { _, _ -> remove(act, e); Util.toast(act, "Deleted"); changed() }
+                        .setPositiveButton("Delete") { _, _ -> if (remove(act, e)) Util.toast(act, "Deleted") else Util.toast(act, failMsg()); changed() }
                         .setNegativeButton("Cancel", null).show()
                 }
             }
@@ -568,8 +803,9 @@ return 'n'+n;
             if (e != null && p.isEmpty()) {
                 p = Vault.decrypt(e.enc) ?: run { Util.toast(act, "Cannot read the old password"); return@setOnClickListener }
             }
-            if (e != null) remove(act, e)
-            put(act, h, u, p)
+            val keepOld = e != null && e.host == h && e.user == u
+            if (!put(act, h, u, p, e)) { Util.toast(act, failMsg()); return@setOnClickListener } // 0.0.387: new first (0.0.391: + extras of the edited login), so a failed save never loses the old login; the dialog stays open
+            if (e != null && !keepOld) remove(act, e)
             Util.toast(act, "Saved")
             dlg.dismiss()
             done()
@@ -596,6 +832,7 @@ return 'n'+n;
     }
 
     fun generatorDialog(act: FragmentActivity) {
+        if (try { PwScreen.generatorSheet(act) } catch (e: Exception) { false }) return // 0.0.389: new sheet first, old dialog below = fallback
         fun dp(v: Int) = Util.dp(act, v)
         var cur = generate(16)
         val tv = TextView(act).apply {
