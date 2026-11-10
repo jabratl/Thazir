@@ -687,6 +687,7 @@ async function offRpc(m) {
   const a = (m.args || [])[0];
   if (/^storage\.(local|sync|session)$/.test(m.api)) return { value: await chrome.storage[m.api.split('.')[1]][m.method](a) };
   if (m.api === 'dnr') return { value: await chrome.declarativeNetRequest.updateSessionRules(a) };
+  if (m.api === 'downloads' && /^(pause|resume|cancel)$/.test(m.method || '')) { await chrome.downloads[m.method](a); return { value: null }; } // 0.0.369 (N1)
   if (m.api === 'downloads') { const id = await chrome.downloads.download(a); offDl.set(id, m.key || ''); return { value: id }; }
   return { error: 'unknown api ' + m.api };
 }

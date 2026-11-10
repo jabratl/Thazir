@@ -15,7 +15,7 @@
   put('storage', { local: area('local'), sync: area('sync'), session: area('session'), onChanged: noop });
   put('tabs', { getCurrent: async () => undefined }); // there is no tab here: header rules apply to the whole extension instead
   put('declarativeNetRequest', { updateSessionRules: (o) => rpc('dnr', 'updateSessionRules', [o]) });
-  put('downloads', { download: (o) => rpc('downloads', 'download', [o]), onChanged: { addListener: (f) => listeners.add(f), removeListener: (f) => listeners.delete(f) } });
+  put('downloads', { download: (o) => rpc('downloads', 'download', [o]), pause: (i) => rpc('downloads', 'pause', [i]), resume: (i) => rpc('downloads', 'resume', [i]), cancel: (i) => rpc('downloads', 'cancel', [i]), onChanged: { addListener: (f) => listeners.add(f), removeListener: (f) => listeners.delete(f) } });
   chrome.runtime.onMessage.addListener((m) => { if (m && m.type === 'off-dl-changed') listeners.forEach((f) => { try { f(m.delta); } catch (e) { /* ignore */ } }); });
   // chrome.runtime.getManifest does not exist in an offscreen document: read manifest.json instead (sync, once)
   if (typeof chrome.runtime.getManifest !== 'function') {

@@ -49,6 +49,10 @@ object DlPartsUi {
     private fun gParts(): Int = try { ChromeBridge.sync.get("partsN").optInt("partsN", 1) } catch (e: Exception) { 1 }
     private fun gPut(v: Int) { try { ChromeBridge.storageSet("sync", JSONObject().put("partsN", v)) } catch (e: Exception) { /* engine not ready */ } }
 
+    // 0.0.369 (N1): engine key directToNative (chrome.storage.sync, read by assets/ext/downloader.js + nativefile.js). Default false = old engine download.
+    private fun gDirect(): Boolean = try { ChromeBridge.sync.get("directToNative").optBoolean("directToNative", false) } catch (e: Exception) { false }
+    private fun gDirectPut(v: Boolean) { try { ChromeBridge.storageSet("sync", JSONObject().put("directToNative", v)) } catch (e: Exception) { /* engine not ready */ } }
+
     fun open(act: Activity, onClose: (() -> Unit)? = null) {
         val cText = act.getColor(R.color.mg_text)
         val cDim = act.getColor(R.color.mg_text_dim)
@@ -178,6 +182,20 @@ object DlPartsUi {
             s3.setOnClickListener { flip3() }
             c3.addView(r3, LinearLayout.LayoutParams(MATCH, WRAP))
             box.addView(c3, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            // 0.0.369 (N1): single plain files from the grabber go to the native downloader (disk, resume, parts)
+            val c4 = card()
+            val r4 = rowView("Single grabber files: app downloader", null, "A plain file (mp4, zip...) is fetched by the app itself: saved on disk, can resume, uses parts. If it cannot start, the normal way runs. Off = old way")
+            val s4 = SwitchCompat(act).apply { isChecked = gDirect(); ThazirSwitch.tint(this) }
+            r4.addView(s4, LinearLayout.LayoutParams(WRAP, WRAP))
+            val flip4 = {
+                gDirectPut(!gDirect())
+                fill()
+            }
+            r4.setOnClickListener { flip4() }
+            s4.setOnClickListener { flip4() }
+            c4.addView(r4, LinearLayout.LayoutParams(MATCH, WRAP))
+            box.addView(c4, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
         }
         fill()
         d.setContentView(root)

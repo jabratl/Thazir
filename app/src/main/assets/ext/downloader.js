@@ -899,6 +899,18 @@ async function downloadFile() {
       if (pb) { await save(pb, EXT, Q.get('kind') === 'audio' ? 'audio' : ''); FST.chunks = []; FST.got = 0; finish('Finished. Check your Downloads folder.'); return; }
     } catch (e) { if (e && (e.message === 'Cancelled' || e.name === 'AbortError')) throw e; dbg('dl', 'parts for the plain file failed, normal download: ' + String((e && e.message) || e).slice(0, 100)); }
   }
+  // 0.0.369 (N1): app (native) downloader for a single plain http(s) file. Setting directToNative (default OFF). null / any problem = the old code below, unchanged.
+  if (!FST.got && SET.directToNative === true && !ALLMODE && typeof mgNativeFile === 'function' && /^https?:\/\//i.test(SRC)) {
+    try {
+      const fn = buildFileName(SET, { title: TITLE, site: hostOf(REF || SRC), name: baseName(SRC).replace(/\.[a-z0-9]{2,5}$/i, ''), kind: MODE, res: QH, lang: LANG, suffix: Q.get('kind') === 'audio' ? 'audio' : '', book: Q.get('book') || '', chapter: Q.get('chapter') || '', index: Q.get('index') || '' }, EXT);
+      status('Downloading with the app downloader...'); progress(0, 0); report('run', -1, 'App downloader');
+      const nr = await mgNativeFile({ url: SRC, ref: REF, filename: fn, isPaused: () => paused, isCancelled: () => cancelled });
+      if (nr && nr.ok) {
+        addHistory({ id: nr.id, title: fn.split('/').pop(), kind: MODE === 'video' ? 'stream' : MODE, site: hostOf(REF || SRC), src: REF || SRC, size: nr.size || 0, ik: KEY, tt: TITLE });
+        LAST_DL_ID = nr.id; finish('Finished. Check your Downloads folder.'); return;
+      }
+    } catch (e) { if (e && (e.message === 'Cancelled' || e.name === 'AbortError')) throw e; dbg('dl', 'app downloader failed, normal download: ' + String((e && e.message) || e).slice(0, 100)); }
+  }
   const r = await fetchRetry(SRC, FST.got ? { headers: { Range: `bytes=${FST.got}-` } } : {});
   if (FST.got && r.status !== 206) { FST.chunks = []; FST.got = 0; } // server ignored the range: start over
   const len = parseInt(r.headers.get('content-length'), 10) || 0;
