@@ -84,19 +84,18 @@ object SettingsScreen {
         private var titleTv: TextView? = null
         private var sboxView: View? = null
         private var searchEdit: EditText? = null
-        private val BIG = mapOf("downloads" to "Downloads", "grabber" to "Grabber and buttons")
+        private val BIG = mapOf("downloads" to "Downloads", "grabber" to "Grabber and buttons", "player" to "Player") // 0.0.312: Player is a page too (all three sit in one hub card)
         private val NO_RECENT = setOf("Forget removed links")
         private var flashLabel: String? = null // Step B: row that was just toggled
         /** Step C: the ONLY mgb_ui keys each card's "Reset to default" may remove. Nothing else is ever touched. */
         private val RESET = mapOf(
             "general" to listOf("night", "accent", "dark_pages", "engine", "tr_lang", "hide_bar", "pull_refresh", "rotate_browser",
-                "ap_bar_pos", "ap_home_action", "ap_full_url", "ap_swipe_fs", "ap_swipe_tabs", "ap_swipe_side", "ap_swipe_nav", "ap_wp_dim", "ap_undo_toast", "ap_start_page", "ap_bar_compact", "ap_nav_back", "ap_nav_fwd", "ap_nav_hide", "ap_zoom_def", "ap_force_zoom", "ap_touchpad", "ap_simple_hint", "sm_on", "sm_sep", "sm_int", "sm_full", "sm_bars", "sm_back", "sm_splash", "sm_cs", "sm_kb", "sm_big", "sm_links", "sm_win", "sm_dfix", "sm_pre", "sm_keep", "sm_dyn", "sm_touch", "sm_fbshare", "sm_clean", "sm_lock", "sm_lockd", "sm_err", "sm_focus", "sm_ext", "sm_pip", "sm_dock", "sm_save2", "sm_mute", "sm_tl", "sm_t_day", "sm_t_sec") + MediaPrefs.KEYS + Orbit.KEYS + SiteMute.KEY + SocialProfiles.all.map { "sm_s_" + it.id } + SocialProfiles.all.map { "sm_x_" + it.id } + SocialProfiles.all.map { "sm_ua_" + it.id } + SocialBlur.keys + SocialBadge.keys + SocialNsfw.keys + SocialDark.keys + SocialSlot.keys, // A9, A11, A1, A2: + Appearance keys
-            "tabs" to listOf("swipe_close", "close_confirm", "reduce_motion", "tab_suspend_min"),
-            "downloads" to listOf("auto_diag", "dr_wifi", "dr_metered", "dr_batt", "dr_store", "li_on"), // D1, D2: download rules
+                "ap_bar_pos", "ap_home_action", "ap_full_url", "ap_swipe_fs", "ap_swipe_tabs", "ap_swipe_side", "ap_swipe_nav", "ap_wp_dim", "ap_undo_toast", "url_suggest", "ap_start_page", "ap_bar_compact", "ap_nav_back", "ap_nav_fwd", "ap_nav_hide", "ap_zoom_def", "ap_force_zoom", "ap_touchpad", "ap_simple_hint", "sm_on", "sm_sep", "sm_int", "sm_full", "sm_bars", "sm_back", "sm_splash", "sm_cs", "sm_kb", "sm_big", "sm_links", "sm_win", "sm_dfix", "sm_pre", "sm_keep", "sm_dyn", "sm_touch", "sm_fbshare", "sm_clean", "sm_lock", "sm_lockd", "sm_err", "sm_focus", "sm_ext", "sm_pip", "sm_dock", "sm_save2", "sm_mute", "sm_tl", "sm_t_day", "sm_t_sec") + MediaPrefs.KEYS + Orbit.KEYS + SiteMute.KEY + SocialProfiles.all.map { "sm_s_" + it.id } + SocialProfiles.all.map { "sm_x_" + it.id } + SocialProfiles.all.map { "sm_ua_" + it.id } + SocialBlur.keys + SocialBadge.keys + SocialNsfw.keys + SocialDark.keys + SocialSlot.keys + listOf("swipe_close", "close_confirm", "reduce_motion", "tab_suspend_min"), // A9, A11, A1, A2: + Appearance keys; 0.0.312: + Tabs keys (Tabs card merged into Browser)
+            "downloads" to listOf("auto_diag", "dr_wifi", "dr_metered", "dr_batt", "dr_store", "li_on", "dp_on", "dp_n", "dp_min_mb", "dl_limit_kbps", "dl_max_jobs", "dl_auto_resume", "dp_tail"), // D1, D2: download rules
             "grabber" to listOf("web_play", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),
             "player" to listOf("pl_gestures", "pl_hold_speed", "pl_hold_slide", "pl_dtap_sec", "pl_seek_sens", "pl_vol_boost", "pl_bright", "pl_fit_default",
                 "pl_speed_keep", "pl_speed_last", "pl_speeds", "pl_quality_cap", "pl_repeat", "pl_sub_size", "pl_sub_bg", "pl_sub_pos", "sub_size", "sub_color", "bg_audio"),
-            "privacy" to listOf("https_only", "hide_ad_space", "hide_cookie"),
+            "privacy" to listOf("https_only", "hide_ad_space", "hide_cookie", "priv_secure"),
             "data" to listOf("auto_backup")
         )
         private val RESTART = setOf("Theme", "Rotate browser with phone", "Extra native download button") // Step C: restart icon
@@ -129,6 +128,9 @@ object SettingsScreen {
             "Extra native download button" to "Second button, native downloader",
             "App lock" to "Ask for fingerprint or PIN",
             "Lock after" to "Time before the app locks",
+            "Hide private tabs in app preview" to "Blank Recents picture, no screenshots",
+            "Lock private tabs" to "Fingerprint or PIN for private tabs",
+            "Close all private tabs" to "Closes every private tab now",
             "Site permissions" to "Camera, mic, location per site",
             "Site settings" to "Permissions, JS, desktop, text size per site",
             "HTTPS-only mode" to "Prefer secure https pages",
@@ -152,6 +154,7 @@ object SettingsScreen {
             "Create email alias" to "New hidden email address",
             "My email aliases" to "List, edit or delete aliases",
             "Check for updates" to "Look for a newer version",
+            "Version history" to "What changed in each version",
             "Engine status" to "Shows the web engine state"
         )
         /** S21f: hidden search words per row label (the row is found by these too). */
@@ -165,11 +168,13 @@ object SettingsScreen {
             "Translate to" to "language translation",
             "Hide bar while scrolling" to "bottom bar toolbar fullscreen immersive",
             "Pull down to refresh" to "reload swipe",
+            "Address suggestions" to "autocomplete url bar omnibox history bookmarks recommend type search",
             "Rotate browser with phone" to "landscape portrait auto rotate orientation",
             "Swipe a tab card to close it" to "gesture tab switcher remove",
             "Ask before Close all" to "confirm dialog tabs",
             "Reduce motion" to "animation animations effects fade transitions speed",
             "Download folder" to "storage location save path sd card",
+            "App downloader" to "download in parts parallel connections threads segments multi part faster speed limit queue resume smart tail 1dm range native",
             "Download quality" to "resolution 1080 720 best height",
             "Convert .ts to .mp4" to "hls merge remux",
             "Subtitles and file names" to "srt vtt naming template language",
@@ -186,6 +191,9 @@ object SettingsScreen {
             "Keep speed" to "remember playback speed next video player",
             "Default quality" to "resolution height 1080 720 480 video player",
             "App lock" to "fingerprint biometric pin password security",
+            "Hide private tabs in app preview" to "incognito recents screenshot blank preview secure",
+            "Lock private tabs" to "incognito biometric fingerprint pin unlock return",
+            "Close all private tabs" to "incognito close wipe clear",
             "Site permissions" to "camera microphone location mic",
             "Suspend background tabs" to "memory ram free sleep inactive tabs unload",
             "Site settings" to "site host website per-site javascript desktop zoom text size permissions reset",
@@ -211,11 +219,49 @@ object SettingsScreen {
             "Extensions" to "addons plugins chrome crx zip",
             "How to use" to "help guide tutorial tour start new user learn",
             "Check for updates" to "upgrade version new release",
+            "Version history" to "revert rollback downgrade older previous release",
             "Novel grabber" to "epub docx web2epub book",
             "Report center" to "diagnose problem error crash log"
         )
 
         private val SUB_FOLD = 14 // S48: rows per category before sub groups fold
+        private val NOFOLD = setOf("privacy") // 0.0.320: 19 rows after the 0.0.312 merge made its groups fold; short clear groups read better than hidden ones
+        /** 0.0.312: these two switches already sit in the quick row at the top, so the lists do not show them a second time. Searching still finds them. */
+        private val DUP = setOf("Hide bar while scrolling", "Reduce motion")
+        private var rowTint: Int? = null // 0.0.313: colour of the icon tiles of the category being built
+
+        /** 0.0.313: one row = one soft tile. First / last tile of a group get big corners, the ones between small corners (Chrome Material 3 Expressive look). */
+        private fun tileBg(first: Boolean, last: Boolean): GradientDrawable {
+            val big = dp(18).toFloat()
+            val small = dp(6).toFloat()
+            val top = if (first) big else small
+            val bot = if (last) big else small
+            return GradientDrawable().apply {
+                setColor(ColorUtils.blendARGB(act.getColor(R.color.mg_surface), act.getColor(R.color.mg_text), 0.06f))
+                cornerRadii = floatArrayOf(top, top, top, top, bot, bot, bot, bot)
+            }
+        }
+
+        private fun tile(row: View, first: Boolean, last: Boolean): View = FrameLayout(act).apply {
+            background = tileBg(first, last)
+            clipToOutline = true
+            addView(row, FrameLayout.LayoutParams(MATCH, WRAP))
+        }
+
+        private fun tileLp() = LinearLayout.LayoutParams(MATCH, WRAP).apply { marginStart = dp(8); marginEnd = dp(8); topMargin = dp(2) }
+
+        private fun dd(items: List<Any>): List<Any> {
+            if (query.isNotBlank()) return items
+            val kept = ArrayList<Any>()
+            for (x in items) if (!(x is Row && (x.label in DUP || (x.label == "Lock after" && !AppLock.on(act))))) kept.add(x) // 0.0.324: "Lock after" only while App lock is ON
+            val out = ArrayList<Any>()
+            for (i in kept.indices) {
+                val x = kept[i]
+                if (x is Sub && (i == kept.lastIndex || kept[i + 1] is Sub)) continue // no empty group label
+                out.add(x)
+            }
+            return out
+        }
         private val cats = LinkedHashMap<String, Pair<View, View>>() // key -> (content, chevron)
 
         private fun dp(v: Int) = Util.dp(act, v)
@@ -391,7 +437,7 @@ object SettingsScreen {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 minimumHeight = dp(52)
-                setPadding(dp(18), dp(6), dp(16), dp(6))
+                setPadding(dp(12), dp(6), dp(14), dp(6)) // 0.0.313: tiles are inset 8 dp, so less padding inside
                 if (r.onClick != null) {
                     isClickable = true
                     isFocusable = true
@@ -410,10 +456,26 @@ object SettingsScreen {
                     }
                 }
             }
-            line.addView(ImageView(act).apply {
-                setImageResource(r.icon)
-                setColorFilter(act.getColor(R.color.mg_text_dim))
-            }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(16) })
+            val tn = rowTint
+            if (tn != null) { // 0.0.313: icon in a small tile of the category colour
+                val ib = FrameLayout(act).apply {
+                    background = GradientDrawable().apply {
+                        shape = GradientDrawable.RECTANGLE
+                        cornerRadius = dp(10).toFloat()
+                        setColor(ColorUtils.setAlphaComponent(tn, 0x26))
+                    }
+                }
+                ib.addView(ImageView(act).apply {
+                    setImageResource(r.icon)
+                    setColorFilter(tn)
+                }, FrameLayout.LayoutParams(dp(20), dp(20), Gravity.CENTER))
+                line.addView(ib, LinearLayout.LayoutParams(dp(34), dp(34)).apply { marginEnd = dp(14) })
+            } else {
+                line.addView(ImageView(act).apply {
+                    setImageResource(r.icon)
+                    setColorFilter(act.getColor(R.color.mg_text_dim))
+                }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(16) })
+            }
             val labelBox = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
             labelBox.addView(TextView(act).apply {
                 text = r.label
@@ -482,7 +544,8 @@ object SettingsScreen {
             val sub = !searching && subPage == key // Step A: this category is the open page
             if (!searching && subPage != null && !sub) return
             val link = !searching && !sub && BIG.containsKey(key) // Step A: big category = one row that opens a page
-            var shown = items
+            if (link) return // 0.0.312: the hub card (Downloads and player) draws these links
+            var shown = dd(items) // 0.0.312
             if (searching && !title.contains(q, true)) {
                 val out = ArrayList<Any>()
                 var pend: Sub? = null
@@ -499,7 +562,7 @@ object SettingsScreen {
                 if (out.isEmpty()) return
                 shown = out
             }
-            val fold = !searching && !sub && shown.count { it is Row } > SUB_FOLD
+            val fold = !searching && !sub && key !in NOFOLD && shown.count { it is Row } > SUB_FOLD // 0.0.320: privacy keeps plain group labels
             val isOpen = searching || sub || (!link && openCat == key)
             val card = LinearLayout(act).apply {
                 orientation = LinearLayout.VERTICAL
@@ -517,12 +580,13 @@ object SettingsScreen {
                 setPadding(0, 0, 0, dp(8))
                 visibility = if (isOpen) View.VISIBLE else View.GONE
             }
-            if (!sub) content.addView(View(act).apply { setBackgroundColor(act.getColor(R.color.mg_outline)) },
-                LinearLayout.LayoutParams(MATCH, dp(1)).apply { marginStart = dp(16); marginEnd = dp(16) })
+            val nightR = (act.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            rowTint = TabPrefs.tint(key, nightR) // 0.0.313: no long dividers any more, rows are tiles with gaps
             var box: LinearLayout? = null // S48: current folded sub group
             var firstSub = true
             var prevRow = false // 0.0.285: thin divider between two rows
-            for (item in (if (link) emptyList<Any>() else shown)) {
+            val list: List<Any> = if (link) emptyList() else shown
+            for ((idx, item) in list.withIndex()) {
                 when (item) {
                     is Sub -> {
                         prevRow = false
@@ -548,16 +612,16 @@ object SettingsScreen {
                         }
                     }
                     is Row -> {
-                        if (prevRow) (box ?: content).addView(View(act).apply { setBackgroundColor(ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x66)) },
-                            LinearLayout.LayoutParams(MATCH, dp(1)).apply { marginStart = dp(56); marginEnd = dp(16) })
+                        val first = idx == 0 || list[idx - 1] !is Row
+                        val last = idx == list.lastIndex || list[idx + 1] !is Row
                         prevRow = true
-                        (box ?: content).addView(rowView(item), LinearLayout.LayoutParams(MATCH, WRAP))
+                        (box ?: content).addView(tile(rowView(item), first, last), tileLp())
                     }
                 }
             }
             if (!link && !searching && RESET.containsKey(key)) { // Step C: Reset to default, last row of the card
-                content.addView(rowView(Row(R.drawable.ic_reload, "Reset to default", "", "Only the settings of this card") { resetCard(key, title) }),
-                    LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(6) })
+                content.addView(tile(rowView(Row(R.drawable.ic_reload, "Reset to default", "", "Only the settings of this card") { resetCard(key, title) }), true, true),
+                    tileLp().apply { topMargin = dp(8) })
             }
             val header = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -644,21 +708,68 @@ object SettingsScreen {
             }
         }
 
-        /** Shortcut to the Data card actions: Export / Import. */
-        private fun backupCard(): View {
+        /** 0.0.312: Downloads, Grabber and Player in ONE card (each row opens its page, same pages as before). */
+        private fun hub() {
+            val col = body ?: return
+            val night = (act.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val tint = TabPrefs.tint("downloads", night)
+            rowTint = tint // 0.0.313
             val card = LinearLayout(act).apply {
                 orientation = LinearLayout.VERTICAL
                 background = round(act.getColor(R.color.mg_surface), 20).apply {
                     setStroke(dp(1), ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x99))
                 }
             }
-            card.addView(rowView(Row(R.drawable.ic_share, "Backup", "", "Export or import your data") {
-                MaterialAlertDialogBuilder(act).setTitle("Backup")
-                    .setItems(arrayOf("Export data", "Import data")) { _, i -> if (i == 0) Backup.exportData(act) else Backup.importData(act) }
-                    .setNegativeButton("Cancel", null)
-                    .show()
-            }), LinearLayout.LayoutParams(MATCH, WRAP))
-            return card
+            val header = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(16), dp(12), dp(14), dp(8))
+                contentDescription = "Downloads and player"
+            }
+            val badge = FrameLayout(act).apply {
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = dp(13).toFloat()
+                    setColor(ColorUtils.setAlphaComponent(tint, 0x2B))
+                }
+            }
+            badge.addView(ImageView(act).apply {
+                setImageResource(R.drawable.ic_download)
+                setColorFilter(tint)
+            }, FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER))
+            header.addView(badge, LinearLayout.LayoutParams(dp(42), dp(42)).apply { marginEnd = dp(14) })
+            val texts = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            texts.addView(TextView(act).apply {
+                text = "Downloads and player"
+                textSize = 16f
+                maxLines = 1
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                setTextColor(act.getColor(R.color.mg_text))
+            })
+            texts.addView(TextView(act).apply {
+                text = "Library, Grabber, video player"
+                textSize = 12f
+                maxLines = 1
+                setTextColor(act.getColor(R.color.mg_text_dim))
+            })
+            header.addView(texts, LinearLayout.LayoutParams(0, WRAP, 1f))
+            card.addView(header, LinearLayout.LayoutParams(MATCH, WRAP))
+            val links = listOf(
+                Row(R.drawable.ic_download, "Downloads", "", "Files, queue, quality, folder, rules") { openPage("downloads") },
+                Row(R.drawable.ic_settings, "Grabber and buttons", "", "Engine, download buttons, V82 backup") { openPage("grabber") },
+                Row(R.drawable.ic_pl_speed, "Player", "", "Gestures, speed, defaults") { openPage("player") }
+            )
+            for (i in links.indices) {
+                val line = rowView(links[i]) as LinearLayout
+                line.addView(ImageView(act).apply {
+                    setImageResource(R.drawable.ic_chevron)
+                    setColorFilter(act.getColor(R.color.mg_text_dim))
+                }, LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginStart = dp(8) })
+                card.addView(tile(line, i == 0, i == links.lastIndex), tileLp())
+            }
+            card.addView(View(act), LinearLayout.LayoutParams(MATCH, dp(8)))
+            SettingsFx.ring(card, tint, false, act)
+            col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
         }
 
         private fun isDefaultBrowser(): Boolean = try {
@@ -897,15 +1008,14 @@ object SettingsScreen {
 
             if (query.trim().isEmpty() && subPage == null) {
                 col.addView(Orbit.block(act) { fill() }, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(8) }) // 0.0.311: Your Orbit (Passport + Smart switches)
-                recentRow(prefs)?.let { col.addView(it, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(12) }) } // Step A
-                col.addView(quickRow(prefs), LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(12) }) // S21f
-                col.addView(backupCard(), LinearLayout.LayoutParams(MATCH, WRAP)) // Step C
+                val rec = recentRow(prefs) // Step A
+                col.addView(quickRow(prefs), LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = if (rec != null) dp(12) else 0 }) // S21f
+                rec?.let { col.addView(it, LinearLayout.LayoutParams(MATCH, WRAP)) } // 0.0.312: Backup card is gone (Passport > Back up now and Data and backup have it)
             }
-            category("general", R.drawable.ic_settings, "General", "Theme, search, pages, display", listOf(
-                Sub("Appearance"),
+            category("general", R.drawable.ic_settings, "Browser", "Look, search, tabs, pages", listOf( // 0.0.312: General + Tabs merged
+                Sub("Look and feel"),
                 Row(R.drawable.ic_theme, "Appearance", UiMode.label(act)) { AppearanceScreen.open(act) }, // APPEARANCE A2; V18: Settings stays underneath, Back returns to it
                 Row(R.drawable.ic_edit, "Accessibility", AppearancePrefs.zoomDef(act).takeIf { it != 100 }?.let { "$it %" } ?: "") { AccessScreen.open(act) }, // A2; V18: Settings stays underneath
-                Row(R.drawable.ic_play, "Media", "DRM, background play, YouTube") { MediaScreen.open(act) }, // 0.0.296
                 Sub("Browsing"),
                 Row(R.drawable.ic_search, "Search engine", Util.engineName(act)) {
                     val names = Util.ENGINES.map { it.first }
@@ -913,6 +1023,8 @@ object SettingsScreen {
                         .setItems(names.toTypedArray()) { _, i -> Util.setEngine(act, names[i]); fill() }.show()
                 },
                 Row(R.drawable.ic_search, "Translate to", Translate.langName(act)) { Translate.pickLang(act) { fill() } }, // S41
+                Row(R.drawable.ic_screen, "Default browser", if (isDefaultBrowser()) "Default" else "", "Make MGB open web links") { openDefaultBrowser() }, // Step C
+                Sub("Page and screen"), // 0.0.322: Browsing group was 8 mixed rows
                 Row(R.drawable.ic_screen, "Hide bar while scrolling", if (hideBar()) "ON" else "OFF") {
                     prefs.edit().putBoolean("hide_bar", !hideBar()).apply()
                     fill()
@@ -921,16 +1033,18 @@ object SettingsScreen {
                     PullRefresh.setEnabled(act, !PullRefresh.enabled(act))
                     fill()
                 },
+                Row(R.drawable.ic_search, "Address suggestions", if (UrlSuggest.enabled(act)) "ON" else "OFF", "Matching bookmarks and history while you type (not in private tabs)") { // 0.0.377
+                    UrlSuggest.setEnabled(act, !UrlSuggest.enabled(act))
+                    fill()
+                },
                 Row(R.drawable.ic_screen, "Rotate browser with phone", if (Orient.rotateBrowser(act)) "ON" else "OFF") { // S35
                     Orient.setRotateBrowser(act, !Orient.rotateBrowser(act))
                     Orient.apply(act)
                     fill()
                 },
+                Sub("Sites and media"), // 0.0.322
                 Row(R.drawable.ic_desktop, "Social sites", if (SocialMode.on(act)) "ON" else "OFF", "Facebook, Reddit, X, Discord and more fit the phone. Switch per site") { SocialScreen.open(act) { fill() } }, // 0.0.224
-                Row(R.drawable.ic_shield, "Device permissions", "", "Camera, microphone, notifications, location, install apps") { DevicePerms.open(act) }, // 0.0.281
-                Row(R.drawable.ic_screen, "Default browser", if (isDefaultBrowser()) "Default" else "", "Make MGB open web links") { openDefaultBrowser() } // Step C
-            ))
-            category("tabs", R.drawable.ic_list, "Tabs and motion", "Swipe, close, animations", listOf( // S21f
+                Row(R.drawable.ic_play, "Media", "DRM, background play, YouTube") { MediaScreen.open(act) }, // 0.0.296
                 Sub("Tabs"),
                 Row(R.drawable.ic_list, "Swipe a tab card to close it", if (TabPrefs.swipeClose(act)) "ON" else "OFF") {
                     TabPrefs.set(act, "swipe_close", !TabPrefs.swipeClose(act))
@@ -953,12 +1067,16 @@ object SettingsScreen {
                     fill()
                 }
             ))
+            if (query.isBlank() && subPage == null) hub() // 0.0.312
             category("downloads", R.drawable.ic_download, "Downloads", "Library, quality, files", listOf( // S64: arranged by what you do
                 Sub("Library"),
                 Row(R.drawable.ic_download, "Downloads", "", "Files saved on this phone") { DownloadsScreen.open(act) }, // V18
                 Row(R.drawable.ic_book, "Novel grabber", "", "Web novels and chapters to EPUB, DOCX, TXT") { ext("novel/studio.html") }, // N1
                 Row(R.drawable.ic_list, "Queue", "", "Running, waiting and failed jobs") { ext("queue.html") },
                 Row(R.drawable.ic_history, "Download history", "", "Everything Grabber saved") { ext("history.html") },
+                Row(R.drawable.ic_bookmark, "Followed manga", Follow.count().let { if (it > 0) "$it" else "" }, "Alerts for new chapters") { Follow.open(act, "", null) { u -> dismiss(); BookmarksScreen.tabsRef?.openUrl(u) } },
+                Row(R.drawable.ic_history, "Scheduled downloads", Sched.count().let { if (it > 0) "$it" else "" }, "Start at a time you choose") { Sched.open(act) { emptyList() } },
+                Sub("Problems and reports"), // 0.0.322: diagnose rows no longer sit inside Library
                 Row(R.drawable.ic_info, "Report center", "", "Why something does not work: report, copy, share") { DiagScreen.open(act, null, -1) }, // S85, V18
                 Row(R.drawable.ic_list, "Report log size", DiagScreen.logSizeText(), "Events kept for the report (no page text)"), // S85
                 Row(R.drawable.ic_close, "Clear report log", "", "Delete the diagnose log and the Grabber log") { DiagScreen.askClearLog(act) { fill() } }, // S85
@@ -966,34 +1084,29 @@ object SettingsScreen {
                     AutoDiag.setOn(act, !AutoDiag.on(act))
                     fill()
                 },
-                Row(R.drawable.ic_bookmark, "Followed manga", Follow.count().let { if (it > 0) "$it" else "" }, "Alerts for new chapters") { Follow.open(act, "", null) { u -> dismiss(); BookmarksScreen.tabsRef?.openUrl(u) } },
-                Row(R.drawable.ic_history, "Scheduled downloads", Sched.count().let { if (it > 0) "$it" else "" }, "Start at a time you choose") { Sched.open(act) { emptyList() } },
                 Sub("Quality and files"),
                 Row(R.drawable.ic_download, "Download quality", DetectedPanel.maxQLabel(), "Used when you press Download or Download all") { DetectedPanel.maxQDialog(act) { fill() } },
                 Row(R.drawable.ic_download, "Preferred video format", QualityPrefs.containerLabel(), "MP4 or WebM when a stream offers both. Picks, does not convert") { QualityPrefs.containerDialog(act) { fill() } },
                 Row(R.drawable.ic_pl_cc, "Subtitles and file names", subSummary(), "Languages, format, Plex / Jellyfin names") { SubName.open(act) },
                 Row(R.drawable.ic_download, "Convert .ts to .mp4", if (DetectedPanel.convertOn()) "ON" else "OFF") { DetectedPanel.convertDialog(act) { fill() } },
                 Row(R.drawable.ic_folder, "Download folder", DownloadFolder.label(act), "Where new files are saved") { DownloadFolder.showDialog(act) { fill() } },
+                Row(R.drawable.ic_download, "Leftover download files", DlLeftovers.label(), "Unfinished parts of removed or failed downloads. Tap to delete") { DlLeftovers.dialog(act) { fill() } }, // 0.0.393
                 Row(R.drawable.ic_folder, "Sub-folders in the chosen folder", if (DownloadFolder.subfolders(act)) "ON" else "OFF") {
                     DownloadFolder.setSubfolders(act, !DownloadFolder.subfolders(act))
                     fill()
                 },
                 Row(R.drawable.ic_download, "Audio only downloads", if (QualityPrefs.audioOnlyOn()) "ON" else "OFF", "Streams with a separate audio track. Also in batches") { QualityPrefs.toggleAudioOnly(act) { fill() } },
                 Row(R.drawable.ic_folder, "Batch: folder and number", if (NameIndex.on()) "ON" else "OFF", "Show folder and 01 - title for batches") { NameIndex.toggle(act) { fill() } },
+                Sub("Downloader"), // 0.0.376: app downloader + rules + link inbox in their own group
                 Row(R.drawable.ic_download, "Link inbox", if (LinkInbox.on(act)) "ON" else "OFF", "Card for a shared or copied video link") { LinkInbox.setOn(act, !LinkInbox.on(act)); fill() },
+                Row(R.drawable.ic_download, "App downloader", DlPartsUi.summary(act), "For files (tab link, blob, grabber file): parts, speed limit, queue, resume") { DlPartsUi.open(act) { fill() } }, // 0.0.359 S3
                 Row(R.drawable.ic_download, "Download rules", DlRules.summary(act), "Wi-Fi only, battery, storage. Checked before a download starts") { DlRules.dialog(act) { fill() } }
             ))
             category("grabber", R.drawable.ic_settings, "Grabber and buttons", "Engine, buttons, player", listOf(
-                Sub("V77 backup"), // S65
-                Row(R.drawable.ic_play, "V77 Grabber (backup)", if (V77Alt.on(act)) "ON" else "OFF", "Original Media Grabber instead of the native downloader, for when it is under maintenance") {
-                    V77Alt.set(act, !V77Alt.on(act))
-                    Util.toast(act, if (V77Alt.on(act)) "V77 Grabber ON. Reload open pages" else "Native downloader is main again. Reload open pages")
-                    fill()
-                },
                 Sub("Engine"),
-                Row(R.drawable.ic_settings, "Download engine", engSummary(), "Speed, retries, limits, live recording") { DlEngine.open(act) },
+                Row(R.drawable.ic_settings, "Download engine", engSummary(), "For streams (HLS / DASH): speed, retries, limits, live recording") { DlEngine.open(act) },
                 Row(R.drawable.ic_settings, "Grabber settings", "", "Sites, theme, backup, reset") { GrabSet.open(act) },
-                Row(R.drawable.ic_screen, "All V77 options page", "", "The full original settings page") { ext("options.html") },
+                Row(R.drawable.ic_screen, "All V82 options page", "", "The full original settings page") { ext("options.html") },
                 Sub("Player and buttons"),
                 Row(R.drawable.ic_play, "Play video links in built-in player", if (WebPlay.linksEnabled(act)) "ON" else "OFF") { // S39
                     WebPlay.setLinksEnabled(act, !WebPlay.linksEnabled(act))
@@ -1029,6 +1142,12 @@ object SettingsScreen {
                 Row(R.drawable.ic_download, "Extra native download button", if (nativeBtn()) "ON" else "OFF") {
                     DlMode.manual(act); prefs.edit().putBoolean("native_btn", !nativeBtn()).apply()
                     Util.toast(act, "Changes in a few seconds")
+                    fill()
+                },
+                Sub("Backup downloader"), // S65; 0.0.323: moved last
+                Row(R.drawable.ic_play, "V82 Grabber (backup)", if (V77Alt.on(act)) "ON" else "OFF", "Original Media Grabber instead of the native downloader, for when it is under maintenance") {
+                    V77Alt.set(act, !V77Alt.on(act))
+                    Util.toast(act, if (V77Alt.on(act)) "V82 Grabber ON. Reload open pages" else "Native downloader is main again. Reload open pages")
                     fill()
                 }
             ))
@@ -1080,25 +1199,45 @@ object SettingsScreen {
                     fill()
                 },
             ))
-            category("privacy", R.drawable.ic_shield, "Privacy and security", "Lock, permissions, ads, HTTPS", listOf(
+            category("privacy", R.drawable.ic_shield, "Privacy and security", "Lock, passwords, ads, permissions", listOf( // 0.0.312: + Passwords and email
                 Sub("Security"),
-                Row(R.drawable.ic_lock, "App lock", if (AppLock.on(act)) "ON · ${AppLock.delayLabel(act)}" else "OFF") { // S45
+                Row(R.drawable.ic_lock, "App lock", if (AppLock.on(act)) "ON" else "OFF", if (AppLock.on(act)) "Locks ${AppLock.delayLabel(act).lowercase()}" else "") { // S45; 0.0.324: real switch, delay in the hint
                     fa?.let { AppLock.toggle(it) { fill() } }
                 },
                 Row(R.drawable.ic_lock, "Lock after", AppLock.delayLabel(act)) { AppLock.pickDelay(act) { fill() } }, // S45
                 Row(R.drawable.ic_vault, "Vault", VaultScreen.summary(act)) { VaultScreen.open(act) }, // V3
+                Row(R.drawable.ic_lock, "HTTPS-only mode", if (HttpsOnly.on(act)) "ON" else "OFF") { // S41; 0.0.320: moved up under Security
+                    HttpsOnly.set(act, !HttpsOnly.on(act))
+                    fill()
+                },
+                Sub("Private tabs"), // 0.0.331
+                Row(R.drawable.ic_lock, "Hide private tabs in app preview", if (PrivateTabs.secureOn(act)) "ON" else "OFF", "Blank picture in Recents while a private tab is open (Android 12 and older: after you leave the app)") {
+                    PrivateTabs.setSecure(act, !PrivateTabs.secureOn(act))
+                    (act as? MainActivity)?.syncPrivateSecure()
+                    fill()
+                },
+                Row(R.drawable.ic_lock, "Allow screenshots in private tabs", if (PrivateTabs.shotsOn(act)) "ON" else "OFF", "Screenshots and screen recording work in private tabs. OFF = blocked. WhatsApp Web always allows them") { // 0.0.342
+                    PrivateTabs.setShots(act, !PrivateTabs.shotsOn(act))
+                    (act as? MainActivity)?.syncPrivateSecure()
+                    fill()
+                },
+                Row(R.drawable.ic_lock, "Lock private tabs", if (PrivateTabs.lockOn(act)) "ON" else "OFF", "Fingerprint or PIN when you come back to a private tab") {
+                    fa?.let { PrivateTabs.toggleLock(it) { fill() } }
+                },
+                Row(R.drawable.ic_trash, "Close all private tabs", "${tabs?.allTabs()?.count { it.priv } ?: 0} open") {
+                    tabs?.let { t -> t.allTabs().filter { it.priv }.forEach { t.close(it) } }
+                    fill()
+                },
+                Sub("Permissions"), // 0.0.320
                 Row(R.drawable.ic_shield, "Site permissions", "${SitePerms.count(act)} saved") { // S45
                     fa?.let { SitePerms.screen(it) { fill() } }
                 },
                 Row(R.drawable.ic_list, "Site settings", "${SiteSettings.count(act)} sites") { // STEP D
                     SiteSettings.open(act) { fill() }
                 },
-                Row(R.drawable.ic_lock, "HTTPS-only mode", if (HttpsOnly.on(act)) "ON" else "OFF") { // S41
-                    HttpsOnly.set(act, !HttpsOnly.on(act))
-                    fill()
-                },
+                Row(R.drawable.ic_shield, "Device permissions", "", "Camera, microphone, notifications, location, install apps") { DevicePerms.open(act) }, // 0.0.281; 0.0.312: moved here from General
                 Sub("Ads and cookies"),
-                Row(R.drawable.ic_shield, "Ad blocker", if (AdBlock.enabled) "ON · ${AdBlock.blocked} blocked" else "OFF") {
+                Row(R.drawable.ic_shield, "Ad blocker", if (AdBlock.enabled) "ON" else "OFF", if (AdBlock.enabled) "${AdBlock.blocked} blocked so far" else "") { // 0.0.324: real switch, count in the hint
                     Util.toast(act, if (AdBlock.toggle()) "Ad blocker ON (reload the page)" else "Ad blocker OFF (reload the page)")
                     fill()
                 },
@@ -1115,7 +1254,41 @@ object SettingsScreen {
                     CosmeticFilter.setCookie(act, !CosmeticFilter.cookieOn(act))
                     Util.toast(act, "Reload the page")
                     fill()
-                }
+                },
+                Sub("Passwords"),
+                Row(R.drawable.ic_lock, "Saved passwords") { fa?.let { PasswordStore.screen(it) } },
+                Row(R.drawable.ic_download, "Import passwords (file or paste)") { fa?.let { PasswordStore.importChoice(it) } },
+                Row(R.drawable.ic_share, "Export passwords (CSV)") { fa?.let { PasswordStore.exportCsv(it) } },
+                Row(R.drawable.ic_lock, "Password generator") { fa?.let { PasswordStore.generatorDialog(it) } },
+                Row(R.drawable.ic_share, "Encrypted backup of passwords") { fa?.let { PwBackup.export(it) } }, // 0.0.387
+                Row(R.drawable.ic_download, "Restore passwords from backup") { fa?.let { PwBackup.restore(it) } }, // 0.0.387
+                Row(R.drawable.ic_list, "Sites never saved") { fa?.let { PwBackup.neverList(it) } }, // 0.0.387
+                Row(R.drawable.ic_lock, "Smarter login detection", if (PwSmart.on(act)) "ON" else "OFF") { // 0.0.388
+                    PwSmart.set(act, !PwSmart.on(act))
+                    Util.toast(act, "Reload the page")
+                    fill()
+                },
+                Row(R.drawable.ic_lock, "New password screens", if (PwScreen.on(act)) "ON" else "OFF", "Full screen list, save sheet, generator sheet. OFF = the old dialogs") { // 0.0.389
+                    PwScreen.flip(act, "newui", true)
+                    fill()
+                },
+                Row(R.drawable.ic_lock, "Fill chip near the bar", if (PwScreen.chipOn(act)) "ON" else "OFF", "OFF = the old bar at the bottom") { // 0.0.389
+                    PwScreen.flip(act, "chip", true)
+                    fill()
+                },
+                Row(R.drawable.ic_lock, "Fill in private tabs", if (PwScreen.privFill(act)) "ON" else "OFF", "Fills saved logins in private tabs opened from now on. Nothing is ever saved from a private tab") { // 0.0.389
+                    PwScreen.flip(act, "privfill", false)
+                    Util.toast(act, "Applies to private tabs opened from now on")
+                    fill()
+                },
+                Row(R.drawable.ic_lock, "Password health card", if (PwHealth.on(act)) "ON" else "OFF", "Weak and reused password check on the Passwords screen. Works only on this phone. OFF = no card") { // 0.0.390
+                    PwHealth.flip(act)
+                    fill()
+                },
+                Sub("Email alias"),
+                Row(R.drawable.ic_share, "addy.io API key", if (EmailAlias.hasKey(act)) "set" else "not set") { EmailAlias.keyDialog(act) { fill() } },
+                Row(R.drawable.ic_add, "Create email alias") { EmailAlias.create(act, "") },
+                Row(R.drawable.ic_list, "My email aliases") { EmailAlias.manage(act) }
             ))
             category("data", R.drawable.ic_folder, "Data and backup", "Backup, history, cookies, cache", listOf(
                 Sub("Backup"),
@@ -1126,13 +1299,19 @@ object SettingsScreen {
                 },
                 Row(R.drawable.ic_share, "Export data") { Backup.exportData(act) },
                 Row(R.drawable.ic_download, "Import data") { Backup.importData(act) },
-                Sub("Clear data"),
+                Sub("Saved and recent"),
                 Row(R.drawable.ic_history, "Recently closed tabs") { Backup.closedTabs(act, tabs) }, // V18
                 Row(R.drawable.ic_folder, "Saved pages", "${PageSave.count(act)} pages") { tabs?.let { SavedPages.open(act, it) } }, // T4, V18
+                Sub("Clear data"), // 0.0.323: saved items are not "clear" actions
+                Row(R.drawable.ic_trash, "Delete browsing data...", "", "Choose time range and what to delete") { // 0.0.382
+                    try { ClearData.show(act, tabs) } catch (e: Exception) { Util.toast(act, "Could not open") }
+                },
                 Row(R.drawable.ic_trash, "Clear browsing history") {
+                    if (!ClearData.tryShow(act, tabs, 0)) // 0.0.386: opens Delete browsing data with History ticked; the old direct action is the fallback
                     confirm("Clear all browsing history?", "Clear") { Bookmarks.clearHistory(); Util.toast(act, "History cleared") }
                 },
                 Row(R.drawable.ic_trash, "Clear cookies and site data") {
+                    if (!ClearData.tryShow(act, tabs, 1)) // 0.0.386
                     confirm("Log out of sites and clear site data in normal tabs?", "Clear") {
                         try {
                             CookieManager.getInstance().removeAllCookies(null)
@@ -1143,25 +1322,16 @@ object SettingsScreen {
                     }
                 },
                 Row(R.drawable.ic_trash, "Clear cache") {
+                    if (!ClearData.tryShow(act, tabs, 2)) // 0.0.386
                     try {
                         tabs?.active?.web?.clearCache(true)
                         Util.toast(act, "Cache cleared")
                     } catch (e: Exception) { Util.toast(act, "Could not clear") }
                 }
             ))
-            category("passwords", R.drawable.ic_lock, "Passwords and email", "Saved logins, generator, aliases", listOf(
-                Sub("Passwords"),
-                Row(R.drawable.ic_lock, "Saved passwords") { fa?.let { PasswordStore.screen(it) } },
-                Row(R.drawable.ic_download, "Import passwords (file or paste)") { fa?.let { PasswordStore.importChoice(it) } },
-                Row(R.drawable.ic_share, "Export passwords (CSV)") { fa?.let { PasswordStore.exportCsv(it) } },
-                Row(R.drawable.ic_lock, "Password generator") { fa?.let { PasswordStore.generatorDialog(it) } },
-                Sub("Email alias"),
-                Row(R.drawable.ic_share, "addy.io API key", if (EmailAlias.hasKey(act)) "set" else "not set") { EmailAlias.keyDialog(act) { fill() } },
-                Row(R.drawable.ic_add, "Create email alias") { EmailAlias.create(act, "") },
-                Row(R.drawable.ic_list, "My email aliases") { EmailAlias.manage(act) }
-            ))
             category("extensions", R.drawable.ic_folder, "Extensions", "Add, turn on or off, remove", listOf( // S1
                 Row(R.drawable.ic_folder, "Extensions", ExtListScreen.summary(act), "Add .zip or .crx files") { ExtListScreen.open(act) }, // V18
+                Sub("Userscripts"), // 0.0.323
                 Row(R.drawable.ic_code, "Userscripts", "${Userscripts.count(act)} scripts", "Your own scripts on pages") { UserscriptsScreen.open(act) { fill() } }, // T7
                 Row(R.drawable.ic_code, "Run userscripts", if (Userscripts.masterOn(act)) "ON" else "OFF") { // T7
                     Userscripts.setMaster(act, !Userscripts.masterOn(act)); Userscripts.refreshAll(act)
@@ -1177,8 +1347,9 @@ object SettingsScreen {
             category("about", R.drawable.ic_info, "About", "Updates, engine, version", listOf(
                 Row(R.drawable.ic_info, "How to use", "", "A short guide for new users") { HowToUse.open(act) }, // V14, V18
                 Row(R.drawable.ic_reload, "Check for updates") { UpdateManager.check(act, false) },
+                Row(R.drawable.ic_reload, "Version history", "", "What changed in each version") { VersionHistory.open(act) }, // 0.0.334
                 Row(R.drawable.ic_info, "Engine status") { EngineHost.showStatus(act) },
-                Row(R.drawable.ic_info, "Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+                Row(R.drawable.ic_info, "Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})") { DevMode.tap(act) } // 0.0.334: 7 taps = developer mode
             ))
             if (query.isNotBlank() && col.childCount == 0) { // S48
                 col.addView(TextView(act).apply {
