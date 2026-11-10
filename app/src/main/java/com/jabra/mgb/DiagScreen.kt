@@ -409,6 +409,7 @@ object DiagScreen {
                 "storage" -> go(Intent(android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS))
                 "webview" -> go(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=com.google.android.webview")))
                 "notif" -> go(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, act.packageName))
+                "battery" -> BatteryAsk.ask(act) // 0.0.403: confirm dialog first, then Android's own question
                 "appinfo" -> go(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:" + act.packageName)))
                 "reload" -> {
                     val t = try { if (tabId >= 0) tabs?.byId(tabId) else tabs?.active } catch (e: Throwable) { null }

@@ -104,7 +104,7 @@ object DiagExtra {
 
     // ------------------------------------------------------------------ 5. battery optimisation + notifications (0.0.399)
 
-    class Power(val section: DiagReport.Section, val notifOff: Boolean, val activeDownloads: Int)
+    class Power(val section: DiagReport.Section, val notifOff: Boolean, val activeDownloads: Int, val battOptimised: Boolean = false)
 
     /** Main thread is fine (2 cheap system calls). Never throws. Read only: no permission is asked. */
     fun power(ctx: Context): Power {
@@ -120,7 +120,7 @@ object DiagExtra {
         lines.add("Battery optimisation for MGB: " + (if (optimised == null) "unknown" else if (optimised) "ON (Android may stop long downloads in the background)" else "off (MGB is exempt)"))
         lines.add("Running or resumable downloads: $active")
         if (warn) lines.add("Downloads exist but notifications are off: progress will not show in the notification bar")
-        return Power(DiagReport.Section("power", "Device", "Battery and notifications", if (warn) DiagReport.WARN else DiagReport.INFO, lines), notifOn == false, active)
+        return Power(DiagReport.Section("power", "Device", "Battery and notifications", if (warn) DiagReport.WARN else DiagReport.INFO, lines), notifOn == false, active, optimised == true)
     }
 
     // ------------------------------------------------------------------ 6. per-download errors (0.0.400)

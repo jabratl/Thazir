@@ -263,6 +263,7 @@ object DiagReport {
         x.folderSet = tree != null
         x.folderLost = folderLost // 0.0.397
         x.notifOff = pw?.notifOff == true; x.activeDownloads = pw?.activeDownloads ?: 0 // 0.0.399
+        x.battOptimised = pw?.battOptimised == true // 0.0.403
         x.exitLowMem = ex.lowMem24h; x.exitAnr = ex.anr24h // 0.0.397
         x.engineAnswered = state != null
         x.engineErrors = Diag.countSince("engine", now - FIVE_MIN, "E")
