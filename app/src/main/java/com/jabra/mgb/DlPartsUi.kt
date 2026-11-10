@@ -196,6 +196,17 @@ object DlPartsUi {
             s4.setOnClickListener { flip4() }
             c4.addView(r4, LinearLayout.LayoutParams(MATCH, WRAP))
             box.addView(c4, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
+
+            // 0.0.370 (N2): control of the native downloader
+            box.addView(head("Control"))
+            val c5 = card()
+            val lim = try { sp(act).getInt("dl_limit_kbps", 0) } catch (e: Exception) { 0 }
+            choice(c5, "Speed limit", "All native downloads together. Off = full speed", "dl_limit_kbps", lim, DlLimit.LIMITS) {
+                if (it == 0) "Off" else if (it >= 1024) "${it / 1024} MB/s" else "$it KB/s"
+            }
+            val mj = try { sp(act).getInt("dl_max_jobs", 3).let { if (it in DlLimit.JOBS) it else 3 } } catch (e: Exception) { 3 }
+            choice(c5, "Downloads at the same time", "More downloads wait in line. Applies to downloads that start next", "dl_max_jobs", mj, DlLimit.JOBS) { "$it" }
+            box.addView(c5, LinearLayout.LayoutParams(MATCH, WRAP))
         }
         fill()
         d.setContentView(root)

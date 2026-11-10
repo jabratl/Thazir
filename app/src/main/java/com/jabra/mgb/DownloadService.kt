@@ -43,6 +43,8 @@ import java.util.TreeMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
@@ -56,7 +58,15 @@ import java.util.concurrent.atomic.AtomicReference
  */
 object Downloader {
     private val main = Handler(Looper.getMainLooper())
-    private val pool: ExecutorService = Executors.newFixedThreadPool(3)
+    // 0.0.370 (N2): same fixed 3 threads by default; size follows pref dl_max_jobs (applied at every start())
+    private val pool = ThreadPoolExecutor(3, 3, 30L, TimeUnit.SECONDS, LinkedBlockingQueue<Runnable>()).apply { allowCoreThreadTimeOut(true) }
+    private fun applyPool() {
+        try {
+            val n = DlLimit.maxJobs()
+            if (n == pool.corePoolSize) return
+            if (n > pool.maximumPoolSize) { pool.maximumPoolSize = n; pool.corePoolSize = n } else { pool.corePoolSize = n; pool.maximumPoolSize = n }
+        } catch (e: Exception) { }
+    }
     private var ua: String? = null
 
     /** Silent stop (code == null: pause or cancel) or a failure with a chrome.downloads error code. */
@@ -100,6 +110,7 @@ object Downloader {
 
     fun start(item: DlItem) {
         DownloadService.ensure(DownloadsApi.app)
+        applyPool()
         pool.execute { run(item) }
     }
 
@@ -280,6 +291,7 @@ object Downloader {
                         out.write(buf, 0, n)
                         got += n
                         item.received = got
+                        DlLimit.throttle(n) { item.paused || item.state != "in_progress" } // 0.0.370 (N2)
                         checkStop(item)
                     }
                 }

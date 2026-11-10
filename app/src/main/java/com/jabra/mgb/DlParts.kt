@@ -477,6 +477,7 @@ object DlParts {
                     while (bb.hasRemaining()) at += ch.write(bb, at)
                     pos += n
                     r.done.addAndGet(i, n.toLong())
+                    DlLimit.throttle(n) { r.stop }               // 0.0.370 (N2): shared speed limit
                     tries = 0                              // progress made: a later drop gets fresh retries
                 }
                 if (pos <= to) throw IOException("short part")
