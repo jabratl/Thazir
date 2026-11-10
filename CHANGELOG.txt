@@ -1,3 +1,24 @@
+0.0.374 (N6: diagnose + help)
+- DiagReport.kt: Settings line "Download control" (speed limit, downloads at the same time, auto-resume, smart tail, app downloader); last 2 "autoresume" lines in Queue / jobs. HowToUse.kt: Big file slow? text now lists the Control switches. No behaviour change.
+
+0.0.373 (N5: smart tail, switch dp_tail OFF by default)
+- DlParts.kt: a free worker cuts the second half of the biggest running part (>= 8 MB left) into a new part (max 16 extra). State file stays contiguous / v1. DlPartsUi.kt row "Smart tail". Not tested on a device.
+
+0.0.372 (N4: per-download parts + Details)
+- DlProps.kt (NEW) Details dialog on native rows; DlItem.pn (0 Auto, 1 Single, 2..16); DlParts reads it. DownloadsScreen "Details" button.
+
+0.0.371 (N3: auto-resume, switch dl_auto_resume OFF by default)
+- DlAutoResume.kt (NEW): resumes cut downloads after app start / network back, respects DlRules (DlRules.canRun), max 3 tries per item.
+
+0.0.370 (N2: native control)
+- DlLimit.kt (NEW): shared speed limit (dl_limit_kbps) and simultaneous downloads (dl_max_jobs, default 3). Control section in the Download in parts sheet.
+
+0.0.369 (N1: direct file -> native, switch directToNative OFF by default)
+- assets/ext nativefile.js (NEW) + guarded hook in downloader.js downloadFile(); pause / resume / cancel for downloads in offscreen-shim.js + background.js.
+
+0.0.368 (F1: parts and HTTP 429)
+- DlParts.kt: 429 / 503 wait (Retry-After or 2 / 4 / 8 s), slow start, cool-down before the single connection; HTTP code in the log; DiagRules text fixed.
+
 0.0.367 (FIX: smooth switch between Bookmarks / History / Downloads)
 - WHY: switching between the 3 pills glitched: Bookmarks <> History rebuilt the whole screen (header, pills, search all redrawn at once) and Downloads was a separate Dialog that was dismissed, then a new one opened (flash, pill jumped, list popped in).
 - What (BookmarksScreen.kt): pills() is now ONE indicator that slides under the labels (label colours fade). Bookmarks <> History keeps header + pills, the old list slides / fades out and the new one slides / fades in (switchMode). Filter change rebuilds only the body. Bookmarks / History > Downloads and back: the new screen opens FIRST, the old one is dismissed 90 ms later (no gap, no dialog pop), the indicator slides from the old pill, the body slides in from the matching side.

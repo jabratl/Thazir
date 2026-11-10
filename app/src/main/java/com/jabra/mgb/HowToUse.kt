@@ -76,7 +76,7 @@ object HowToUse {
                 "Menu > Grabber and Menu > Queue help with bigger or many downloads.",
                 "Menu > Media Library collects detected, downloaded and saved media in one place.",
                 "Novel grabber (in the menu) turns web novels into EPUB, DOCX or TXT.",
-                "Big file slow? Settings > Downloads > Download in parts fetches one file in 2 to 16 pieces at the same time. If a site refuses, Thazir goes back to one connection by itself."
+                "Big file slow? Settings > Downloads > Download in parts fetches one file in 2 to 16 pieces at the same time. If a site refuses, Thazir waits a little, uses fewer connections and then one connection by itself. In the same sheet (Control): Speed limit for all downloads, how many downloads run at the same time, Resume by itself (cut downloads continue after the app was closed or the network came back; download rules are respected), Smart tail (the biggest part still running is cut in two when a connection is free) and Single grabber files: app downloader. Everything is OFF by default. Details on a download row (tab link downloads) shows the link, size and save path and lets you choose the parts for that one download."
             ), "Settings > Downloads has quality, folder and speed options. See Download settings in Advanced.",
             listOf(
                 "Open a page with a video. Tap the Grabber button on the page, pick a quality, download. Watch it in Menu > Downloads.",

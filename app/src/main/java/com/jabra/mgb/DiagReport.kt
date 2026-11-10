@@ -146,6 +146,14 @@ object DiagReport {
             val up = ctx.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
             "Download in parts: " + (if (up.getBoolean("dp_on", false)) "on" else "off") + ", " + up.getInt("dp_n", 4) + " parts, only files over " + up.getInt("dp_min_mb", 8) + " MB, grabber files " + (sync?.optInt("partsN", 1) ?: 1)
         })
+        // 0.0.374 (N6): native download control (speed limit, simultaneous downloads, auto-resume, smart tail, app downloader for grabber files)
+        setL.add(safe("Download control: not readable") {
+            val up = ctx.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
+            val lim = up.getInt("dl_limit_kbps", 0)
+            "Download control: speed limit " + (if (lim > 0) "$lim KB/s" else "off") + ", " + up.getInt("dl_max_jobs", 3) + " at the same time, auto-resume " +
+                (if (up.getBoolean("dl_auto_resume", false)) "on" else "off") + ", smart tail " + (if (up.getBoolean("dp_tail", false)) "on" else "off") +
+                ", app downloader for grabber files " + (if (sync?.optBoolean("directToNative", false) == true) "on" else "off")
+        })
         secs.add(Section("settings", "Browser", "Settings", setLevel, setL))
 
         // ---- Page / tab
@@ -192,6 +200,7 @@ object DiagReport {
         if (dFail5 > 0) jl.add("Download failures logged in the last 5 min: $dFail5")
         for (e in Diag.recent(3, "download", false)) jl.add(fmtEvent(e))
         for (e in Diag.recent(3, "dlparts", false)) jl.add(fmtEvent(e)) // 0.0.361: last parts download lines (start / fallback)
+        for (e in Diag.recent(2, "autoresume", false)) jl.add(fmtEvent(e)) // 0.0.374 (N6): last auto-resume lines
         secs.add(Section("jobs", "Download", "Queue / jobs", if (failedJobs.isNotEmpty() || dFail5 > 0) WARN else INFO, jl))
 
         // ---- Novel / Manga (native side: only the events, the page side is in the V77 report)
