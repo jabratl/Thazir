@@ -338,8 +338,18 @@ object DownloadsApi {
                 Downloader.abort(i)
                 Downloader.partFile(i.id).delete(); DlParts.clean(i.id)
             }
-            "job-remove" -> if (i.state != "in_progress") { i.plain = false; save() } // leaves the queue only; file + chrome.downloads item stay
+            "job-remove" -> if (i.state != "in_progress") {
+                i.plain = false
+                // 0.0.393: a removed unfinished download must not leave its ID.part / ID.pp (can be GBs in "User data")
+                if (i.state != "complete") { Downloader.partFile(i.id).delete(); DlParts.clean(i.id); change(i) { canResume = false } }
+                save()
+            } // leaves the queue only; the finished file + chrome.downloads item stay
         }
+    }
+
+    /** 0.0.393: ids whose files in files/dl may still be needed: running, paused, or interrupted but resumable. */
+    fun keepIds(): Set<Int> = synchronized(items) {
+        items.values.filter { it.state == "in_progress" || (it.state == "interrupted" && it.canResume) }.map { it.id }.toSet()
     }
 
     fun active(): List<DlItem> = synchronized(items) { items.values.filter { it.state == "in_progress" && !it.paused } }
@@ -670,6 +680,7 @@ object DownloadsApi {
             nm.createNotificationChannel(NotificationChannel(CH_DONE, "Finished downloads", NotificationManager.IMPORTANCE_DEFAULT))
         }
         synchronized(items) { load() }
+        DlLeftovers.sweepAsync() // 0.0.393: delete files/dl files that no live item can resume
         DlAutoResume.start() // 0.0.371 (N3): does nothing unless pref dl_auto_resume is ON
         (app as Application).registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
             override fun onActivityResumed(a: Activity) { top = WeakReference(a) }

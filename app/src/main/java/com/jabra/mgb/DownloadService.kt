@@ -172,6 +172,8 @@ object Downloader {
             state = "interrupted"; error = code; paused = false; end = System.currentTimeMillis()
             canResume = canResume && (partFile(id).exists() || DlParts.hasState(id)) && url.startsWith("http", true) // 0.0.358: parts state counts
         }
+        // 0.0.393: a failed download that cannot resume keeps no data (preallocated ID.pp / ID.part can be GBs)
+        if (!item.canResume) { try { partFile(item.id).delete(); DlParts.clean(item.id) } catch (e: Exception) { } }
         DownloadsApi.notifyFail(item)
     }
 
@@ -424,6 +426,9 @@ object Downloader {
         val pub = try { publish(item, part) } catch (e: Stop) { throw e } catch (e: Exception) {
             val m = e.message ?: ""
             why(e)
+            // 0.0.393: publish failed = the complete copy in files/dl is useless; drop it (can be GBs) instead of keeping a "resumable" item
+            try { part.delete(); DlParts.clean(item.id) } catch (x: Exception) { }
+            toastUi(if (m.contains("ENOSPC") || m.contains("No space", true)) "Not enough free space to save the file" else "Could not save the file to the download folder")
             throw Stop(if (m.contains("ENOSPC") || m.contains("No space", true)) "FILE_NO_SPACE" else "FILE_FAILED")
         }
         part.delete()
@@ -448,6 +453,11 @@ object Downloader {
         return MimeTypeMap.getSingleton().getMimeTypeFromExtension(e) ?: "application/octet-stream"
     }
 
+    /** 0.0.393: toast from any thread. */
+    private fun toastUi(msg: String) {
+        try { android.os.Handler(android.os.Looper.getMainLooper()).post { Util.toast(DownloadsApi.app, msg) } } catch (e: Exception) { }
+    }
+
     private fun publish(item: DlItem, part: File): Pub {
         val rel = item.rel.ifEmpty { "download" }
         val dir = rel.substringBeforeLast('/', "")
@@ -461,6 +471,8 @@ object Downloader {
                 return Pub(r.first, r.second)
             } catch (e: Exception) {
                 android.util.Log.e("MGB.dl", "picked folder failed, using Downloads", e)
+                Diag.w("download", "picked folder failed: " + (e.message ?: e.javaClass.simpleName)) // 0.0.393
+                toastUi("Could not save to " + DownloadFolder.label(DownloadsApi.app) + ", saved in Downloads instead")
             }
         }
         return if (Build.VERSION.SDK_INT >= 29) publishQ(item, part, dir, name, mime) else publishLegacy(item, part, rel, name)

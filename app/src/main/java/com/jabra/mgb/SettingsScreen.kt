@@ -1090,6 +1090,7 @@ object SettingsScreen {
                 Row(R.drawable.ic_pl_cc, "Subtitles and file names", subSummary(), "Languages, format, Plex / Jellyfin names") { SubName.open(act) },
                 Row(R.drawable.ic_download, "Convert .ts to .mp4", if (DetectedPanel.convertOn()) "ON" else "OFF") { DetectedPanel.convertDialog(act) { fill() } },
                 Row(R.drawable.ic_folder, "Download folder", DownloadFolder.label(act), "Where new files are saved") { DownloadFolder.showDialog(act) { fill() } },
+                Row(R.drawable.ic_download, "Leftover download files", DlLeftovers.label(), "Unfinished parts of removed or failed downloads. Tap to delete") { DlLeftovers.dialog(act) { fill() } }, // 0.0.393
                 Row(R.drawable.ic_folder, "Sub-folders in the chosen folder", if (DownloadFolder.subfolders(act)) "ON" else "OFF") {
                     DownloadFolder.setSubfolders(act, !DownloadFolder.subfolders(act))
                     fill()
