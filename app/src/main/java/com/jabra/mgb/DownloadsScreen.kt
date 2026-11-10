@@ -435,6 +435,7 @@ object DownloadsScreen {
                     main.postDelayed({ sig = ""; render() }, 400)
                 })
             }
+            if (j.optBoolean("native")) actions.addView(button("Details") { DlProps.open(act, j) }) // 0.0.372 (N4)
             c.addView(actions)
             return c
         }

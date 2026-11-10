@@ -61,6 +61,7 @@ class DlItem(val id: Int, val url: String) {
     var src: WeakReference<WebView>? = null          // page that owns a blob: url
     val lock = ReentrantLock()
     @Volatile var call: okhttp3.Call? = null
+    @Volatile var pn = 0                             // 0.0.372 (N4): parts for THIS download. 0 = Auto (global dp_n), 1 = single connection, 2..16 = that many
     @Volatile var plain = false                      // 0.0.325: started by a tab link / blob (DownloadListener); listed in the Downloads queue
 }
 
@@ -164,7 +165,7 @@ object DownloadsApi {
         .put("received", i.received).put("total", i.total).put("fileSize", i.fileSize)
         .put("start", i.start).put("end", i.end).put("validator", i.validator)
         .put("conflict", i.conflict).put("headers", i.headers).put("method", i.method)
-        .put("body", i.body ?: JSONObject.NULL).put("plain", i.plain)
+        .put("body", i.body ?: JSONObject.NULL).put("plain", i.plain).put("pn", i.pn)
 
     private fun fromStore(o: JSONObject): DlItem {
         val i = DlItem(o.getInt("id"), o.getString("url"))
@@ -176,6 +177,7 @@ object DownloadsApi {
         i.conflict = o.optString("conflict", "uniquify"); i.headers = o.optJSONArray("headers") ?: JSONArray()
         i.method = o.optString("method", "GET"); i.body = if (o.isNull("body")) null else o.optString("body")
         i.plain = o.optBoolean("plain")
+        i.pn = o.optInt("pn", 0) // 0.0.372: missing in old saved data = Auto
         return i
     }
 
@@ -298,6 +300,8 @@ object DownloadsApi {
             val row = JSONObject().put("key", "nat:" + i.id).put("title", name).put("state", st).put("paused", i.paused && st == "run")
                 .put("pct", if (tot > 0) (rec.toDouble() / tot).coerceIn(0.0, 1.0) else 0.0).put("text", text)
                 .put("url", i.url).put("native", true).put("canResume", i.canResume && st == "fail").put("updated", if (st == "run") System.currentTimeMillis() else maxOf(i.start, i.end))
+            // 0.0.372 (N4): extra fields for the Details sheet (old readers ignore them)
+            try { row.put("pn", i.pn).put("total", tot).put("rec", rec).put("resume", i.canResume).put("validator", i.validator).put("path", displayPath(i)) } catch (e: Exception) { }
             // 0.0.359 (S3): optional fields only for a running parts download: parts = fraction per part, speed = bytes / s, eta = seconds left
             try {
                 if (st == "run" && !i.paused) DlParts.snapshot(i.id)?.let { ps ->
@@ -334,6 +338,15 @@ object DownloadsApi {
     }
 
     fun active(): List<DlItem> = synchronized(items) { items.values.filter { it.state == "in_progress" && !it.paused } }
+
+    /** 0.0.372 (N4): parts for one download (0 Auto, 1 single, 2..16). Read when the download starts from byte 0. */
+    fun setParts(id: Int, n: Int) {
+        try {
+            val i = synchronized(items) { items[id] } ?: return
+            if (n != 0 && n != 1 && n !in 2..16) return
+            i.pn = n; save()
+        } catch (e: Exception) { }
+    }
 
     /** 0.0.371 (N3): interrupted downloads (DlAutoResume decides which ones may continue). */
     fun interruptedList(): List<DlItem> = synchronized(items) { items.values.filter { it.state == "interrupted" } }

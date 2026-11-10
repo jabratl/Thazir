@@ -107,6 +107,9 @@ object DlParts {
     /** Default OFF (Rule 0). Flip later = change false to true here. */
     fun enabled(): Boolean = try { sp().getBoolean("dp_on", false) } catch (e: Exception) { false }
 
+    /** 0.0.372 (N4): parts for this item: its own pn (2..16) first, else the global setting. */
+    private fun nParts(item: DlItem): Int = if (item.pn in N_ALLOWED) item.pn else nParts()
+
     private fun nParts(): Int = try { sp().getInt("dp_n", 4).let { if (it in N_ALLOWED) it else 4 } } catch (e: Exception) { 4 }
 
     private fun minBytes(): Long {
@@ -177,6 +180,7 @@ object DlParts {
 
     fun run(item: DlItem): Boolean {
         if (!enabled()) return false
+        if (item.pn == 1) return false                   // 0.0.372 (N4): "Single connection" chosen for this download
         val u = item.url
         if (!(u.startsWith("http://", true) || u.startsWith("https://", true)) || item.method == "POST") return false
         return try {
@@ -272,7 +276,7 @@ object DlParts {
         if (st == null && total < minBytes()) { clean(item.id); return skip("file smaller than the minimum size") }
         val resuming = st != null
 
-        val want = if (st != null) st.starts.size else nParts()
+        val want = if (st != null) st.starts.size else nParts(item)
         val k = reserve(want)
         if (k < 1 || (!resuming && k < 2)) {
             if (k > 0) used.addAndGet(-k)
