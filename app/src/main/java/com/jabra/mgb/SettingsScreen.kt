@@ -1277,10 +1277,15 @@ object SettingsScreen {
                 Row(R.drawable.ic_history, "Recently closed tabs") { Backup.closedTabs(act, tabs) }, // V18
                 Row(R.drawable.ic_folder, "Saved pages", "${PageSave.count(act)} pages") { tabs?.let { SavedPages.open(act, it) } }, // T4, V18
                 Sub("Clear data"), // 0.0.323: saved items are not "clear" actions
+                Row(R.drawable.ic_trash, "Delete browsing data...", "", "Choose time range and what to delete") { // 0.0.382
+                    try { ClearData.show(act, tabs) } catch (e: Exception) { Util.toast(act, "Could not open") }
+                },
                 Row(R.drawable.ic_trash, "Clear browsing history") {
+                    if (!ClearData.tryShow(act, tabs, 0)) // 0.0.386: opens Delete browsing data with History ticked; the old direct action is the fallback
                     confirm("Clear all browsing history?", "Clear") { Bookmarks.clearHistory(); Util.toast(act, "History cleared") }
                 },
                 Row(R.drawable.ic_trash, "Clear cookies and site data") {
+                    if (!ClearData.tryShow(act, tabs, 1)) // 0.0.386
                     confirm("Log out of sites and clear site data in normal tabs?", "Clear") {
                         try {
                             CookieManager.getInstance().removeAllCookies(null)
@@ -1291,6 +1296,7 @@ object SettingsScreen {
                     }
                 },
                 Row(R.drawable.ic_trash, "Clear cache") {
+                    if (!ClearData.tryShow(act, tabs, 2)) // 0.0.386
                     try {
                         tabs?.active?.web?.clearCache(true)
                         Util.toast(act, "Cache cleared")

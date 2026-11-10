@@ -1,3 +1,52 @@
+0.0.386 (MODIFY: old Settings Clear rows open Delete browsing data)
+- WHY: Settings > Data and backup > Clear data had 3 old rows that always deleted everything at once (Clear cache only touched the open tab) while the new dialog had a time range and more choices.
+- What (SettingsScreen.kt, 3 rows; ClearData.kt tryShow + preset): "Clear browsing history", "Clear cookies and site data", "Clear cache" now open the Delete browsing data dialog with only THEIR box ticked (history / cookies / cache). Nothing is deleted until you press Delete. "Delete browsing data..." row stays.
+- CHANGED BEHAVIOUR (on purpose, asked): the 3 rows no longer delete at once; there is one extra Delete tap and the time range for history.
+- Safe / fallback: ClearData.tryShow returns false on any error = the old direct action of that row runs exactly as before (code kept below it).
+- NOT tested: Gradle build (CI; braces + brackets balanced), device, the 3 rows ticked box, Delete, Settings search words, dark + light.
+- Files: SettingsScreen.kt, ClearData.kt.
+
+0.0.385 (MODIFY: Delete browsing data shows counts and cache size)
+- WHY: Chrome shows how much each choice deletes; Thazir showed only names.
+- What (ClearData.kt): counts next to Browsing history, Recently closed tabs, Download history, Site settings (Saved passwords already had one); Cached files shows its size (WebView cache folder read on a worker thread, label fills in when ready, no number if the folder is not found). Cookies and site data: no size (Android gives none).
+- Safe / fallback: display only; any error = that row has no number. No delete logic changed.
+- NOT tested: Gradle build (CI), device, big cache (folder walk time), rotate while the size is loading.
+- Files: ClearData.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.386.txt.
+
+0.0.384 (NEW: History - delete one day / one site)
+- WHY: Chrome can delete history by day and "all from this site"; Thazir only had Clear all, one row, or select rows by hand.
+- What: NEW HistoryDelete.kt. History screen 3-dot menu got 2 rows: "Delete a day..." (list of days with counts: Today / Yesterday / date, newest 60 days) and "Delete a site..." (sites with counts, top 80). Tap = confirm ("Delete N history rows of X?") = removed + the same Undo bar as Clear history (BmUndo.history). Bookmarks.removeHistoryMany (new, ONE save for many rows; also used now by Delete browsing data time range and Delete data for this site, which first removed row by row).
+- Safe / fallback: only history rows; bookmarks / passwords / cookies untouched. Any error = toast, nothing deleted. Old menu rows (Select, Clear history) unchanged and in the same place (indexes 0 and 1).
+- NOT tested: Gradle build (CI; braces + brackets balanced, Bookmarks.kt has the same 1 string-brace offset as the original), device, day around midnight, a site with www / without, Undo after a day delete, History filter ON while deleting, 360dp, dark + light.
+- Files: HistoryDelete.kt (new), Bookmarks.kt, BookmarksScreen.kt, ClearData.kt, SiteData.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.384.txt.
+
+0.0.383 (NEW: site sheet - "Delete data for this site")
+- WHY: Chrome has Delete data for one site; Thazir could only delete cookies / site data of ALL sites.
+- What: NEW SiteData.kt. The lock-icon site sheet (SiteSheet) got a red button "Delete data for this site" (1 try / catch hook line before the sheet is built). It asks first, then deletes the cookies this page sends (also parent-domain ones, Domain= variants), localStorage / IndexedDB / WebSQL of the site origin (http + https), optional tick "Also delete its history (N)". Page reloads, sheet closes, toast.
+- Limits (said in code): cookies with a Path this page does not send and subdomain storage (m.site.com vs site.com) are not reached; cache cannot be cut per site on Android WebView. Saved passwords and permission answers are NOT touched.
+- Safe / fallback: not shown on home / internal pages (http / https only); any error in the button = sheet looks as before; each step in try / catch ("Could not delete everything").
+- NOT tested: Gradle build (CI), device, log in to a site then delete: you must be logged out after reload; a site with sub-domain login (accounts.x.com); private tab; the history tick; dark + light.
+- Files: SiteData.kt (new), SiteSheet.kt, (same release files as 0.0.384).
+
+0.0.382 (NEW: Chrome-style "Delete browsing data" - time range + more things to delete)
+- WHY: Chrome's Delete browsing data has a time range and also passwords, site settings and download history; Thazir only had 4 all-time tick boxes and 3 Settings rows that always deleted everything (cache only of the active tab).
+- What: NEW ClearData.kt = dialog with Time range (Last hour / 24 hours / 7 days / 4 weeks / All time) + Browsing history, Cookies and site data, Cached files, Recently closed tabs, Download history (Saved files LIST only, files stay), Site settings (saved permission answers), Saved passwords (asks screen lock first). Opened from the tab switcher menu "Delete browsing data" (TabSwitcher.deleteData, hook line at the top, old dialog kept below as fallback) and a new Settings > Data and backup > Clear data row "Delete browsing data...". Small hooks: PasswordStore.wipeAll, SitePerms.clearAll.
+- Honest limit: only history follows the time range. Android WebView cannot delete cookies / site data / cache for a time range, so those are always all time (the dialog says so).
+- NOT changed: the 3 old Settings rows (Clear history / cookies / cache), old tab-switcher dialog (fallback), defaults of the old dialog (history, cache, closed tabs ON).
+- Safe / fallback: ClearData error before showing = old dialog; each delete step in its own try / catch ("Could not delete everything" if one fails). Nothing is deleted before the Delete button. Passwords OFF by default.
+- NOT tested: Gradle build (CI; braces + brackets balanced only), device, spinner / checkbox look dark + light 360dp, range 'Last hour' removing only new history, password prompt, no screen lock case.
+- NEXT (Chrome gaps still open, one per version): (a) per-site "Delete data for this site" in the site sheet, (b) "Delete on exit" switches, (c) show sizes / counts per row, (d) Settings old rows -> same dialog, (e) delete one history day / one site, (f) clear data of private tabs on close check.
+- Files: ClearData.kt (new), TabSwitcher.kt, SettingsScreen.kt, PasswordStore.kt, SitePerms.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.382.txt.
+
+0.0.381 (FIX: downloaded .apk (and other files) saved as .bin in Thazir)
+- WHY: liteapk APK files were saved as "name.bin" in Thazir; the same link in other browsers saved "name.apk".
+- ROOT CAUSE (code reading, device NOT re-tested): TabManager DownloadListener / downloadImage give mime "application/octet-stream" to DownloadsApi.startPlain -> plainName() -> URLUtil.guessFileName(url, disp, mime). When the extension of the name (.apk) does not match the given type, Android replaces the extension with the one of the type; octet-stream has none, so ".bin". The name is set before the request, and Downloader only used the server's name when rel was EMPTY, so the real name never won.
+- What: (1) DownloadsApi.plainName: generic type (octet-stream, binary/octet-stream, force-download, x-download, blank) = the name guessed WITHOUT a type is kept. (2) DownloadService.betterThanBin (new, try/catch): if the name still ends .bin and the server answer (Content-Disposition / Content-Type) gives a real name, use it; called in runHttp and DlParts after the response. Other names unchanged.
+- Also fixed by the same cause: images saved from the link menu (downloadImage) could become .bin.
+- Safe / fallback: any error = old name. No pref, key, message, layout change. Subtitle rule (KEEP_EXT) unchanged and first.
+- NOT tested: Gradle build (CI; braces balanced only), device. Not proven which of (1) / (2) fixed liteapk (both added).
+- Files: DownloadsApi.kt, DownloadService.kt, DlParts.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.381.txt.
+
 0.0.380 (MODIFY: tab counter - cleaner count + group colour ring)
 - WHY: the counter showed 3-digit counts cramped / cut and looked the same whatever tab you were on.
 - What (MainActivity.kt only): (1) count text size follows the digits (1 digit 14sp, 2 digits 12sp, 100+ shows "99+" at 10sp); the pop animation stays (off with Reduce motion). (2) The ring (outline) of the counter takes the COLOUR OF THE ACTIVE TAB'S GROUP, back to the normal ring colour when that tab is in no group or is private. It updates on tab switch, page load, tab open / close and when groups change (group colour edit, Add to group, Open in new tab in group). contentDescription now says "Tabs, N open, group NAME".

@@ -42,6 +42,9 @@ object SitePerms {
 
     fun count(c: Context) = all(c).size
 
+    /** 0.0.382: forget every saved site answer (Delete browsing data > Site settings). Default Ask / Blocked switches stay. */
+    fun clearAll(c: Context) { prefs(c).edit().clear().apply() }
+
     /** 0.0.282: saved answers as (host, what, allowed) for the new sheet. */
     fun entries(c: Context): List<Triple<String, String, Boolean>> = all(c).map { Triple(it.host, it.what, it.ok) }
 

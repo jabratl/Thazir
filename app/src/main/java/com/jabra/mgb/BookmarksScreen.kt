@@ -329,7 +329,7 @@ object BookmarksScreen {
                 contentDescription = "More"
                 setOnClickListener {
                     if (mode == Mode.BOOKMARKS) { bookmarksMenu(this); return@setOnClickListener } // 0.0.348
-                    val labels = if (mode == Mode.BOOKMARKS) arrayOf("Select", "New folder", "Import bookmarks", "Export bookmarks", "Sort by...") else arrayOf("Select", "Clear history")
+                    val labels = if (mode == Mode.BOOKMARKS) arrayOf("Select", "New folder", "Import bookmarks", "Export bookmarks", "Sort by...") else arrayOf("Select", "Clear history", "Delete a day...", "Delete a site...")
                     MaterialAlertDialogBuilder(act).setItems(labels) { _, which ->
                         if (which == 0) { selecting = true; picked.clear(); build() } // S27
                         else if (mode == Mode.BOOKMARKS) {
@@ -339,7 +339,11 @@ object BookmarksScreen {
                                 3 -> BrowserExtras.exportBookmarks()
                                 else -> BmSort.pick(act) { render() } // 0.0.332
                             }
-                        } else askClear()
+                        } else when (which) { // 0.0.384: day / site delete (HistoryDelete.kt), same Undo bar as Clear history
+                            2 -> HistoryDelete.pickDay(act) { it2 -> render(); BmUndo.history(window?.decorView, it2) { render() } }
+                            3 -> HistoryDelete.pickSite(act) { it2 -> render(); BmUndo.history(window?.decorView, it2) { render() } }
+                            else -> askClear()
+                        }
                     }.show()
                 }
             }, LinearLayout.LayoutParams(dp(44), dp(48)))

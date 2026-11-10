@@ -318,7 +318,7 @@ object DlParts {
                 if (vld.isNotEmpty()) this.validator = vld
                 if (this.mime.isEmpty() && ct2.isNotEmpty() && ct2 != "application/octet-stream") this.mime = ct2
                 this.canResume = true
-                if (this.rel.isEmpty()) this.rel = Downloader.nameFromResponse(fu2, cd2, ct2)
+                if (this.rel.isEmpty()) this.rel = Downloader.nameFromResponse(fu2, cd2, ct2) else this.rel = Downloader.betterThanBin(this.rel, fu2, cd2, ct2) // 0.0.381
             }
 
             val r: Run

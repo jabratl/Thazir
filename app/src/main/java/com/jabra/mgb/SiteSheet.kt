@@ -139,6 +139,7 @@ object SiteSheet {
                 isClickable = true
                 setOnClickListener { dismiss(); SitePermsUi.show(act) { } }
             })
+            try { SiteData.button(act, tab) { dismiss() }?.let { col.addView(it, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }) } } catch (_: Exception) { } // 0.0.383: Delete data for this site
             val cap = object : LinearLayout(act) { // 560 dp cap on wide screens
                 override fun onMeasure(w: Int, h: Int) {
                     val size = MeasureSpec.getSize(w); val cp = dp(560)

@@ -239,6 +239,21 @@ object Downloader {
         return DownloadsApi.cleanRel(name).ifEmpty { "download" }
     }
 
+    /**
+     * 0.0.381: the name made before the request ends with ".bin" (generic type, no real name in the link) but the server answer
+     * has a better one (Content-Disposition / type, e.g. app.apk) = use it. Any other name is returned unchanged. Never throws.
+     */
+    internal fun betterThanBin(rel: String, url: String, cd: String?, ct: String): String {
+        return try {
+            if (!rel.endsWith(".bin", true)) return rel
+            val n = nameFromResponse(url, cd, ct)
+            if (n.isNotEmpty() && !n.endsWith(".bin", true) && n.substringAfterLast('.', "").isNotEmpty()) {
+                val dir = rel.substringBeforeLast('/', "")
+                if (dir.isEmpty()) n else "$dir/${n.substringAfterLast('/')}"
+            } else rel
+        } catch (e: Exception) { rel }
+    }
+
     private fun runHttp(item: DlItem) {
         // 0.0.357: parts mode first (switch dp_on, ON by default since 0.0.375). true = whole file is in partFile; false / error = old code below.
         try { if (DlParts.run(item)) return } catch (e: IOException) { throw e } catch (e: Exception) { Diag.w("dlparts", "hook " + e.javaClass.simpleName) }
@@ -279,7 +294,7 @@ object Downloader {
                     if (vld.isNotEmpty() && !vld.startsWith("W/")) validator = vld
                     if (mime.isEmpty() && ct.isNotEmpty() && ct != "application/octet-stream") mime = ct
                     canResume = rangeOk
-                    if (rel.isEmpty()) rel = nameFromResponse(finalUrl, cd, ct)
+                    if (rel.isEmpty()) rel = nameFromResponse(finalUrl, cd, ct) else rel = betterThanBin(rel, finalUrl, cd, ct) // 0.0.381
                 }
                 var got = startAt
                 FileOutputStream(part, append).use { out ->

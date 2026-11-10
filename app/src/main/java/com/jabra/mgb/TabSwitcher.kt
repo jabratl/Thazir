@@ -1053,6 +1053,7 @@ object TabSwitcher {
 
         /** S76: choose what to delete (history, cookies and site data, cache, recently closed tabs). */
         private fun deleteData() {
+            try { ClearData.show(act, tm); return } catch (e: Exception) { } // 0.0.382: Chrome-style dialog; any error = the old dialog below
             val names = arrayOf("Browsing history", "Cookies and site data", "Cache", "Recently closed tabs")
             val on = booleanArrayOf(true, false, true, true)
             MaterialAlertDialogBuilder(act)

@@ -251,10 +251,15 @@ object DownloadsApi {
      * 0.0.279: URLUtil.guessFileName throws away the real extension when the server says text/plain for a subtitle (Title.en.srt became
      * Title.txt). For subtitle extensions the name the site gave is kept; everything else = the old guess.
      */
+    private val GENERIC_MIME = setOf("application/octet-stream", "binary/octet-stream", "application/force-download", "application/x-download", "application/download", "application/unknown")
+
     private fun plainName(url: String, disposition: String?, mime: String?): String {
         val g = android.webkit.URLUtil.guessFileName(url, disposition, mime)
         val raw = try { android.webkit.URLUtil.guessFileName(url, disposition, null) } catch (e: Exception) { g }
-        return if (raw.substringAfterLast('.', "").lowercase() in KEEP_EXT) raw else g
+        if (raw.substringAfterLast('.', "").lowercase() in KEEP_EXT) return raw
+        // 0.0.381: a generic type (application/octet-stream) made Android swap the real extension for ".bin" (x.apk -> x.bin). Keep the site's name then.
+        try { if (mime.isNullOrBlank() || mime.substringBefore(';').trim().lowercase() in GENERIC_MIME) return raw } catch (e: Exception) { }
+        return g
     }
 
     fun startPlain(url: String, userAgent: String?, disposition: String?, mime: String?, referer: String?, src: WebView?): DlItem? {

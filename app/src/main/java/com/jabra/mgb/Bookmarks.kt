@@ -330,6 +330,18 @@ object Bookmarks {
         if (hist.removeAll { it.time == time && it.url == url }) saveAsync(F_HIST, hist)
     }
 
+    /** 0.0.384: remove many history rows with ONE save. Returns how many were removed. */
+    @Synchronized
+    fun removeHistoryMany(items: Collection<Item>): Int {
+        val keys = HashSet<Pair<Long, String>>()
+        for (x in items) keys.add(x.time to x.url)
+        val before = hist.size
+        hist.removeAll { (it.time to it.url) in keys }
+        val n = before - hist.size
+        if (n > 0) saveAsync(F_HIST, hist)
+        return n
+    }
+
     @Synchronized
     fun clearHistory() {
         hist.clear()

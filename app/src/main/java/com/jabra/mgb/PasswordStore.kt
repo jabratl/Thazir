@@ -395,6 +395,11 @@ return 'n'+n;
 
     fun screen(act: FragmentActivity) = guard(act, "Unlock passwords") { screenOpen(act) }
 
+    /** 0.0.382: delete ALL saved logins (Delete browsing data). Asks the screen lock first; the caller already asked the user. */
+    fun wipeAll(act: FragmentActivity, done: () -> Unit) = guard(act, "Unlock to delete passwords") {
+        try { load(act); list.clear(); save(act); done() } catch (e: Exception) { Util.toast(act, "Could not delete passwords") }
+    }
+
     private fun screenOpen(act: FragmentActivity) {
         fun dp(v: Int) = Util.dp(act, v)
         val cText = act.getColor(R.color.mg_text)
