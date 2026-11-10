@@ -1,3 +1,12 @@
+0.0.379 (MODIFY: link menu "Open in new tab in group" works like Chrome)
+- WHY: it asked for a group name every time, put the new tab at the END of the group and never added the tab you pressed the link in.
+- What (TabSwitcher.kt openInGroupHere, TabManager.kt link menu): the tab you pressed the link in already is in a group = the new tab joins that group right after it (no dialog). It is in no group = a NEW group (auto name "Group N", auto colour) is made with BOTH the tab you pressed and the new tab. Toast "Opened in group X"; the group strip shows it at once.
+- The old chooser stays as a second entry "Open in another group..." (only shown when a group exists): same function as before (openInGroup), unchanged.
+- Safe / fallback: not for private tabs (as before). Any error = the tab is still opened, only the grouping is skipped. No pref, id, layout, session format change (groups saved as before).
+- NOT tested: Gradle build (CI), device, long-press a link in a grouped / ungrouped tab, group strip + Undo, session restore of the new group, pinned opener tab, 360 / 1280dp, dark + light.
+- NEXT (not done): plain "Open in new tab" and target=_blank links from a grouped tab do NOT join the group yet (Chrome does).
+- Files: TabSwitcher.kt, TabManager.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF+Thazir+0.0.379.txt (+ the 0.0.375 - 0.0.378 files).
+
 0.0.378 (NEW: tab menu - Close other tabs, Close tabs after this, Reload all tabs)
 - WHY: Chrome has these three; Thazir only had Close tab / Close all.
 - What (TabSwitcher.kt): tab card menu: "Close other tabs" (all other tabs of the list you are looking at: normal list, one group, or private list; search results while searching) and "Close tabs after this" (tabs after this card in the same list; shown only when it differs from Close other). Pinned tabs always stay. Both use closeList: Undo bar (same place, same group) and "Ask before Close all" confirm, as Close all. Switcher menu: "Reload all tabs" = every open page of this kind (normal or private), one every 150 ms; sleeping, home and extension tabs are skipped; toast with the count.

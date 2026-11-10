@@ -1,0 +1,34 @@
+================================================================================
+HANDOFF - Thazir, repo now 0.0.379 (0.0.379 link menu "Open in new tab in group" = Chrome way; before: 0.0.378 (0.0.378 tab menu: Close other tabs / Close tabs after this / Reload all tabs; before: 0.0.377 (0.0.377 address bar suggestions; before: 0.0.376 (0.0.375 App downloader sheet + parts ON by default; 0.0.376 Settings group + hints)
+Next free version = 0.0.380. Based on HANDOFF_Thazir_0.0.374_FINAL (F1 + N1..N6 code done) - read that plan for details.
+================================================================================
+USER NOTE: not a coder. Reply in Banglish, short numbered steps. Final reply under 10 lines. Stop at 85% session.
+RULE 0: patch only, changed files only, switch OFF = old behaviour, try/catch + silent fallback. Nothing is built in the chat sandbox (CI + phone test).
+
+DONE in 0.0.379: TabSwitcher.openInGroupHere (opener in a group = new tab joins after it; else NEW group "Group N" with opener + new tab) hooked in TabManager.showLinkMenu; old chooser kept as "Open in another group...". ROLLBACK: link menu line back to openInGroup, delete the extra row + openInGroupHere / hasGroups. NOT tested on device. NEXT: plain "Open in new tab" / target=_blank from a grouped tab should join the group too (Chrome) - TabManager.newTab(openerId) + TabSwitcher.joinGroupOf.
+
+DONE in 0.0.378: TabSwitcher.kt tab-card menu "Close other tabs" + "Close tabs after this" (scope = shown list, pinned stay, closeList = Undo + confirm), switcher menu "Reload all tabs" (reloadAll, 150 ms apart, skips home / ext / sleeping). No switch (menu items only). ROLLBACK: delete those 3 MI lines + reloadAll(). NOT tested on device. NOTE: tabs older than a time already go to an "older tabs" section (tm.isOld) - Chrome-like inactive tabs exist, only auto-close of them is missing. TAB IDEAS LEFT: Close inactive tabs automatically, drag reorder check, move tab to a new window (hard), group sync via CloudSync.
+
+DONE in 0.0.377: NEW UrlSuggest.kt = address bar suggestions (bookmarks + history, max 5, card above bar / below bar in Top mode, not in private tabs, switch url_suggest default ON in Settings > General > Address suggestions). Hooks: MainActivity (attach + hide on focus loss), SettingsScreen row + RESET + search, HowToUse. ROLLBACK: switch OFF, or delete UrlSuggest.kt + the 2 MainActivity lines + the Settings row. NOT tested: device (keyboard, bar top / bottom, landscape, dark / light). TEST: type "you" / part of a visited site: card shows, tap opens; private tab shows nothing; switch OFF shows nothing.
+
+DONE in 0.0.376: Settings > Downloads has a group "Downloader" (Link inbox, App downloader, Download rules); hints: App downloader = files, Download engine = streams (SettingsScreen.kt only). ROLLBACK: remove the Sub("Downloader") line, old hints.
+
+DONE in 0.0.375 (MODIFY)
+- Settings row + sheet renamed "Download in parts" -> "App downloader" (it is Thazir's main file downloader: tab link, blob / data, plain grabber files; HLS / DASH stay in the extension engine, the app saves the final file).
+- Sheet order: Parts (switch, number, only bigger than) > Speed and queue (speed limit, downloads at the same time, Resume by itself) > Advanced (big grabber files, Single grabber files: app downloader, Smart tail = experimental). Row summary "Parts ON · 4" / "Parts OFF".
+- dp_on default = ON (DlParts.enabled, DlPartsUi.on, DiagReport). Saved user choice stays. Reason: F1 proved the 429 case; every failure falls back to one connection.
+- Still OFF / Off by default: dl_auto_resume (N3), dp_tail (N5), dl_limit_kbps = 0, directToNative (N1).
+- Files: DlPartsUi.kt, SettingsScreen.kt, DlParts.kt, DownloadService.kt, DiagReport.kt, HowToUse.kt, build.gradle.kts, CHANGELOG.txt.
+ROLLBACK: DlParts.enabled / DlPartsUi.on / DiagReport "dp_on" default true -> false; titles back to "Download in parts". Users can switch Parts OFF = 0.0.367 behaviour.
+
+NOT TESTED: Gradle build, device, sheet 360 / 1280dp dark + light, Settings search ("parts", "downloader"), regression 1-4 with parts ON.
+
+NEXT (user tests, in this order; report what fails, fix only that)
+ 1. Tab link small + big, pause / resume / cancel, file in the folder.  2. blob / data.  3. grabber direct file.  4. HLS episode + Bilibili.
+ 5. proof.ovh.net/files/100Mb.dat finishes (parts ON, default).  6. Speed limit 256 KB/s.  7. Downloads at the same time = 1.
+ 8. Resume by itself ON (Wi-Fi off/on, force-stop + reopen).  9. Details on a tab-link row, Parts Single / 2.
+ 10. Smart tail ON, big file, file opens / size correct.  11. app downloader for grabber files ON.  12. private tab, backup / restore, rotation with the sheet open.
+ If 1-4 pass: consider Resume by itself default ON (one line in DlAutoResume.enabled). Smart tail stays OFF until 10 passes.
+OPEN IDEAS: "Waiting" label for queued downloads; byte progress for N1 engine card; per-site "1 connection" memory; native HLS downloader (separate big project); START_STICKY.
+
+KICKOFF LINE: "Thazir: read HANDOFF+Thazir+0.0.379.txt, fix <what failed> only. Patch only, changed files only, stop at 85%, final reply max 8 lines, Banglish."

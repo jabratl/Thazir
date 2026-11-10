@@ -93,6 +93,29 @@ object TabSwitcher {
     }
 
     /** S40: long press menu "Open in new tab in group": pick a group (or make one), the new tab joins it. */
+    /** 0.0.379 (Chrome): link menu "Open in new tab in group". Opener tab already in a group = the new tab joins it, right after the opener.
+     *  Opener not in a group = a NEW group (auto name + colour) holds the opener AND the new tab. No dialog. */
+    fun openInGroupHere(ctx: Context, tm: TabManager, url: String, openerId: Int) {
+        try {
+            if (tm.byId(openerId) == null) return
+            val t = tm.newTab(url, openerId, false) ?: return
+            var name = groups.entries.firstOrNull { openerId in it.value }?.key
+            if (name == null) {
+                var n = groups.size + 1
+                while (groups.containsKey("Group $n")) n++
+                val nm = "Group $n"
+                colors[nm] = PALETTE[(groups.size % (PALETTE.size - 1)) + 1]
+                groups[nm] = LinkedHashSet<Int>().apply { add(openerId) }
+                name = nm
+            }
+            addAfter(name, t.id, openerId)
+            Util.toast(ctx, "Opened in group $name")
+            onChanged?.invoke()
+        } catch (e: Exception) { /* the tab is open anyway; grouping is a bonus */ }
+    }
+
+    fun hasGroups(): Boolean = groups.isNotEmpty()
+
     fun openInGroup(ctx: Context, tm: TabManager, url: String, openerId: Int) {
         fun open(name: String) {
             val t = tm.newTab(url, openerId, false) ?: return

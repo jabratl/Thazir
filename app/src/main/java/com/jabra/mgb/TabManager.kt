@@ -806,7 +806,8 @@ class TabManager(
         if (l.startsWith("http")) {
             rows.add(MenuSheet.Item("Open in new tab", R.drawable.ic_add) { newTab(l, tab.id) })
             rows.add(MenuSheet.Item("Preview page", R.drawable.ic_search) { PagePreview.show(ctx, l) { newTab(l, tab.id) } }) // S42
-            if (!tab.priv) rows.add(MenuSheet.Item("Open in new tab in group", R.drawable.ic_folder) { TabSwitcher.openInGroup(ctx, this, l, tab.id) })
+            if (!tab.priv) rows.add(MenuSheet.Item("Open in new tab in group", R.drawable.ic_folder) { TabSwitcher.openInGroupHere(ctx, this, l, tab.id) }) // 0.0.379: Chrome way, this tab joins too
+            if (!tab.priv && TabSwitcher.hasGroups()) rows.add(MenuSheet.Item("Open in another group...", R.drawable.ic_folder) { TabSwitcher.openInGroup(ctx, this, l, tab.id) }) // 0.0.379: the old chooser
             rows.add(MenuSheet.Item("Open in New Private Tab", R.drawable.ic_lock) { newTab(l, 0, true, true) })
             if (WebPlay.isMediaUrl(l)) rows.add(MenuSheet.Item("Play in player", R.drawable.ic_play) { WebPlay.play(ctx, l, null, ref, ua) })
             if (!tab.priv) rows.add(MenuSheet.Item(if (Bookmarks.isBookmarked(l)) "Remove bookmark" else "Bookmark link",
