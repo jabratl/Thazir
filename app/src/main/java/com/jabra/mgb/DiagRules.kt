@@ -111,7 +111,7 @@ object DiagRules {
         // 14-16 download failure codes
         if (x.dlCodes.contains("NETWORK_TIMEOUT")) out.add(f("dl-timeout", W, "A download timed out.", "The server is slow or the connection dropped. Press Resume; if it repeats, try Wi-Fi.", "downloads", "Open Downloads"))
         if (x.dlCodes.contains("NETWORK_FAILED")) out.add(f("dl-network", W, "A download lost the connection.", "Check Wi-Fi / data and press Resume. An expired link needs a fresh one from the page.", "downloads", "Open Downloads"))
-        if (x.partsMsgs.any { it.startsWith("fallback to single connection") || it.startsWith("server limits connections") }) out.add(f("dl-parts-fallback", I, "Download in parts fell back: the server may not allow several connections.", "The file still downloads on one connection. Try fewer parts (Settings > Downloads > Download in parts) or switch it off for this site.", "settings", "Open settings"))
+        if (x.partsMsgs.any { it.startsWith("fallback to single connection") || it.startsWith("server limits connections") }) out.add(f("dl-parts-fallback", I, "Download in parts fell back: the server may not allow several connections.", "If the download failed, try fewer parts (Settings > Downloads > Download in parts) or switch it off. Open Queue / jobs in the report to see the HTTP code.", "settings", "Open settings"))
         if (x.dlCodes.contains("FILE_FAILED")) out.add(f("dl-file", B, "A download could not write the file.", "Choose the download folder again in Settings (the folder may be gone or no longer allowed).", "settings", "Open Settings"))
 
         // 17-19 grabber / sniffer / blocker

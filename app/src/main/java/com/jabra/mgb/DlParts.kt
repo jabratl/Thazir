@@ -66,17 +66,21 @@ object DlParts {
         @Volatile var kind = 0
         @Volatile var netEx: IOException? = null
         val err = AtomicReference<String?>(null)
+        // 0.0.368 (F1): HTTP code + Retry-After (seconds) of the failure, and finished parts of this round (slow start)
+        @Volatile var code = 0
+        @Volatile var ra = 0L
+        val fin = AtomicInteger(0)
 
         fun halt() {
             stop = true
             for (c in calls) { try { c.cancel() } catch (e: Exception) { } }
         }
-        fun fail(why: String, k: Int, ex: IOException? = null) {
-            if (err.compareAndSet(null, why)) { kind = k; netEx = ex }
+        fun fail(why: String, k: Int, ex: IOException? = null, c: Int = 0, retryAfter: Long = 0L) {
+            if (err.compareAndSet(null, why)) { kind = k; netEx = ex; code = c; ra = retryAfter }
             halt()
         }
         /** New round after a soft failure (all workers of the old round are finished). */
-        fun reset() { stop = false; kind = 0; netEx = null; err.set(null); calls.clear(); next.set(0) }
+        fun reset() { stop = false; kind = 0; netEx = null; code = 0; ra = 0L; fin.set(0); err.set(null); calls.clear(); next.set(0) }
         fun sum(): Long { var t = 0L; for (i in 0 until n) t += done.get(i); return t }
 
         // 0.0.359 (S3): speed meter (bytes per second, smoothed). tick() is called by the progress loop only.
@@ -150,6 +154,18 @@ object DlParts {
             if (k <= 0) return 0
             if (used.compareAndSet(cur, cur + k)) return k
         }
+    }
+
+    /** 0.0.368 (F1): waits ms in 250 ms steps; false = stopped early because the user paused / cancelled. */
+    private fun waitMs(item: DlItem, ms: Long): Boolean {
+        var left = ms
+        while (left > 0L) {
+            if (userStop(item)) return false
+            val step = minOf(250L, left)
+            try { Thread.sleep(step) } catch (ie: InterruptedException) { return false }
+            left -= step
+        }
+        return !userStop(item)
     }
 
     private fun skip(why: String): Boolean {
@@ -311,20 +327,31 @@ object DlParts {
 
             var w = k
             var bad = 0
+            var rl = 0                                   // 0.0.368: rate-limit (429 / 503) rounds in a row without progress
             var saves = 0
             var lastSave = SystemClock.elapsedRealtime()
             if (!resuming) saveState(r, vld)
             while (true) {
                 r.reset()
                 if (userStop(item)) r.halt()
+                val roundStart = r.sum()
                 val ww = maxOf(1, minOf(w, r.n))
-                val latch = CountDownLatch(ww)
-                for (i in 0 until ww) {
+                // 0.0.368 (F1) slow start: 2 connections first, +1 after each part that finished without error (up to ww)
+                val ramp = minOf(ww, 2)
+                val active = AtomicInteger(0)
+                var started = 0
+                fun launch() {
+                    started++
+                    active.incrementAndGet()
                     exec.execute {
-                        try { worker(r, ch) } catch (t: Throwable) { r.fail("worker " + t.javaClass.simpleName, HARD) } finally { latch.countDown() }
+                        try { worker(r, ch) } catch (t: Throwable) { r.fail("worker " + t.javaClass.simpleName, HARD) } finally { active.decrementAndGet() }
                     }
                 }
-                while (!latch.await(250, TimeUnit.MILLISECONDS)) {
+                for (i in 0 until ramp) launch()
+                while (active.get() > 0) {
+                    try { Thread.sleep(100L) } catch (ie: InterruptedException) { }
+                    val allowed = minOf(ww, ramp + r.fin.get())
+                    while (started < allowed && !r.stop && r.err.get() == null && r.next.get() < r.n) launch()
                     item.received = r.sum()
                     r.tick(SystemClock.elapsedRealtime())
                     if (userStop(item)) r.halt()
@@ -355,11 +382,29 @@ object DlParts {
                         throw KeepIo(r.netEx ?: IOException(why))
                     }
                     SOFT -> {
-                        bad++
-                        if (bad >= 2 || w <= 2) { Diag.w(TAG, "fallback to single connection: $why"); return false }
-                        w = maxOf(2, w / 2)
-                        Diag.w(TAG, "server limits connections ($why): now $w connections")
-                        try { Thread.sleep(1000L) } catch (ie: InterruptedException) { }
+                        val c = r.code
+                        if (c == 429 || c == 503) {
+                            // 0.0.368 (F1): rate limit. Wait (Retry-After or 2 / 4 / 8 s), halve connections (min 1), keep progress.
+                            if (r.sum() > roundStart) rl = 0
+                            rl++
+                            val raMs = if (r.ra > 0L) minOf(r.ra, 30L) * 1000L else 0L
+                            if (rl > 3) {
+                                val cool = if (raMs > 0L) raMs else 5000L
+                                Diag.w(TAG, "fallback to single connection after ${cool / 1000} s cool-down: $why (HTTP $c)")
+                                if (!waitMs(item, cool)) continue      // paused / cancelled: loop top handles it
+                                return false
+                            }
+                            w = maxOf(1, w / 2)
+                            val wt = if (raMs > 0L) raMs else minOf(8000L, 1000L shl rl)
+                            Diag.w(TAG, "server limits connections ($why): now $w connections, wait ${wt / 1000} s")
+                            waitMs(item, wt)
+                        } else {
+                            bad++
+                            if (bad >= 2 || w <= 2) { Diag.w(TAG, "fallback to single connection: $why"); return false }
+                            w = maxOf(2, w / 2)
+                            Diag.w(TAG, "server limits connections ($why): now $w connections")
+                            try { Thread.sleep(1000L) } catch (ie: InterruptedException) { }
+                        }
                     }
                     else -> { Diag.w(TAG, "fallback to single connection: $why"); return false }
                 }
@@ -407,7 +452,11 @@ object DlParts {
                 val code = resp.code
                 if (code != 206) {
                     // 200 / 403 / 429 = server ignores Range or limits connections: fewer connections (SOFT); 401 / 416 = parts mode cannot work (HARD)
-                    if (code == 200 || code == 403 || code == 429) { r.fail("part $i HTTP $code", SOFT); return }
+                    if (code == 429 || code == 503) {
+                        val ra = resp.header("Retry-After")?.trim()?.toLongOrNull() ?: 0L
+                        r.fail("part $i HTTP $code", SOFT, null, code, ra); return
+                    }
+                    if (code == 200 || code == 403) { r.fail("part $i HTTP $code", SOFT, null, code); return }
                     if (code == 401 || code == 416) { r.fail("part $i HTTP $code", HARD); return }
                     throw HttpStatus(code)
                 }
@@ -431,13 +480,14 @@ object DlParts {
                     tries = 0                              // progress made: a later drop gets fresh retries
                 }
                 if (pos <= to) throw IOException("short part")
+                r.fin.incrementAndGet()
                 return
             } catch (e: Exception) {
                 if (r.stop) return
                 if (++tries > 3) {
                     val why = "part $i " + e.javaClass.simpleName + " " + (e.message ?: "").take(60)
                     when {
-                        e is HttpStatus && e.code >= 500 -> r.fail(why, SOFT)
+                        e is HttpStatus && e.code >= 500 -> r.fail(why, SOFT, null, e.code)
                         e is HttpStatus -> r.fail(why, HARD)
                         e is IOException -> r.fail(why, NET, e)
                         else -> r.fail(why, HARD)

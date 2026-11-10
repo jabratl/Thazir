@@ -249,7 +249,7 @@ object Downloader {
                     if (++tries > 2) throw Stop("SERVER_NO_RANGE")
                     continue
                 }
-                if (code !in 200..299) throw Stop(httpErr(code))
+                if (code !in 200..299) { Diag.w("download", "http " + code, item.url); throw Stop(httpErr(code)) }
                 val append = code == 206 && have > 0
                 if (!append) have = 0                       // server ignored the range: start again
                 val body = resp.body ?: throw Stop("SERVER_BAD_CONTENT")
