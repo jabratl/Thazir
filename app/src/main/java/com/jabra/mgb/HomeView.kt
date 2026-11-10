@@ -47,6 +47,7 @@ class HomeView(
     private val wpImg = ImageView(ctx) // A7: wallpaper under the tiles
     private val wpScrim = View(ctx) // A7: dim layer (mg_bg colour) so the tiles stay readable
     private val wpListener: () -> Unit = { applyWallpaper() }
+    private var wpBmp: android.graphics.Bitmap? = null // 0.0.395
     private var cols = 0
     private var editing = false
     private var folder: String? = null // S26: folder open on the home screen (null = top level)
@@ -101,7 +102,7 @@ class HomeView(
     fun applyWallpaper() {
         val bmp = Wallpaper.load(context)
         if (bmp == null) { wpImg.visibility = View.GONE; wpScrim.visibility = View.GONE; return }
-        wpImg.setImageBitmap(bmp)
+        if (wpBmp !== bmp) { wpImg.setImageBitmap(bmp); wpBmp = bmp } // 0.0.395: not again for every dim tick
         wpScrim.setBackgroundColor(androidx.core.graphics.ColorUtils.setAlphaComponent(context.getColor(R.color.mg_bg), AppearancePrefs.wpDim(context) * 255 / 100))
         wpImg.visibility = View.VISIBLE; wpScrim.visibility = View.VISIBLE
     }

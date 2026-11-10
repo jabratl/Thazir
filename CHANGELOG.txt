@@ -1,3 +1,8 @@
+0.0.396 (FIX: wallpaper froze / crashed the app)
+- WHY: setting a wallpaper made the app stick and crash. No stack trace was available, so the likely causes were removed: the wallpaper was read from disk on the UI thread, the slider re-read it and re-set the image for every tick, and it was kept as a 4 byte per pixel bitmap.
+- What: Wallpaper.kt: the bitmap is read on a worker thread (UI thread never decodes), RGB_565 (half the memory), a file that cannot be read is not retried every time, the new wallpaper is ready before the pages redraw, the scaled-down source bitmap is freed. HomeView: the same bitmap is not set again for each dim change. AppearanceScreen: the dim slider does no bitmap work; saving the image cannot throw on the UI thread.
+- CHANGED BEHAVIOUR (on purpose): the home page shows the wallpaper a moment after start (read in the background); slightly fewer colours (RGB_565) in the wallpaper.
+
 0.0.395 (FIX: 4 GB of grabber temp pieces in the browser's File System)
 - WHY: the 0.0.394 report showed app_webview/Default/File System/000 = 4.18 GB. That is the Media Grabber's segment store (OPFS mg-seg): pieces of failed / cancelled / closed-early stream downloads were kept for 3 days and only cleaned when the downloader page was opened again.
 - What: NEW FsTemp.kt: at a cold app start (before any WebView) the File System folder is deleted when it is over 1 GB or when asked in Settings > Downloads > "Grabber temporary data". downloader.js purge: pieces without a live-recording note now go after 6 hours (live recordings still 3 days).

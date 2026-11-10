@@ -324,9 +324,9 @@ object AppearanceScreen {
                 BrowserExtras.pickImage { uri ->
                     Util.toast(act, "Saving wallpaper...")
                     Thread {
-                        val ok = Wallpaper.save(act, uri)
+                        val ok = try { Wallpaper.save(act, uri) } catch (_: Throwable) { false }
                         act.runOnUiThread {
-                            if (ok) { Wallpaper.notifyChanged(); if (page == "wp") fill() } else Util.toast(act, "Could not use this image")
+                            try { if (ok) { Wallpaper.notifyChanged(); if (page == "wp") fill() } else Util.toast(act, "Could not use this image") } catch (_: Throwable) { } // 0.0.395: never crash here
                         }
                     }.start()
                 }
@@ -350,7 +350,7 @@ object AppearanceScreen {
                     override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
                         if (!fromUser) return
                         AppearancePrefs.setWpDim(act, p)
-                        updateWpScrim(Wallpaper.load(act) != null)
+                        updateWpScrim(AppearancePrefs.hasWallpaper(act)) // 0.0.395: no bitmap work while the slider moves
                         Wallpaper.notifyChanged()
                     }
                     override fun onStartTrackingTouch(sb: SeekBar?) { }
