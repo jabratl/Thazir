@@ -433,22 +433,35 @@ object DiagScreen {
                 setOnClickListener { click() }
             }
             val lp = { first: Boolean -> LinearLayout.LayoutParams(0, dp(44), 1f).apply { if (!first) marginStart = dp(8) } }
+            fun txt(): String = if (DiagMore.redactOn(act)) DiagMore.redact(r.text()) else r.text() // 0.0.402: optional redact (default OFF = same text as before)
             row.addView(btn("Copy", true) {
                 (act.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-                    .setPrimaryClip(ClipData.newPlainText("MGB report", r.text()))
+                    .setPrimaryClip(ClipData.newPlainText("MGB report", txt()))
                 Util.toast(act, "Report copied")
             }, lp(true))
             row.addView(btn("Share", false) {
                 try {
                     act.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
-                        .putExtra(Intent.EXTRA_SUBJECT, "MGB diagnose report").putExtra(Intent.EXTRA_TEXT, r.text()), null))
+                        .putExtra(Intent.EXTRA_SUBJECT, "MGB diagnose report").putExtra(Intent.EXTRA_TEXT, txt()), null))
                 } catch (e: Exception) { Util.toast(act, "Cannot share") }
             }, lp(false))
             row.addView(btn("Save .txt", false) {
-                val where = saveTxt(act, r.text())
+                val where = saveTxt(act, txt())
                 Util.toast(act, if (where != null) "Saved: $where" else "Could not save the file")
             }, lp(false))
-            return row
+            // 0.0.402: one line under the buttons: hide links and e-mails in what leaves the app
+            val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            col.addView(row, LinearLayout.LayoutParams(MATCH, WRAP))
+            val tog = TextView(act).apply {
+                fun show() { text = "Hide links and e-mails when copying / sharing: " + (if (DiagMore.redactOn(act)) "ON" else "OFF") + " (tap to change)" }
+                show()
+                setTextColor(act.getColor(R.color.mg_text_dim))
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12f)
+                setPadding(dp(4), dp(10), dp(4), dp(4))
+                setOnClickListener { DiagMore.setRedact(act, !DiagMore.redactOn(act)); show() }
+            }
+            col.addView(tog, LinearLayout.LayoutParams(MATCH, WRAP))
+            return col
         }
 
         private fun groupCard(group: String, secs: List<DiagReport.Section>): View {

@@ -58,7 +58,8 @@ object DiagReport {
     fun build(ctx: Context, tabs: TabManager?, tabId: Int, cb: (Report) -> Unit) {
         // 0.0.393: the app-data size walk can take a moment: do it off the main thread, then build on the main thread as before
         Thread {
-            val sizes = safe(listOf("not readable")) { DataSizes.lines(ctx) }
+            val sizes0 = safe(listOf("not readable")) { DataSizes.lines(ctx) }
+            val sizes = safe(sizes0) { val t = DiagMore.trendLines(ctx); if (t.isEmpty() || sizes0.isEmpty()) sizes0 else sizes0.take(1) + t + sizes0.drop(1) } // 0.0.402: size trend under the total
             val ex = safe(DiagExtra.empty()) { DiagExtra.collect(ctx) } // 0.0.397: last crash + OS exit reasons (worker thread)
             android.os.Handler(android.os.Looper.getMainLooper()).post { dataSizeLines = sizes; extra = ex; buildNow(ctx, tabs, tabId, cb) }
         }.also { it.isDaemon = true }.start()
@@ -155,6 +156,7 @@ object DiagReport {
 
         // ---- Settings health
         val setL = ArrayList<String>()
+        setL.addAll(safe(emptyList<String>()) { DiagMore.changed(ctx) }) // 0.0.402: what differs from the default, on top
         var setLevel = INFO
         setL.add("Ad blocker: " + (if (AdBlock.enabled) "on" else "off"))
         setL.add("HTTPS-only: " + (if (safe(false) { HttpsOnly.on(ctx) }) "on" else "off"))
@@ -243,6 +245,8 @@ object DiagReport {
         val errs = Diag.recent(20, null, true)
         secs.add(Section("errors", "Device", "Recent errors", if (errs.any { it.ts >= now - FIVE_MIN }) WARN else INFO,
             if (errs.isEmpty()) listOf("No errors logged") else errs.flatMap { listOf(fmtEvent(it)) + crashFrames(it) }))
+
+        secs.add(safe(Section("sites", "Browser", "Errors by site", INFO, listOf("not readable"))) { DiagMore.bySite(now) }) // 0.0.402
 
         // ---- verdict (S86: rule engine, DiagRules.kt)
         val x = DiagRules.Facts()

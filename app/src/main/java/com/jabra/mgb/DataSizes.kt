@@ -9,6 +9,7 @@ import java.io.File
  */
 object DataSizes {
     private const val MAX_FILES = 300000
+    @Volatile var lastTotal = -1L // 0.0.402: bytes of the last measured app data total (DiagMore size trend)
 
     private fun size(f: File, budget: IntArray): Long {
         if (budget[0] <= 0) return 0L
@@ -36,7 +37,9 @@ object DataSizes {
             val budget = intArrayOf(MAX_FILES)
             val root = ctx.filesDir.parentFile ?: return listOf("data dir not readable")
             val rows = (root.listFiles() ?: emptyArray()).map { it to size(it, budget) }.sortedByDescending { it.second }
-            out.add("App data total: " + mb(rows.sumOf { it.second }) + " (" + root.name + ")")
+            val grand = rows.sumOf { it.second }
+            lastTotal = grand // 0.0.402
+            out.add("App data total: " + mb(grand) + " (" + root.name + ")")
             for ((f, s) in rows) out.add(f.name + (if (f.isDirectory) "/" else "") + ": " + mb(s))
             top(ctx.filesDir, "files", 8, out)
             top(File(root, "app_webview"), "app_webview", 5, out)

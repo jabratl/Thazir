@@ -2,6 +2,7 @@ DONE in 0.0.398: item 4 (UI stalls watcher, UiStall.kt).
 DONE in 0.0.399: item 5 (battery + notifications lines, rule notif-off-downloads; no permission added).
 DONE in 0.0.400: item 6 (Download errors section; uses existing interruptedList, no DownloadsApi change).
 DONE in 0.0.401: item 7 (Extensions section; ContentInjector errors NOT kept, open).
+DONE in 0.0.402: items 8, 9, 10, 11 (DiagMore.kt). Item 12 NOT done on purpose (new permission = ask the owner first).
 STATUS 0.0.397 (newest on top, the 0.0.396 plan is kept below unchanged)
 DONE in 0.0.397: item 1 (Last crash), item 2 (App exits + rule exit-lowmem-anr), item 3 (DownloadFolder.status + rule folder-lost).
 HOW IT WORKS: see HANDOFF.txt STATUS 0.0.397 and CHANGELOG 0.0.397. New file DiagExtra.kt; hooks: CrashLog.showLast (1 line), DiagReport (worker thread call + 2 sections + folderLost), DiagRules (3 Facts + 2 rules), DownloadFolder (new status()).
