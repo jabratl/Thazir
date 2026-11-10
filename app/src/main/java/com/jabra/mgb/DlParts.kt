@@ -40,6 +40,8 @@ object DlParts {
     private const val TAG = "dlparts"
     private const val MAX_WORKERS = 16          // global cap over all running downloads
     private const val MB = 1024L * 1024L
+    private const val TAIL_MAX_SPLITS = 16      // 0.0.373 (N5): at most this many extra parts per download
+    private const val TAIL_MIN_LEFT = 8L * MB   // 0.0.373 (N5): a part is only split while it still has this much left
     private val N_ALLOWED = intArrayOf(2, 4, 6, 8, 16)
 
     private val used = AtomicInteger(0)
@@ -56,10 +58,13 @@ object DlParts {
     }
 
     /** Live state of one parts download. n parts (fixed layout); a round runs w workers that take the unfinished parts. */
-    private class Run(val item: DlItem, val total: Long, val n: Int) {
-        val starts = LongArray(n)
-        val ends = LongArray(n)
-        val done = AtomicLongArray(n)
+    private class Run(val item: DlItem, val total: Long, n0: Int) {
+        // 0.0.373 (N5): n can grow (smart tail splits a running part); arrays have room for TAIL_MAX_SPLITS more parts, so they never move
+        @Volatile var n = n0
+        val starts = LongArray(n0 + TAIL_MAX_SPLITS)
+        val ends = LongArray(n0 + TAIL_MAX_SPLITS)
+        val done = AtomicLongArray(n0 + TAIL_MAX_SPLITS)
+        var splits = 0
         val calls: MutableSet<Call> = ConcurrentHashMap.newKeySet<Call>()
         val next = AtomicInteger(0)
         @Volatile var stop = false
@@ -110,6 +115,9 @@ object DlParts {
     /** 0.0.372 (N4): parts for this item: its own pn (2..16) first, else the global setting. */
     private fun nParts(item: DlItem): Int = if (item.pn in N_ALLOWED) item.pn else nParts()
 
+    /** 0.0.373 (N5): "Smart tail" switch, default OFF = every part stays as cut at the start (old behaviour). */
+    private fun tailOn(): Boolean = try { sp().getBoolean("dp_tail", false) } catch (e: Exception) { false }
+
     private fun nParts(): Int = try { sp().getInt("dp_n", 4).let { if (it in N_ALLOWED) it else 4 } } catch (e: Exception) { 4 }
 
     private fun minBytes(): Long {
@@ -139,7 +147,9 @@ object DlParts {
     /** 0.0.359 (S3): fraction 0..1 of every part of a RUNNING parts download. null = this id is not running in parts mode. */
     fun snapshot(id: Int): List<Double>? {
         val r = runs[id] ?: return null
-        return List(r.n) { i ->
+        val order = synchronized(r) { (0 until r.n).sortedBy { r.starts[it] } }   // 0.0.373: split parts are shown in file order
+        return List(order.size) { k ->
+            val i = order[k]
             val len = r.ends[i] - r.starts[i] + 1L
             if (len <= 0L) 1.0 else (r.done.get(i).toDouble() / len).coerceIn(0.0, 1.0)
         }
@@ -226,8 +236,12 @@ object DlParts {
     private fun saveState(r: Run, vld: String) {
         try {
             val arr = JSONArray()
-            for (i in 0 until r.n) arr.put(JSONObject().put("s", r.starts[i]).put("e", r.ends[i]).put("d", r.done.get(i)))
-            val o = JSONObject().put("v", 1).put("url", r.item.url).put("total", r.total).put("validator", vld).put("n", r.n).put("parts", arr)
+            var cnt = 0
+            // 0.0.373 (N5): written in file order (start ascending) under the split lock => always contiguous, still a valid v1 file
+            synchronized(r) {
+                for (i in (0 until r.n).sortedBy { r.starts[it] }) { arr.put(JSONObject().put("s", r.starts[i]).put("e", r.ends[i]).put("d", r.done.get(i))); cnt++ }
+            }
+            val o = JSONObject().put("v", 1).put("url", r.item.url).put("total", r.total).put("validator", vld).put("n", cnt).put("parts", arr)
             val f = stateFile(r.item.id)
             val tmp = File(f.parentFile, f.name + ".tmp")
             tmp.writeText(o.toString())
@@ -437,9 +451,48 @@ object DlParts {
     private fun worker(r: Run, ch: FileChannel) {
         while (!r.stop) {
             val i = r.next.getAndIncrement()
-            if (i >= r.n) return
+            if (i >= r.n) {
+                // 0.0.373 (N5): no unfinished part left for this worker: split the biggest running one (switch dp_tail, default OFF)
+                val j = if (tailOn()) trySplit(r) else -1
+                if (j < 0) return
+                work(r, j, ch)
+                continue
+            }
             work(r, i, ch)
         }
+    }
+
+    /**
+     * 0.0.373 (N5): smart tail. Cuts the second half of the part with the most bytes left (>= TAIL_MIN_LEFT) into a NEW part at the end of the arrays
+     * and returns its index (the calling worker takes it at once). The old part's end shrinks; its worker reads r.ends[i] every loop, so it stops there.
+     * No extra connection: the free worker is the one that fetches the new half. -1 = nothing to split.
+     */
+    private fun trySplit(r: Run): Int {
+        try {
+            synchronized(r) {
+                if (r.stop || r.splits >= TAIL_MAX_SPLITS) return -1
+                var best = -1
+                var left = 0L
+                for (p in 0 until r.n) {
+                    val rem = r.ends[p] - (r.starts[p] + r.done.get(p)) + 1L
+                    if (rem > left) { left = rem; best = p }
+                }
+                if (best < 0 || left < TAIL_MIN_LEFT) return -1
+                val cur = r.starts[best] + r.done.get(best)
+                val mid = cur + left / 2L
+                val j = r.n
+                r.starts[j] = mid
+                r.ends[j] = r.ends[best]
+                r.done.set(j, 0L)
+                r.ends[best] = mid - 1L
+                r.splits++
+                r.n = j + 1
+                Diag.i(TAG, "smart tail: part $best split, new part $j has ${(r.ends[j] - mid + 1L) / 1024} KB")
+                return j
+            }
+        } catch (e: Exception) { return -1 }
+        @Suppress("UNREACHABLE_CODE")
+        return -1
     }
 
     /** One part: bytes starts[i]..ends[i]. Errors retry 3 times from the byte already written; the kind of failure decides what happens next. */
@@ -447,7 +500,7 @@ object DlParts {
         var tries = 0
         while (!r.stop) {
             val from = r.starts[i] + r.done.get(i)
-            val to = r.ends[i]
+            var to = r.ends[i]
             if (from > to) return
             var resp: Response? = null
             try {
@@ -471,7 +524,9 @@ object DlParts {
                 val src = body.byteStream()
                 val buf = ByteArray(65536)
                 var pos = from
-                while (pos <= to) {
+                while (true) {
+                    to = r.ends[i]                         // 0.0.373 (N5): a split may have shortened this part
+                    if (pos > to) break
                     if (r.stop) return
                     val want = minOf(buf.size.toLong(), to - pos + 1L).toInt()
                     val n = src.read(buf, 0, want)
@@ -484,7 +539,7 @@ object DlParts {
                     DlLimit.throttle(n) { r.stop }               // 0.0.370 (N2): shared speed limit
                     tries = 0                              // progress made: a later drop gets fresh retries
                 }
-                if (pos <= to) throw IOException("short part")
+                if (pos <= r.ends[i]) throw IOException("short part")
                 r.fin.incrementAndGet()
                 return
             } catch (e: Exception) {

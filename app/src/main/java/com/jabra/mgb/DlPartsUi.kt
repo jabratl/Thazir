@@ -208,6 +208,20 @@ object DlPartsUi {
             choice(c5, "Downloads at the same time", "More downloads wait in line. Applies to downloads that start next", "dl_max_jobs", mj, DlLimit.JOBS) { "$it" }
             box.addView(c5, LinearLayout.LayoutParams(MATCH, WRAP))
 
+            // 0.0.373 (N5): smart tail
+            val c7 = card()
+            val r7 = rowView("Smart tail", null, "When a part finishes early, the biggest part still running is cut in two so no connection sits idle at the end. Off = parts stay as cut at the start")
+            val s7 = SwitchCompat(act).apply { isChecked = try { sp(act).getBoolean("dp_tail", false) } catch (e: Exception) { false }; ThazirSwitch.tint(this) }
+            r7.addView(s7, LinearLayout.LayoutParams(WRAP, WRAP))
+            val flip7 = {
+                try { sp(act).edit().putBoolean("dp_tail", !sp(act).getBoolean("dp_tail", false)).apply() } catch (e: Exception) { }
+                fill()
+            }
+            r7.setOnClickListener { flip7() }
+            s7.setOnClickListener { flip7() }
+            c7.addView(r7, LinearLayout.LayoutParams(MATCH, WRAP))
+            box.addView(c7, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
+
             // 0.0.371 (N3): auto-resume
             val c6 = card()
             val r6 = rowView("Resume by itself", null, "After the app was closed or the network came back, cut downloads continue alone (download rules are respected). Off = press Resume yourself")
