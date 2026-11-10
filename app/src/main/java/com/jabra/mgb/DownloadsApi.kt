@@ -335,6 +335,9 @@ object DownloadsApi {
 
     fun active(): List<DlItem> = synchronized(items) { items.values.filter { it.state == "in_progress" && !it.paused } }
 
+    /** 0.0.371 (N3): interrupted downloads (DlAutoResume decides which ones may continue). */
+    fun interruptedList(): List<DlItem> = synchronized(items) { items.values.filter { it.state == "interrupted" } }
+
     /** S45: downloads the user paused (still resumable, notification stays). */
     fun pausedList(): List<DlItem> = synchronized(items) { items.values.filter { it.state == "in_progress" && it.paused } }
 
@@ -649,6 +652,7 @@ object DownloadsApi {
             nm.createNotificationChannel(NotificationChannel(CH_DONE, "Finished downloads", NotificationManager.IMPORTANCE_DEFAULT))
         }
         synchronized(items) { load() }
+        DlAutoResume.start() // 0.0.371 (N3): does nothing unless pref dl_auto_resume is ON
         (app as Application).registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
             override fun onActivityResumed(a: Activity) { top = WeakReference(a) }
             override fun onActivityPaused(a: Activity) { if (top?.get() === a) top = null }

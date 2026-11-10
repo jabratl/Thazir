@@ -72,6 +72,9 @@ object DlRules {
         return null
     }
 
+    /** 0.0.371 (N3): true = no rule blocks a download right now (used by DlAutoResume). */
+    fun canRun(c: Context): Boolean = try { blocker(c) == null } catch (e: Exception) { true }
+
     /** Hook in EngineApi.send. true = the message was taken (held or dropped), the caller must not send it. */
     fun hold(msg: JSONObject): Boolean {
         val c = ctx ?: return false

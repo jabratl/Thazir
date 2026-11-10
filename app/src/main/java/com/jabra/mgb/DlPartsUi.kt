@@ -207,6 +207,20 @@ object DlPartsUi {
             val mj = try { sp(act).getInt("dl_max_jobs", 3).let { if (it in DlLimit.JOBS) it else 3 } } catch (e: Exception) { 3 }
             choice(c5, "Downloads at the same time", "More downloads wait in line. Applies to downloads that start next", "dl_max_jobs", mj, DlLimit.JOBS) { "$it" }
             box.addView(c5, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            // 0.0.371 (N3): auto-resume
+            val c6 = card()
+            val r6 = rowView("Resume by itself", null, "After the app was closed or the network came back, cut downloads continue alone (download rules are respected). Off = press Resume yourself")
+            val s6 = SwitchCompat(act).apply { isChecked = DlAutoResume.enabled(act); ThazirSwitch.tint(this) }
+            r6.addView(s6, LinearLayout.LayoutParams(WRAP, WRAP))
+            val flip6 = {
+                try { sp(act).edit().putBoolean("dl_auto_resume", !DlAutoResume.enabled(act)).apply() } catch (e: Exception) { }
+                fill()
+            }
+            r6.setOnClickListener { flip6() }
+            s6.setOnClickListener { flip6() }
+            c6.addView(r6, LinearLayout.LayoutParams(MATCH, WRAP))
+            box.addView(c6, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
         }
         fill()
         d.setContentView(root)
