@@ -1,3 +1,9 @@
+0.0.376 (MODIFY: Settings > Downloads: own "Downloader" group + clearer hints)
+- WHY: "App downloader" and "Download rules" sat at the end of "Quality and files"; "Download engine" (streams) and "App downloader" (files) both talked about speed.
+- What (SettingsScreen.kt only): new group Sub("Downloader") = Link inbox, App downloader, Download rules. Hint of App downloader: "For files (tab link, blob, grabber file): ..."; hint of Download engine: "For streams (HLS / DASH): ...". No id, pref, handler or logic change.
+- NOT tested: Gradle build (CI), device, Settings > Downloads at 360 / 1280dp, dark + light, search.
+- Files: SettingsScreen.kt (+ the 0.0.375 files, see below), app/build.gradle.kts, CHANGELOG.txt, HANDOFF+Thazir+0.0.376.txt.
+
 0.0.375 (MODIFY: "App downloader" section + "Download in parts" ON by default)
 - WHY: the native downloader is the main file downloader of Thazir (tab link, blob / data, plain grabber files) but its switches sat under a sheet called "Download in parts", and parts mode was OFF although F1 (0.0.368) made it safe on rate-limiting servers (proof.ovh.net finished).
 - What (SettingsScreen.kt, DlPartsUi.kt): the Settings row and the sheet are now called "App downloader" (own sheet intro: what it handles; streams HLS / DASH stay in the extension engine). Sheet order: Parts (switch, number of parts, only files bigger than) > Speed and queue (speed limit, downloads at the same time, Resume by itself) > Advanced (big grabber files, Single grabber files: app downloader, Smart tail - marked experimental). Row summary "Parts ON · 4" / "Parts OFF". Search keywords kept (old words still find it).

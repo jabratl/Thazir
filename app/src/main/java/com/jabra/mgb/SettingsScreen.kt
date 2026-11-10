@@ -1091,13 +1091,14 @@ object SettingsScreen {
                 },
                 Row(R.drawable.ic_download, "Audio only downloads", if (QualityPrefs.audioOnlyOn()) "ON" else "OFF", "Streams with a separate audio track. Also in batches") { QualityPrefs.toggleAudioOnly(act) { fill() } },
                 Row(R.drawable.ic_folder, "Batch: folder and number", if (NameIndex.on()) "ON" else "OFF", "Show folder and 01 - title for batches") { NameIndex.toggle(act) { fill() } },
+                Sub("Downloader"), // 0.0.376: app downloader + rules + link inbox in their own group
                 Row(R.drawable.ic_download, "Link inbox", if (LinkInbox.on(act)) "ON" else "OFF", "Card for a shared or copied video link") { LinkInbox.setOn(act, !LinkInbox.on(act)); fill() },
-                Row(R.drawable.ic_download, "App downloader", DlPartsUi.summary(act), "Thazir's own file downloader: parts, speed limit, queue, resume") { DlPartsUi.open(act) { fill() } }, // 0.0.359 S3
+                Row(R.drawable.ic_download, "App downloader", DlPartsUi.summary(act), "For files (tab link, blob, grabber file): parts, speed limit, queue, resume") { DlPartsUi.open(act) { fill() } }, // 0.0.359 S3
                 Row(R.drawable.ic_download, "Download rules", DlRules.summary(act), "Wi-Fi only, battery, storage. Checked before a download starts") { DlRules.dialog(act) { fill() } }
             ))
             category("grabber", R.drawable.ic_settings, "Grabber and buttons", "Engine, buttons, player", listOf(
                 Sub("Engine"),
-                Row(R.drawable.ic_settings, "Download engine", engSummary(), "Speed, retries, limits, live recording") { DlEngine.open(act) },
+                Row(R.drawable.ic_settings, "Download engine", engSummary(), "For streams (HLS / DASH): speed, retries, limits, live recording") { DlEngine.open(act) },
                 Row(R.drawable.ic_settings, "Grabber settings", "", "Sites, theme, backup, reset") { GrabSet.open(act) },
                 Row(R.drawable.ic_screen, "All V82 options page", "", "The full original settings page") { ext("options.html") },
                 Sub("Player and buttons"),
