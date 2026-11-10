@@ -56,6 +56,16 @@ object DiagReport {
 
     /** Main thread. Asks the engine for the page state (V77 detected items) once, then builds. cb always runs. */
     fun build(ctx: Context, tabs: TabManager?, tabId: Int, cb: (Report) -> Unit) {
+        // 0.0.393: the app-data size walk can take a moment: do it off the main thread, then build on the main thread as before
+        Thread {
+            val sizes = safe(listOf("not readable")) { DataSizes.lines(ctx) }
+            android.os.Handler(android.os.Looper.getMainLooper()).post { dataSizeLines = sizes; buildNow(ctx, tabs, tabId, cb) }
+        }.also { it.isDaemon = true }.start()
+    }
+
+    @Volatile private var dataSizeLines: List<String> = emptyList()
+
+    private fun buildNow(ctx: Context, tabs: TabManager?, tabId: Int, cb: (Report) -> Unit) {
         val tab = safe(null) { if (tabId >= 0) tabs?.byId(tabId) else tabs?.active }
         val id = tab?.id ?: -1
         var done = false
@@ -108,6 +118,8 @@ object DiagReport {
         secs.add(Section("storage", "Download", "Storage", if (lowStore) BAD else INFO, listOf(
             "Free on the phone (app area): " + (if (free < 0) "unknown" else mb(free)),
             "Download folder: " + (if (tree == null) "not chosen (default folder)" else safe("chosen") { DownloadFolder.label(ctx) }))))
+
+        secs.add(Section("appdata", "Download", "App data size", INFO, dataSizeLines.ifEmpty { listOf("not measured") })) // 0.0.393: where "User data" sits
 
         // ---- Network
         val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
