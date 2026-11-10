@@ -36,12 +36,12 @@ object DlPartsUi {
     private val MINS = intArrayOf(2, 8, 32)
 
     private fun sp(c: Context) = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
-    private fun on(c: Context): Boolean = try { sp(c).getBoolean("dp_on", false) } catch (e: Exception) { false }
+    private fun on(c: Context): Boolean = try { sp(c).getBoolean("dp_on", true) } catch (e: Exception) { false }
     private fun parts(c: Context): Int = try { sp(c).getInt("dp_n", 4).let { if (it in PARTS) it else 4 } } catch (e: Exception) { 4 }
     private fun minMb(c: Context): Int = try { sp(c).getInt("dp_min_mb", 8) } catch (e: Exception) { 8 }
 
     /** Value text of the Settings row. */
-    fun summary(c: Context): String = if (on(c)) "ON · ${parts(c)} parts" else "OFF"
+    fun summary(c: Context): String = if (on(c)) "Parts ON · ${parts(c)}" else "Parts OFF"
 
     private fun mbText(v: Int): String = "$v MB"
 
@@ -67,14 +67,14 @@ object DlPartsUi {
             layoutParams = ViewGroup.LayoutParams(MATCH, (act.resources.displayMetrics.heightPixels * 0.9f).toInt())
         }
         root.addView(TextView(act).apply {
-            text = "Download in parts"
+            text = "App downloader"
             setTextColor(cText)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
             typeface = Typeface.DEFAULT_BOLD
             setPadding(dp(4), 0, 0, dp(2))
         })
         root.addView(TextView(act).apply {
-            text = "One big file is fetched in several pieces at the same time. Applies to the next download."
+            text = "Thazir's own file downloader: tab links, blob / data and plain grabber files. Streams (HLS / DASH) are fetched by the extension engine, then the app saves the final file. Changes apply to the next download."
             setTextColor(cDim)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             setPadding(dp(4), 0, 0, dp(6))
@@ -147,7 +147,7 @@ object DlPartsUi {
 
         fill = {
             box.removeAllViews()
-            box.addView(head("Switch"))
+            box.addView(head("Parts"))
             val c1 = card()
             val r = rowView("Download in parts", null, "Faster on servers that allow it. Off = the normal single connection")
             val s = SwitchCompat(act).apply { isChecked = on(act); ThazirSwitch.tint(this) }
@@ -161,15 +161,38 @@ object DlPartsUi {
             c1.addView(r, LinearLayout.LayoutParams(MATCH, WRAP))
             box.addView(c1, LinearLayout.LayoutParams(MATCH, WRAP))
 
-            box.addView(head("Options"))
             val c2 = card()
             choice(c2, "Parts", "More parts = faster, but some sites refuse and the app falls back to one connection", "dp_n", parts(act), PARTS) { "$it" }
             val cm = minMb(act)
             val mins = if (MINS.contains(cm)) MINS else (MINS.toList() + cm).sorted().toIntArray()
             choice(c2, "Only files bigger than", "Smaller files use the normal single connection", "dp_min_mb", cm, mins) { mbText(it) }
-            box.addView(c2, LinearLayout.LayoutParams(MATCH, WRAP))
+            box.addView(c2, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
 
-            box.addView(head("Grabber"))
+            // 0.0.370 (N2): control of the native downloader
+            box.addView(head("Speed and queue"))
+            val c5 = card()
+            val lim = try { sp(act).getInt("dl_limit_kbps", 0) } catch (e: Exception) { 0 }
+            choice(c5, "Speed limit", "All native downloads together. Off = full speed", "dl_limit_kbps", lim, DlLimit.LIMITS) {
+                if (it == 0) "Off" else if (it >= 1024) "${it / 1024} MB/s" else "$it KB/s"
+            }
+            val mj = try { sp(act).getInt("dl_max_jobs", 3).let { if (it in DlLimit.JOBS) it else 3 } } catch (e: Exception) { 3 }
+            choice(c5, "Downloads at the same time", "More downloads wait in line. Applies to downloads that start next", "dl_max_jobs", mj, DlLimit.JOBS) { "$it" }
+            box.addView(c5, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            // 0.0.371 (N3): auto-resume
+            val c6 = card()
+            val r6 = rowView("Resume by itself", null, "After the app was closed or the network came back, cut downloads continue alone (download rules are respected). Off = press Resume yourself")
+            val s6 = SwitchCompat(act).apply { isChecked = DlAutoResume.enabled(act); ThazirSwitch.tint(this) }
+            r6.addView(s6, LinearLayout.LayoutParams(WRAP, WRAP))
+            val flip6 = {
+                try { sp(act).edit().putBoolean("dl_auto_resume", !DlAutoResume.enabled(act)).apply() } catch (e: Exception) { }
+                fill()
+            }
+            r6.setOnClickListener { flip6() }
+            s6.setOnClickListener { flip6() }
+            c6.addView(r6, LinearLayout.LayoutParams(MATCH, WRAP))
+            box.addView(c6, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
+            box.addView(head("Advanced"))
             val c3 = card()
             val r3 = rowView("Also for big grabber files", null, "Bilibili and similar sites: video / audio pieces are fetched together, same number of parts. Off = one piece after the other")
             val s3 = SwitchCompat(act).apply { isChecked = gParts() > 1; ThazirSwitch.tint(this) }
@@ -197,20 +220,9 @@ object DlPartsUi {
             c4.addView(r4, LinearLayout.LayoutParams(MATCH, WRAP))
             box.addView(c4, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
 
-            // 0.0.370 (N2): control of the native downloader
-            box.addView(head("Control"))
-            val c5 = card()
-            val lim = try { sp(act).getInt("dl_limit_kbps", 0) } catch (e: Exception) { 0 }
-            choice(c5, "Speed limit", "All native downloads together. Off = full speed", "dl_limit_kbps", lim, DlLimit.LIMITS) {
-                if (it == 0) "Off" else if (it >= 1024) "${it / 1024} MB/s" else "$it KB/s"
-            }
-            val mj = try { sp(act).getInt("dl_max_jobs", 3).let { if (it in DlLimit.JOBS) it else 3 } } catch (e: Exception) { 3 }
-            choice(c5, "Downloads at the same time", "More downloads wait in line. Applies to downloads that start next", "dl_max_jobs", mj, DlLimit.JOBS) { "$it" }
-            box.addView(c5, LinearLayout.LayoutParams(MATCH, WRAP))
-
             // 0.0.373 (N5): smart tail
             val c7 = card()
-            val r7 = rowView("Smart tail", null, "When a part finishes early, the biggest part still running is cut in two so no connection sits idle at the end. Off = parts stay as cut at the start")
+            val r7 = rowView("Smart tail", null, "When a part finishes early, the biggest part still running is cut in two so no connection sits idle at the end. Experimental, not fully tested yet. Off = parts stay as cut at the start")
             val s7 = SwitchCompat(act).apply { isChecked = try { sp(act).getBoolean("dp_tail", false) } catch (e: Exception) { false }; ThazirSwitch.tint(this) }
             r7.addView(s7, LinearLayout.LayoutParams(WRAP, WRAP))
             val flip7 = {
@@ -222,19 +234,6 @@ object DlPartsUi {
             c7.addView(r7, LinearLayout.LayoutParams(MATCH, WRAP))
             box.addView(c7, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
 
-            // 0.0.371 (N3): auto-resume
-            val c6 = card()
-            val r6 = rowView("Resume by itself", null, "After the app was closed or the network came back, cut downloads continue alone (download rules are respected). Off = press Resume yourself")
-            val s6 = SwitchCompat(act).apply { isChecked = DlAutoResume.enabled(act); ThazirSwitch.tint(this) }
-            r6.addView(s6, LinearLayout.LayoutParams(WRAP, WRAP))
-            val flip6 = {
-                try { sp(act).edit().putBoolean("dl_auto_resume", !DlAutoResume.enabled(act)).apply() } catch (e: Exception) { }
-                fill()
-            }
-            r6.setOnClickListener { flip6() }
-            s6.setOnClickListener { flip6() }
-            c6.addView(r6, LinearLayout.LayoutParams(MATCH, WRAP))
-            box.addView(c6, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
         }
         fill()
         d.setContentView(root)

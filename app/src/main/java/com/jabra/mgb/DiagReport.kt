@@ -144,7 +144,7 @@ object DiagReport {
         // 0.0.361: Download in parts (native prefs + engine key partsN)
         setL.add(safe("Download in parts: not readable") {
             val up = ctx.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
-            "Download in parts: " + (if (up.getBoolean("dp_on", false)) "on" else "off") + ", " + up.getInt("dp_n", 4) + " parts, only files over " + up.getInt("dp_min_mb", 8) + " MB, grabber files " + (sync?.optInt("partsN", 1) ?: 1)
+            "Download in parts: " + (if (up.getBoolean("dp_on", true)) "on" else "off") + ", " + up.getInt("dp_n", 4) + " parts, only files over " + up.getInt("dp_min_mb", 8) + " MB, grabber files " + (sync?.optInt("partsN", 1) ?: 1)
         })
         // 0.0.374 (N6): native download control (speed limit, simultaneous downloads, auto-resume, smart tail, app downloader for grabber files)
         setL.add(safe("Download control: not readable") {

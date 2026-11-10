@@ -1,3 +1,12 @@
+0.0.375 (MODIFY: "App downloader" section + "Download in parts" ON by default)
+- WHY: the native downloader is the main file downloader of Thazir (tab link, blob / data, plain grabber files) but its switches sat under a sheet called "Download in parts", and parts mode was OFF although F1 (0.0.368) made it safe on rate-limiting servers (proof.ovh.net finished).
+- What (SettingsScreen.kt, DlPartsUi.kt): the Settings row and the sheet are now called "App downloader" (own sheet intro: what it handles; streams HLS / DASH stay in the extension engine). Sheet order: Parts (switch, number of parts, only files bigger than) > Speed and queue (speed limit, downloads at the same time, Resume by itself) > Advanced (big grabber files, Single grabber files: app downloader, Smart tail - marked experimental). Row summary "Parts ON · 4" / "Parts OFF". Search keywords kept (old words still find it).
+- What (DlParts.kt, DlPartsUi.kt, DiagReport.kt): dp_on default is now ON. Only a user who never touched the switch is affected; a saved ON / OFF stays. Files under the "only bigger than" size, servers without Range, errors = the old single connection, as before.
+- What (HowToUse.kt, DownloadService.kt, DlParts.kt): help text and comments follow the new name / default.
+- Safe / fallback: no new pref, no id, no layout xml, no logic change. Switch Parts OFF = exactly 0.0.367 behaviour. Resume by itself, Smart tail, Speed limit, app downloader for grabber files stay OFF / Off.
+- NOT tested: Gradle build (CI), device, sheet at 360 / 1280dp, dark + light, Settings search for "parts", regression list 1-4 with parts ON (tab link, blob / data, grabber direct file, HLS / Bilibili).
+- Files: DlPartsUi.kt, SettingsScreen.kt, DlParts.kt, DownloadService.kt, DiagReport.kt, HowToUse.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF+Thazir+0.0.375.txt.
+
 0.0.374 (N6: diagnose + help)
 - DiagReport.kt: Settings line "Download control" (speed limit, downloads at the same time, auto-resume, smart tail, app downloader); last 2 "autoresume" lines in Queue / jobs. HowToUse.kt: Big file slow? text now lists the Control switches. No behaviour change.
 

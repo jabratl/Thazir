@@ -173,7 +173,7 @@ object SettingsScreen {
             "Ask before Close all" to "confirm dialog tabs",
             "Reduce motion" to "animation animations effects fade transitions speed",
             "Download folder" to "storage location save path sd card",
-            "Download in parts" to "parallel connections threads segments multi part faster speed 1dm range",
+            "App downloader" to "download in parts parallel connections threads segments multi part faster speed limit queue resume smart tail 1dm range native",
             "Download quality" to "resolution 1080 720 best height",
             "Convert .ts to .mp4" to "hls merge remux",
             "Subtitles and file names" to "srt vtt naming template language",
@@ -1092,7 +1092,7 @@ object SettingsScreen {
                 Row(R.drawable.ic_download, "Audio only downloads", if (QualityPrefs.audioOnlyOn()) "ON" else "OFF", "Streams with a separate audio track. Also in batches") { QualityPrefs.toggleAudioOnly(act) { fill() } },
                 Row(R.drawable.ic_folder, "Batch: folder and number", if (NameIndex.on()) "ON" else "OFF", "Show folder and 01 - title for batches") { NameIndex.toggle(act) { fill() } },
                 Row(R.drawable.ic_download, "Link inbox", if (LinkInbox.on(act)) "ON" else "OFF", "Card for a shared or copied video link") { LinkInbox.setOn(act, !LinkInbox.on(act)); fill() },
-                Row(R.drawable.ic_download, "Download in parts", DlPartsUi.summary(act), "Big files in several pieces at once. Faster on servers that allow it") { DlPartsUi.open(act) { fill() } }, // 0.0.359 S3
+                Row(R.drawable.ic_download, "App downloader", DlPartsUi.summary(act), "Thazir's own file downloader: parts, speed limit, queue, resume") { DlPartsUi.open(act) { fill() } }, // 0.0.359 S3
                 Row(R.drawable.ic_download, "Download rules", DlRules.summary(act), "Wi-Fi only, battery, storage. Checked before a download starts") { DlRules.dialog(act) { fill() } }
             ))
             category("grabber", R.drawable.ic_settings, "Grabber and buttons", "Engine, buttons, player", listOf(

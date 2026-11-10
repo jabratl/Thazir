@@ -1,0 +1,26 @@
+================================================================================
+HANDOFF - Thazir, repo now 0.0.375 (step: "App downloader" section + parts ON by default)
+Next free version = 0.0.376. Based on HANDOFF_Thazir_0.0.374_FINAL (F1 + N1..N6 code done) - read that plan for details.
+================================================================================
+USER NOTE: not a coder. Reply in Banglish, short numbered steps. Final reply under 10 lines. Stop at 85% session.
+RULE 0: patch only, changed files only, switch OFF = old behaviour, try/catch + silent fallback. Nothing is built in the chat sandbox (CI + phone test).
+
+DONE in 0.0.375 (MODIFY)
+- Settings row + sheet renamed "Download in parts" -> "App downloader" (it is Thazir's main file downloader: tab link, blob / data, plain grabber files; HLS / DASH stay in the extension engine, the app saves the final file).
+- Sheet order: Parts (switch, number, only bigger than) > Speed and queue (speed limit, downloads at the same time, Resume by itself) > Advanced (big grabber files, Single grabber files: app downloader, Smart tail = experimental). Row summary "Parts ON · 4" / "Parts OFF".
+- dp_on default = ON (DlParts.enabled, DlPartsUi.on, DiagReport). Saved user choice stays. Reason: F1 proved the 429 case; every failure falls back to one connection.
+- Still OFF / Off by default: dl_auto_resume (N3), dp_tail (N5), dl_limit_kbps = 0, directToNative (N1).
+- Files: DlPartsUi.kt, SettingsScreen.kt, DlParts.kt, DownloadService.kt, DiagReport.kt, HowToUse.kt, build.gradle.kts, CHANGELOG.txt.
+ROLLBACK: DlParts.enabled / DlPartsUi.on / DiagReport "dp_on" default true -> false; titles back to "Download in parts". Users can switch Parts OFF = 0.0.367 behaviour.
+
+NOT TESTED: Gradle build, device, sheet 360 / 1280dp dark + light, Settings search ("parts", "downloader"), regression 1-4 with parts ON.
+
+NEXT (user tests, in this order; report what fails, fix only that)
+ 1. Tab link small + big, pause / resume / cancel, file in the folder.  2. blob / data.  3. grabber direct file.  4. HLS episode + Bilibili.
+ 5. proof.ovh.net/files/100Mb.dat finishes (parts ON, default).  6. Speed limit 256 KB/s.  7. Downloads at the same time = 1.
+ 8. Resume by itself ON (Wi-Fi off/on, force-stop + reopen).  9. Details on a tab-link row, Parts Single / 2.
+ 10. Smart tail ON, big file, file opens / size correct.  11. app downloader for grabber files ON.  12. private tab, backup / restore, rotation with the sheet open.
+ If 1-4 pass: consider Resume by itself default ON (one line in DlAutoResume.enabled). Smart tail stays OFF until 10 passes.
+OPEN IDEAS: "Waiting" label for queued downloads; byte progress for N1 engine card; per-site "1 connection" memory; native HLS downloader (separate big project); START_STICKY.
+
+KICKOFF LINE: "Thazir: read HANDOFF+Thazir+0.0.375.txt, fix <what failed> only. Patch only, changed files only, stop at 85%, final reply max 8 lines, Banglish."

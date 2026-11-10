@@ -240,7 +240,7 @@ object Downloader {
     }
 
     private fun runHttp(item: DlItem) {
-        // 0.0.357: parts mode first (switch dp_on, OFF by default). true = whole file is in partFile; false / error = old code below.
+        // 0.0.357: parts mode first (switch dp_on, ON by default since 0.0.375). true = whole file is in partFile; false / error = old code below.
         try { if (DlParts.run(item)) return } catch (e: IOException) { throw e } catch (e: Exception) { Diag.w("dlparts", "hook " + e.javaClass.simpleName) }
         val part = partFile(item.id)
         var have = if (part.exists()) part.length() else 0L

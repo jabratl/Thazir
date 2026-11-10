@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicReference
  *            FALSE = parts mode not used or failed (switch OFF, POST, no Range, size unknown, small file,
  *                    low disk, any error): the caller runs the OLD single connection code, unchanged.
  *            throws IOException = user paused / cancelled (Downloader.run stops silently on that).
- * Switch pref dp_on is OFF by default.
+ * Switch pref dp_on is ON by default since 0.0.375 (any problem = silent fallback to one connection; the user can switch it OFF).
  * 0.0.358 (S2): state file ID.pp.json (saved ~1 s + on pause) => pause / resume / process death continue every part from its own offset;
  *   changed size / validator = start again; adaptive fewer connections (429 / 403 / 200 / 5xx); network loss keeps the state (Resume button).
  */
@@ -110,7 +110,7 @@ object DlParts {
     private fun sp() = DownloadsApi.app.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
 
     /** Default OFF (Rule 0). Flip later = change false to true here. */
-    fun enabled(): Boolean = try { sp().getBoolean("dp_on", false) } catch (e: Exception) { false }
+    fun enabled(): Boolean = try { sp().getBoolean("dp_on", true) } catch (e: Exception) { false }
 
     /** 0.0.372 (N4): parts for this item: its own pn (2..16) first, else the global setting. */
     private fun nParts(item: DlItem): Int = if (item.pn in N_ALLOWED) item.pn else nParts()
