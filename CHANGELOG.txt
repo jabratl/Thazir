@@ -1,3 +1,8 @@
+0.0.395 (FIX: 4 GB of grabber temp pieces in the browser's File System)
+- WHY: the 0.0.394 report showed app_webview/Default/File System/000 = 4.18 GB. That is the Media Grabber's segment store (OPFS mg-seg): pieces of failed / cancelled / closed-early stream downloads were kept for 3 days and only cleaned when the downloader page was opened again.
+- What: NEW FsTemp.kt: at a cold app start (before any WebView) the File System folder is deleted when it is over 1 GB or when asked in Settings > Downloads > "Grabber temporary data". downloader.js purge: pieces without a live-recording note now go after 6 hours (live recordings still 3 days).
+- CHANGED BEHAVIOUR (on purpose): unsaved stream pieces over 1 GB are removed at app start; a failed stream download older than 6 hours cannot be continued. Logins, cookies, localStorage, IndexedDB are not touched.
+
 0.0.394 (FIX: leftover download files + app data size report)
 - WHY: "User data" was GBs while little was downloaded. Found with the report: app_webview/Default (website data) was 4.2 GB.
 - What: removing or failing an unfinished download now deletes its ID.part / ID.pp; a download whose file could not be saved drops its full copy and shows a message; startup sweep deletes files in files/dl that nothing can resume; Settings > Downloads > "Leftover download files" (size + delete); Report center has a new "App data size" section (folders, WebView profile, files/dl) measured off the main thread.

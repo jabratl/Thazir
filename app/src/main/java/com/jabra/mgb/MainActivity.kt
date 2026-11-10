@@ -46,6 +46,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        FsTemp.wipeIfDue(applicationContext) // 0.0.395: before any WebView exists in this process
         siteWin = SiteWindow.isSite(intent); shared = !siteWin || !SiteWindow.mainUp // 0.0.247 (A7)
         if (siteWin) { SiteWindow.live++; SiteWindow.used = true } else SiteWindow.mainUp = true
         UiMode.apply(this) // S20: saved theme (System / Light / Dark), before the Activity is created

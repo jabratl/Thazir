@@ -336,9 +336,10 @@ const Disk = {
       const base = await this.base(), old = [];
       for await (const [n, h] of base.entries()) {
         if (h.kind !== 'directory') continue;
-        let newest = 0;
-        for await (const [, f] of h.entries()) if (f.kind === 'file') newest = Math.max(newest, (await f.getFile()).lastModified);
-        if (!newest || Date.now() - newest > 3 * 86400e3) old.push(n);
+        let newest = 0, live = false;
+        for await (const [fn, f] of h.entries()) if (f.kind === 'file') { if (fn === 'meta.json') live = true; newest = Math.max(newest, (await f.getFile()).lastModified); }
+        // 0.0.395: a live recording (meta.json) can still be recovered: 3 days. Anything else (finished / failed pieces) goes after 6 hours.
+        if (!newest || Date.now() - newest > (live ? 3 * 86400e3 : 6 * 3600e3)) old.push(n);
       }
       for (const n of old) await base.removeEntry(n, { recursive: true });
     } catch (e) { /* optional */ }
