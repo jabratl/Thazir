@@ -38,6 +38,7 @@ object CrashLog {
         val file = File(act.applicationContext.filesDir, F)
         if (!file.exists()) return
         val text = try { file.readText() } catch (e: Exception) { "" }
+        DiagExtra.saveCrashCopy(act.applicationContext, text, try { file.lastModified() } catch (e: Exception) { 0L }) // 0.0.397: the Report center shows it later
         file.delete()
         if (text.isBlank() || act.isFinishing) return
         val tv = TextView(act).apply {

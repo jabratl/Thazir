@@ -27,6 +27,16 @@ object DownloadFolder {
         return if (ok) u else null
     }
 
+    /** 0.0.397: NONE = nothing was picked, OK = picked and still allowed, LOST = picked but the permission is gone (files go to Downloads). treeUri() is unchanged. */
+    enum class Status { NONE, OK, LOST }
+
+    fun status(c: Context): Status {
+        val s = prefs(c).getString("tree", null) ?: return Status.NONE
+        val u = try { Uri.parse(s) } catch (e: Exception) { return Status.LOST }
+        val ok = try { c.contentResolver.persistedUriPermissions.any { it.uri == u && it.isWritePermission } } catch (e: Exception) { false }
+        return if (ok) Status.OK else Status.LOST
+    }
+
     /** Put files into sub-folders (like MGB/...) inside the picked folder. Default OFF: files land straight in it. */
     fun subfolders(c: Context) = prefs(c).getBoolean("sub", false)
 

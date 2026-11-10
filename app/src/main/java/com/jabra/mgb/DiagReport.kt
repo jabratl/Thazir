@@ -59,11 +59,13 @@ object DiagReport {
         // 0.0.393: the app-data size walk can take a moment: do it off the main thread, then build on the main thread as before
         Thread {
             val sizes = safe(listOf("not readable")) { DataSizes.lines(ctx) }
-            android.os.Handler(android.os.Looper.getMainLooper()).post { dataSizeLines = sizes; buildNow(ctx, tabs, tabId, cb) }
+            val ex = safe(DiagExtra.empty()) { DiagExtra.collect(ctx) } // 0.0.397: last crash + OS exit reasons (worker thread)
+            android.os.Handler(android.os.Looper.getMainLooper()).post { dataSizeLines = sizes; extra = ex; buildNow(ctx, tabs, tabId, cb) }
         }.also { it.isDaemon = true }.start()
     }
 
     @Volatile private var dataSizeLines: List<String> = emptyList()
+    @Volatile private var extra: DiagExtra.Bundle = DiagExtra.empty() // 0.0.397
 
     private fun buildNow(ctx: Context, tabs: TabManager?, tabId: Int, cb: (Report) -> Unit) {
         val tab = safe(null) { if (tabId >= 0) tabs?.byId(tabId) else tabs?.active }
@@ -96,6 +98,9 @@ object DiagReport {
                 " (build " + safe(0L) { if (Build.VERSION.SDK_INT >= 28) ctx.packageManager.getPackageInfo(ctx.packageName, 0).longVersionCode else 0L } + ")",
             "Engine: " + safe("?") { EngineHost.status().lineSequence().firstOrNull() ?: "?" }
         )))
+        val ex = extra // 0.0.397
+        secs.add(ex.crash)
+        secs.add(ex.exits)
         val wv = safe("?") { WebView.getCurrentWebViewPackage()?.let { it.packageName + " " + it.versionName } ?: "unknown" }
         val wvMajor = safe(0) { wv.substringAfterLast(' ').substringBefore('.').toInt() }
         secs.add(Section("webview", "Browser", "WebView", if (wvMajor in 1..99) WARN else INFO, listOf(
@@ -114,10 +119,11 @@ object DiagReport {
 
         val free = safe(-1L) { StatFs(ctx.filesDir.path).availableBytes }
         val tree = safe(null) { DownloadFolder.treeUri(ctx) }
+        val folderLost = safe(false) { DownloadFolder.status(ctx) == DownloadFolder.Status.LOST } // 0.0.397
         val lowStore = free in 0 until LOW_STORAGE
         secs.add(Section("storage", "Download", "Storage", if (lowStore) BAD else INFO, listOf(
             "Free on the phone (app area): " + (if (free < 0) "unknown" else mb(free)),
-            "Download folder: " + (if (tree == null) "not chosen (default folder)" else safe("chosen") { DownloadFolder.label(ctx) }))))
+            "Download folder: " + (if (folderLost) "LOST permission (files go to Downloads, choose the folder again)" else if (tree == null) "not chosen (default folder)" else safe("chosen") { DownloadFolder.label(ctx) }))))
 
         secs.add(Section("appdata", "Download", "App data size", INFO, dataSizeLines.ifEmpty { listOf("not measured") })) // 0.0.393: where "User data" sits
 
@@ -148,7 +154,7 @@ object DiagReport {
         var setLevel = INFO
         setL.add("Ad blocker: " + (if (AdBlock.enabled) "on" else "off"))
         setL.add("HTTPS-only: " + (if (safe(false) { HttpsOnly.on(ctx) }) "on" else "off"))
-        setL.add("Download folder set: " + (if (tree != null) "yes" else "no (default)"))
+        setL.add("Download folder set: " + (if (tree != null) "yes" else if (folderLost) "LOST permission (default Downloads)" else "no (default)"))
         val sync = safe(null) { ChromeBridge.sync.get(null) }
         if (sync != null) {
             for (k in listOf("blockAds", "mergeAV", "concurrency", "maxJobs", "sniffSeconds")) if (sync.has(k)) setL.add("V82 $k = " + sync.opt(k))
@@ -246,6 +252,8 @@ object DiagReport {
         x.httpsOnly = safe(false) { HttpsOnly.on(ctx) }
         x.adblock = AdBlock.enabled
         x.folderSet = tree != null
+        x.folderLost = folderLost // 0.0.397
+        x.exitLowMem = ex.lowMem24h; x.exitAnr = ex.anr24h // 0.0.397
         x.engineAnswered = state != null
         x.engineErrors = Diag.countSince("engine", now - FIVE_MIN, "E")
         x.detected = items?.length() ?: 0

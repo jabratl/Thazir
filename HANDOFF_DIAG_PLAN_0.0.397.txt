@@ -1,0 +1,58 @@
+STATUS 0.0.397 (newest on top, the 0.0.396 plan is kept below unchanged)
+DONE in 0.0.397: item 1 (Last crash), item 2 (App exits + rule exit-lowmem-anr), item 3 (DownloadFolder.status + rule folder-lost).
+HOW IT WORKS: see HANDOFF.txt STATUS 0.0.397 and CHANGELOG 0.0.397. New file DiagExtra.kt; hooks: CrashLog.showLast (1 line), DiagReport (worker thread call + 2 sections + folderLost), DiagRules (3 Facts + 2 rules), DownloadFolder (new status()).
+HOW THE OWNER TESTS: install, open Report center. "App exits" lists earlier exits at once (Android 11+). "Last crash" says "No crash saved yet" until a crash happens; after the next crash + dialog, it stays in the report. Folder: pick a folder, then remove the app's access in the phone's file settings, or reinstall-restore, and the report says LOST. Paste the report as text.
+NOT TESTED: Gradle build (CI), device.
+ROLLBACK: delete DiagExtra.kt, restore CrashLog / DiagReport / DiagRules / DownloadFolder from 0.0.396.
+NEXT: items 4-7 (one topic per version; suggest 0.0.398 = item 4 UI stalls watcher, it needs a main-thread Handler ping and a foreground check, so it is its own version).
+OPEN: wallpaper fix of 0.0.396 still not confirmed on device.
+
+===== OLD PLAN (0.0.396) =====
+HANDOFF: Thazir Report center (diagnostics) - what to add next. State: app 0.0.396. Owner talks Banglish (Bangla in English letters), wants short, plain answers. Write patches as a zip, see "HOW TO DELIVER".
+
+== WHY (what happened in the last chat) ==
+User Data was 4.6 GB. Cause was found ONLY after a size section was added to the report: app_webview/Default/File System/000 = 4.18 GB (Media Grabber OPFS store "mg-seg" in assets/ext/downloader.js). Fixed in 0.0.395 (FsTemp.kt). Then "wallpaper makes the app stick and crash" came with NO stack trace, so the fix in 0.0.396 (Wallpaper.kt, HomeView.kt, AppearanceScreen.kt) was a guess from reading code. Lesson: a report that shows the real cause saves a whole round. The 3 items in "DO FIRST" would have shown the wallpaper cause at once.
+
+== WHAT ALREADY EXISTS (do not rebuild) ==
+- DiagReport.kt: build() = size walk on a worker thread, then buildNow() on main thread -> assemble() builds List<Section>. Section(id, group, title, level, lines), levels INFO / WARN / BAD. Helper safe(default){...} never throws.
+- DiagRules.kt: rules from Facts (x.folderSet, ...) -> findings; each finding has a fix id (wifi, storage, webview, reload, settings, downloads, notif, appinfo; run by DiagScreen.runFix).
+- DiagScreen.kt: Report center UI (Copy / Share). Entry: 3-dot menu "Report center", Settings > Downloads > Report center, CrashLog dialog "Full report".
+- Diag.kt: ring buffer of events (Diag.i / Diag.w / Diag.e / Diag.crash), saved to filesDir/mgb_diag.jsonl, survives a crash.
+- CrashLog.kt: uncaught handler writes filesDir/mgb_crash.txt (6000 chars) and calls Diag.crash. showLast() shows it ONCE at the next start in a dialog and DELETES the file. CrashHint = crash counter ("keeps crashing, revert?").
+- DataSizes.kt (0.0.394): "App data size" section (data dir folders, files/, app_webview/Default children, files/dl, leftovers).
+- DlLeftovers.kt, FsTemp.kt: leftover download files, grabber temp data.
+
+== DO FIRST (small, low risk, no new permission) ==
+1. LAST CRASH IN THE REPORT. CrashLog.showLast deletes mgb_crash.txt, so the report never has it. Keep a copy: before file.delete() write the text to filesDir/mgb_crash_last.txt (and time). New section "Last crash" in DiagReport.assemble: time, app version, thread, first 12 lines of the stack (the line with com.jabra.mgb is what matters). Level BAD if the crash was in the last 24 h.
+2. WHY THE OS ENDED THE APP. ActivityManager.getHistoricalProcessExitReasons(packageName, 0, 10) (API 30+; minSdk is 24, so guard with SDK_INT >= 30). Section "App exits": time, reason (REASON_CRASH, REASON_ANR, REASON_LOW_MEMORY, REASON_USER_REQUESTED, REASON_SIGNALED, REASON_EXCESSIVE_RESOURCE_USAGE ...), importance, description text, pss/rss if given. Add a rule: 3 or more LOW_MEMORY / ANR in 24 h -> WARN with a short hint. This shows "stuck then crash" causes that a Java stack trace never shows.
+3. DOWNLOAD FOLDER PERMISSION. DownloadFolder.treeUri() returns null both when nothing was picked AND when the persisted permission was lost, so the rule "folder-unset" (DiagRules.kt line ~125) cannot tell them apart. Add DownloadFolder.status(c) = NONE / OK / LOST (pref "tree" exists but persistedUriPermissions has no write grant) and set Facts.folderLost. Rule "folder-lost": WARN "The folder you picked lost its permission. Files go to Downloads." fix "settings".
+
+== DO SECOND ==
+4. MAIN-THREAD STALL WATCHER (ANR hint). A daemon thread posts a tiny Runnable to the main Handler every 1 s; if it did not run within 2.5 s, log Diag.w("stall", ms + main thread stack top 6 frames from Looper.getMainLooper().thread.stackTrace). Keep max 20 events. Show as section "UI stalls" (count + last 3 with stack). Run it only while the app is in the foreground. This would have pointed at the wallpaper decode.
+5. BATTERY OPTIMISATION + NOTIFICATIONS. PowerManager.isIgnoringBatteryOptimizations(packageName); NotificationManagerCompat.areNotificationsEnabled(). Lines in the Device section; WARN if downloads exist and notifications are off. Fix id "appinfo" opens app settings. Do NOT add a permission (REQUEST_IGNORE_BATTERY_OPTIMIZATIONS needs the owner OK).
+6. PER-DOWNLOAD ERRORS. Section "Download errors": last 10 DlItem with state interrupted (id, error code, host only, size, time). Source: DownloadsApi.items (add a read-only accessor like keepIds()). No full URLs.
+7. EXTENSIONS. Section "Extensions": installed ids/names, enabled, last error from ExtBackground / ContentInjector if one is kept, and the size of each extension's storage (filesDir/exts_data/<id>). Needs a look at how errors are kept; if none are, add a small ring per extension.
+
+== DO LATER / ASK FIRST ==
+8. Per-site error counts (http 405 / 429, JS errors) grouped by host in "Recent errors".
+9. Size trend: keep the last 5 data-size totals (prefs) and show the change since the last report.
+10. "Changed from default" settings list at the top of the Settings section.
+11. Redact mode when sharing: hosts only, no query strings, no emails (the report already masks some).
+12. Anything that needs a NEW permission (battery whitelist request, camera) - ask the owner first.
+
+== RULES FOR THIS CODEBASE ==
+- Every new section must be wrapped so it can never crash the report: safe(listOf("not readable")) { ... }. Heavy work (file walks, exit-reason queries) off the main thread like DataSizes (see DiagReport.build).
+- Do not read page text or full URLs into the report (privacy). Hosts only.
+- Mark new code with the version (e.g. // 0.0.397). Add a CHANGELOG.txt entry on top: first line = title, then lines starting "- WHY:", "- What:", "- CHANGED BEHAVIOUR (on purpose):", then ONE blank line (the CI release notes read from line 2 up to the first blank line).
+- Change appVersionName in app/build.gradle.kts (next is 0.0.397). CI sets versionCode from the run number.
+- There is no Android SDK in the chat sandbox: the Gradle build CANNOT be run there. Say so; the owner runs CI and pastes errors.
+
+== HOW TO DELIVER (IMPORTANT, this broke a build once) ==
+The GitHub workflow (.github/workflows/build.yml) unzips every *.zip in the repo ROOT and copies it over the repo. If a zip has exactly ONE top-level folder, that folder's CONTENT is copied to the repo root. So the zip MUST be: Thazir_v0_0_397.zip containing ONE folder Thazir_v0_0_397/ that contains app/... (and CHANGELOG.txt). A zip with a top-level app/ folder would copy app/build.gradle.kts over the ROOT build.gradle.kts and the build fails with "Plugin com.android.application was not found". The zip name must contain _vX_Y_Z.zip (workflow sorts by it). Only include changed files. The owner uploads the zip to the repo root (no unzip). Workflow deletes the zip after applying it, and auto-reverts main to the last good release if the build fails.
+Test before sending: copy the original tree, run the same unzip + "cp -a" logic, check that root build.gradle.kts is unchanged.
+
+== HOW THE OWNER TESTS ==
+Install -> open Report center -> the new sections are there ("Last crash", "App exits", folder status). To test item 1: nothing to do until a crash happens; to see something at once, "App exits" lists earlier exits. Ask the owner to paste the report as text.
+
+== NOT TESTED / OPEN ==
+0.0.396 wallpaper fix: not confirmed on device. If it still sticks or crashes, the new "Last crash" and "UI stalls" sections are the way to find the real cause; until then ask for the crash dialog text (it shows once at the next start, Copy button).

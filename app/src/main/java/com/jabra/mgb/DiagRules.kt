@@ -33,6 +33,9 @@ object DiagRules {
         var httpsOnly = false
         var adblock = false
         var folderSet = true
+        var folderLost = false          // 0.0.397: a folder was picked but its permission is gone
+        var exitLowMem = 0              // 0.0.397: OS exits with LOW_MEMORY in the last 24 h
+        var exitAnr = 0                 // 0.0.397: OS exits with ANR in the last 24 h
         var engineAnswered = true       // get-state answered (only meaningful when pageIsWeb)
         var engineErrors = 0            // engine console errors in the last 5 min
         var detected = 0
@@ -80,6 +83,7 @@ object DiagRules {
         // 4-6 storage / memory
         if (x.freeBytes in 0 until LOW_STORAGE) out.add(f("store-low", B, "Free storage is under 200 MB.", "Free some space; downloads and merging need room for the temporary file too.", "storage", "Open storage settings"))
         if (x.dlCodes.contains("FILE_NO_SPACE")) out.add(f("dl-nospace", B, "A download stopped: the phone is out of space.", "Delete files or choose a download folder on a card with more space, then resume.", "storage", "Open storage settings"))
+        if (x.exitLowMem + x.exitAnr >= 3) out.add(f("exit-lowmem-anr", W, "Android ended MGB ${x.exitLowMem + x.exitAnr} times in 24 h (low memory ${x.exitLowMem}, not responding ${x.exitAnr}).", "Close other apps and tabs. If it keeps happening, copy the report and send it (see App exits and Last crash).")) // 0.0.397
         if (x.ramLow) out.add(f("ram-low", W, "The phone is low on memory.", "Close other tabs and apps. Tabs get killed when memory runs out."))
 
         // 7-8 tab / WebView
@@ -122,7 +126,8 @@ object DiagRules {
             out.add(f("adblock-strict", I, "Nothing was detected and the ad blocker is on.", "Some sites hide their player when ads are blocked. Turn the ad blocker off for a test.", "settings", "Open Settings"))
 
         // 20 setup: folder / permissions
-        if (!x.folderSet) out.add(f("folder-unset", I, "No download folder was chosen.", "Files go to the default Downloads folder. Choose a folder in Settings if you want another place.", "settings", "Open Settings"))
+        if (x.folderLost) out.add(f("folder-lost", W, "The folder you picked lost its permission. Files go to Downloads.", "Choose the download folder again in Settings.", "settings", "Open Settings")) // 0.0.397
+        if (!x.folderSet && !x.folderLost) out.add(f("folder-unset", I, "No download folder was chosen.", "Files go to the default Downloads folder. Choose a folder in Settings if you want another place.", "settings", "Open Settings"))
         if (x.notifDenied) out.add(f("notif-denied", I, "Notifications are not allowed.", "Download progress will not show in the notification bar. Allow notifications for MGB.", "notif", "Open notification settings"))
         if (x.bgRestricted) out.add(f("bg-restricted", W, "Android restricts MGB in the background.", "Long downloads may be stopped. Set battery use for MGB to Unrestricted.", "appinfo", "Open app settings"))
 
