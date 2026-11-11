@@ -1,0 +1,13 @@
+# Optional. Put this file at .github/dependabot.yml in the repo.
+# Once a month GitHub opens a "Pull request" when a GitHub action used by build.yml has a newer version.
+# You only click Merge (the build is skipped automatically because no app code changes).
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    ignore:
+      # gradle/actions v6 adds a proprietary cache component with separate Terms of Use; stay on the open v5
+      - dependency-name: "gradle/actions"
+        update-types: ["version-update:semver-major"]
