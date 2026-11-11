@@ -1,0 +1,618 @@
+JABRA KEYBOARD v0.2.0 - ONE FULL CHECKLIST (phone test)
+Tick each line. If something is wrong, send: which line + what you see (+ screenshot). One bug = one fix version.
+Settings place: keyboard gear (on ?123) -> More settings; or the app icon screen (5 groups, same settings). "ABC (apply)" = go back to letters and apply.
+
+A. INSTALL / UPDATE
+ [ ] App icon on home screen = keycap with letter + orange cursor.
+ [ ] App screen: Enable keyboard, Choose keyboard, test box work. Check for updates says up to date / new version.
+ [ ] App screen: 5 group buttons open / close; tap a row = ON/OFF or next choice changes.
+
+B. ENGLISH TYPING
+ [ ] Letters type; Shift = one capital, double-tap Shift = CAPS (blue), tap = off.
+ [ ] Auto caps: new empty note -> first letter capital; after ". " capital again (More settings -> Auto caps OFF stops it).
+ [ ] Hold Backspace = deletes by itself (also in ?123 symbols and number pad).
+ [ ] Enter: Send / Search in chat / search boxes, new line in notes.
+ [ ] Number row on top (OFF in settings = gone). Large number row = taller.
+ [ ] Small grey hint on each letter (q = ~ with number row ON, 1..0 with it OFF). Hold "a" -> "@" only (no "a"). Quick tap -> "a". Hide long-press hints = labels gone, hold still works. Long-press characters OFF = no hold effect.
+ [ ] Key popup ON: bubble above the pressed letter (check top row + Dark theme).
+ [ ] Double-space period ON: "hello" space space -> "hello. ". Not in password / email fields.
+ [ ] Space key: drag left / right = cursor moves; plain tap = space. Cursor speed Fast / Slow changes it.
+ [ ] Long-press time (System / Fast / Slow): hold "," (emoji), ?123 (keyboard picker), language key (Avro <-> Probhat).
+
+C. BANGLA
+ [ ] Language key: EN <-> Bangla. Avro: "ami valo achi" -> আমি ভালো আছি, "bangla" -> বাংলা; backspace removes one roman letter at a time.
+ [ ] Long-press language key -> Probhat (caption প্রভা), extra vowel row appears. Compare keys with your Ridmik Probhat (send photo if different).
+ [ ] Avro / Probhat show NO small hint characters.
+ [ ] Password / number field: English letters only.
+
+D. PANELS
+ [ ] ?123 symbols (2 pages), 123 number pad; number / phone field opens number pad by itself (Auto numpad).
+ [ ] Emoji panel (hold "," or Emoji key): emoji are pictures (no boxes), Recent tab, tabs scroll, backspace holds.
+ [ ] Edit bar: first key = mode key; clipboard, All, Cut, Copy, Paste, Plain, Aa work. Edit bar OFF = gone.
+ [ ] Clipboard: copied text appears; tap = paste; pin / delete / search / Clear (asks twice, keeps pinned). Password field copy NOT saved.
+ [ ] Formatter (Aa): pick source, Preview, Replace (second tap confirms), Undo, Copy formatted into Google Docs, Rules from clipboard, Presets. Password field: Aa does nothing. Formatter OFF = Aa gone.
+
+E. PC MODE
+ [ ] Mode key (robot icon = Phone, monitor icon = PC): tap switches; PC rows appear (Esc Tab Ctrl Alt, F1-F12, arrows, Home / End / PgUp / PgDn / Del / Ins, ^A ^C ^V ^X ^Z).
+ [ ] In Termux / Chrome / code editor: Esc, Tab, F-keys, arrows work. Ctrl (light blue = once, double tap = lock) + letter works. At 360 px the F1-F12 row is readable.
+ [ ] Mode key OFF / Remember mode OFF behave as written in More settings.
+
+F. LOOK / SIZE
+ [ ] Theme: Classic / Blue / Mint / Sand / Dark. Dark: icons, notes, hints, popup all readable.
+ [ ] Look: Jabra = rounded keys, function keys in own colour, pill space key, pressed key darker. Classic = old look exactly.
+ [ ] One-hand Left / Right / Off (also landscape and in symbols / number pad / emoji).
+ [ ] Size: height % portrait and landscape separately (70% and 150%: nothing cut off, PC rows + number row ok); one-hand width %; Reset sizes.
+ [ ] Globe key ON = next keyboard; Voice key ON = phone voice typing; Emoji key ON = emoji panel. Space key still wide enough with all 3.
+ [ ] Vibrate / Sound toggles work.
+ [ ] Rotate phone: layout fine in landscape.
+
+G. TOOLBAR (v0.2.1)
+ [ ] More settings -> Edit toolbar >: the page opens, list scrolls, buttons readable (dark + light).
+ [ ] Toolbar: Custom -> ABC (apply): a scrolling row appears, Aa is first after the « key. Toolbar: Classic -> ABC: old bar back.
+ [ ] [First] / [up] / [down] / [Hide] change the order after ABC (apply); the list does not jump to the top after a tap.
+ [ ] Swipe the row sideways: it scrolls and does NOT press a key by accident; a normal tap still works (Aa, clipboard, All, Cut, Copy, Paste, Plain, mode key).
+ [ ] « key folds the row to: fold key + first item; » unfolds.
+ [ ] Reset toolbar restores the default order.
+ [ ] v0.2.2: Edit toolbar -> scroll down: Emoji, Number pad, Symbols, Settings, Voice, Next keyboard, Theme, One-hand, Size are Hidden. Press Show on some, ABC (apply): they appear and each does its job (Theme / One-hand change the look at once).
+ [ ] New icons readable in dark + light; Reset toolbar hides all extras again.
+ [ ] v0.2.3: More settings -> Cursor / select pad >: pad opens. Arrows move the cursor (hold = repeat), Home / End work, All / Copy / Cut / Paste work, Backspace holds.
+ [ ] Select (turns blue) + arrows / Home / End = selection grows. Select OFF = plain movement. Which apps do NOT react (note the names).
+ [ ] Toolbar item "Pad": Edit toolbar -> Show -> ABC (apply) opens the same pad. All 4 rows + ABC visible at 360 px, dark + light.
+
+H. THEMES (v0.2.4)
+ [ ] More settings -> Theme picker >: grid of tiles opens, scrolled to your current theme; 3 tiles per row at 360 px, names not cut.
+ [ ] Tap a tile: blue frame + check moves to it, the page itself changes colour, list does not jump to the top.
+ [ ] ABC (apply): the keyboard uses that theme (letters, function keys, space, Shift). Check all 13 new ones once (dark ones: icons, hints, popup, notes readable; Ocean / Seaweed Grey / Dusk especially).
+ [ ] Look: Jabra shows the function-key colour of the theme; Look: Classic = old look.
+ [ ] Old Theme: tap to cycle (More settings) and the Theme toolbar item go through all 18 and wrap to Classic.
+ [ ] Symbols, number pad, emoji, pad, toolbar page, clipboard: still readable in the new themes.
+
+I. CLIPBOARD (v0.2.5.1)
+ [ ] Copy 2-3 texts in any app. Open the clipboard (Clip key on the edit bar): top bar shows ABC | Search | Add | Clear, all readable at 360 px.
+ [ ] Pin one clip with the star: small header lines "Pinned" and "Recent" appear. Unpin it (or only one group has items): headers go away. While Search is open: no headers.
+ [ ] Add: type a sentence in a note app, open the clipboard, tap Add: line "Added to Recent" shows and the sentence is on top of Recent.
+ [ ] Add with text SELECTED: only the selected part is saved.
+ [ ] Add in an empty field: "Field is empty", nothing saved. Add in a password field: nothing saved.
+ [ ] Add with a very long text (more than 2000 characters): "Too long (max 2000)", nothing saved.
+ [ ] Clear: first tap shows "Sure? (unpinned)" (text not cut), second tap clears; pinned clips stay.
+ [ ] Old things still work: tap a clip = paste + back to letters, star pins, x deletes, Search finds.
+ [ ] App screen -> Clipboard & tools -> Clip lines: 2 / 4 / 6 lines. Open the clipboard with a long clip (also Bangla): the clip shows more lines, rows get taller, list scrolls, star and x still tap.
+ [ ] v0.2.5.2: clipboard now has a header line: right side button "View: List". Default = old list. Short messages ("Added to Recent") show on its left.
+ [ ] Tap "View: List": it becomes "View: Cards"; 2 columns of cards, "Pinned" and "Recent" labels. Tap again = back to list.
+ [ ] Cards: tap card text = pastes + back to letters. Star = pin / unpin (card moves to Pinned). x = delete.
+ [ ] Odd number of clips: last card is not stretched full width. Long clip (also Bangla): lines follow Clip lines 2 / 4 / 6, card text not cut at the sides, 360 px ok.
+ [ ] Scroll the cards with a finger: scrolls, does not paste by accident. Search in Cards view finds clips, no section labels.
+ [ ] App screen -> Clipboard & tools -> Clipboard view: List / Cards matches the button. Add / Clear / ABC still work in both views.
+ [ ] v0.2.5.3: header line now has "View" and "Manage". Press Manage: "0 selected", row All | Pin | Unpin | Delete | Done appears, all fit at 360 px.
+ [ ] Tap clips: check box fills, "N selected" grows, NOTHING is pasted. Works in List and in Cards.
+ [ ] Long-press a clip (not in select mode): select mode starts with that clip checked. Scrolling the list does not trigger it.
+ [ ] All, then Unpin / Pin: pinned tags follow. Select more than 30 to pin: message "Pinned N of M (limit 30)".
+ [ ] Delete: first tap "Sure? delete N" (text not cut), second tap deletes; "Deleted N"; pinned ones you selected are deleted too. Tap Done instead = nothing deleted.
+ [ ] Done and ABC leave select mode; close and reopen the clipboard = normal mode, nothing checked.
+ [ ] Search in select mode: the selection stays; Add and Clear still work. Outside select mode: star, x, tap = paste work as before.
+
+J) v0.2.6 gradient themes + Key border
+ [ ] More settings -> Theme picker: 2 new tiles "Purple Haze" and "Coral Sunset" with a gradient. Tap one, ABC (apply): keyboard background is a gradient, key text readable (360 px + landscape).
+ [ ] Open More settings, Size, Toolbar, Pad, Emoji panels with a gradient theme: same gradient behind them, texts readable.
+ [ ] App screen -> Look -> Key border: Borderless. Keys lose their box, a soft highlight shows while pressed. Check Classic, Dark and a gradient theme. Back to Border = old look.
+ [ ] Borderless: Shift / Caps still shows a highlight (may be faint on gradient themes - tell me if you cannot see it). Space, Enter, backspace keys look fine.
+ [ ] Old themes (Classic / Blue / Dark ...) look exactly as before when Key border = Border.
+
+K) v0.2.8 letter size
+ [ ] gear > More settings > Size >: new row "Letter size: 100%". Press + : 110%, 120% ... Press ABC (apply): letters on the keyboard are bigger.
+ [ ] Press - below 100%: letters smaller. Limits 80% and 220%. Reset sizes -> letters back to old size.
+ [ ] 360 px portrait and landscape, dark + light theme: big letters do not get cut, Probhat letters fine, hint labels still readable.
+
+L) v0.2.9 bold letters
+ [ ] Size page: "Bold letters: OFF" -> tap -> ON, ABC (apply): letters bold. Tap again + ABC: normal. Reset sizes -> OFF.
+
+M) v0.3.0 key gap
+ [ ] Size page: "Key gap: 2 dp". Press - to 0, ABC (apply): keys touch each other, look bigger. Press + to 6: more space. Reset sizes -> 2 dp.
+ [ ] Check Borderless and a gradient theme with gap 0 and 6; toolbar + number row still fit at 360 px.
+
+N) v0.3.1 reliability (nothing should look different)
+ [ ] Type in Chrome (search box + a web form), Telegram/WhatsApp, Notes, Termux if you have it: backspace (tap + hold), Enter, space-drag cursor all work as before.
+ [ ] Cursor pad (Select + arrows, Home / End) and PC mode Ctrl+A / arrows / Del still work in a browser or notes app.
+ [ ] Rotate to landscape in any app: the keyboard shows, NO full-screen text box covers the app. Type a few letters, field is still visible/usable (tell me the app name if the field is hidden behind the keyboard).
+ [ ] Avro / Probhat typing, emoji, clipboard, formatter: same as before.
+
+O) v0.3.2 word delete
+ [ ] Type a long sentence, hold Backspace: letters go one by one, after about 1.5 sec whole words go. Release stops it at once.
+ [ ] Select some text, hold Backspace: selection goes first, then words.
+ [ ] Gear > More settings: "Word delete" toggle OFF -> hold = old speed-up only, no word jump. Same toggle in app screen > Typing.
+ [ ] Bangla (Avro / Probhat) text and emoji: words delete cleanly, no half emoji left.
+
+P) v0.4.0 backup core (nothing looks different)
+ [ ] Install, open any app and type: keyboard opens and types as fast as before (no delay on first open of the day).
+ [ ] After one keyboard open (or opening the Jabra app screen) a backup file is made once per day. No screen yet: Android Studio / device file explorer: Android/data is hidden, so just check nothing crashes and no error message (toast "Backup failed") appears.
+ [ ] Clipboard, formatter presets, theme, toolbar all still the same after the update.
+
+Q) v0.4.1 Data & Backup (app screen)
+ [ ] App screen: new group "Data & Backup" opens. Counts look right (clips, pinned, presets).
+ [ ] Backup now: message "Backup saved", a new file shows in the Backups list.
+ [ ] Export to file: picker opens, save to Downloads, "Exported." Import from file: pick that file, "Imported", it shows in the list.
+ [ ] Restore: tap once = date + counts, tap again = "Restored. Close and reopen the keyboard". Change a setting before, check it is back after.
+ [ ] Delete needs two taps. Import a random text file = "not a valid Jabra backup", nothing changed.
+
+R) v0.4.2 settings search + undo (app screen)
+ [ ] Open the Jabra app screen: a search box, then the 5 groups + Data & Backup. Groups open / close as before.
+ [ ] Type "vibr" in the search box: only Vibrate shows (inside Keys & gestures, opened). Clear the box: groups go back to closed.
+ [ ] Type "theme" or "clipboard": matching rows only. Type "zzzz": nothing shows, no crash.
+ [ ] Open any group: every row has a short grey line under it (readable in dark and light phone mode).
+ [ ] Change 2-3 settings: "Recently changed" strip shows them (newest first). Tap one: the search box fills and that row shows.
+ [ ] Change Sound ON, then tap "Undo last change: Sound": it goes back to OFF and the Undo button disappears.
+ [ ] Group > "Reset this group to default": first tap changes the text, second tap resets. Check the labels change (e.g. Typing: Double-space period OFF, Hold backspace ON).
+ [ ] Open the keyboard: settings you changed on the app screen are there; after reset they are default.
+ [ ] 360 px phone: nothing cut off, recent strip scrolls sideways.
+
+S) v0.4.3 clipboard history upgrade
+ [ ] Clipboard panel: header now has "↕ Newest". Tap it: Oldest / A-Z / Used, the list re-orders (Pinned and Recent both). Newest = same as before.
+ [ ] Every clip shows a small grey number (characters). Paste a clip twice: it shows "N · 2x". Turn "Clip character count" OFF in app screen > Clipboard & tools: numbers disappear. Check List and Cards view.
+ [ ] "Used" sort: the clip you pasted most is first.
+ [ ] Header row on a 360 px phone: Undo / ↕ / View / Manage still tap-able, message text readable.
+ [ ] Add (with text in a field), then Add again with the same text: "Already saved (moved to top)".
+ [ ] App screen > Clipboard & tools > "Clip auto-delete" = 1 hour. Copy a text, wait over 1 hour, open the clipboard: it is gone. A PINNED clip stays. Old clips from before do not vanish at once.
+ [ ] Clip auto-delete = Never: nothing deleted (like before).
+
+T) v0.4.3.1 clipboard Edit
+ [ ] Clipboard > Manage > tick ONE clip > "Edit": edit screen opens with the clip text and "n/2000".
+ [ ] Type with the mini keys (letters, shift, digits, space, new line, backspace). Cancel = back, clip unchanged.
+ [ ] Save: first tap "Sure? Save", second tap "Clip saved". The clip keeps its place and its star (if pinned).
+ [ ] Type Bangla text in the real field, open Clipboard > Edit > "Use field text": the box shows the field text. Save works.
+ [ ] Tick 2 clips and press Edit: message "Select ONE clip to edit". Edit to a text another clip already has: "Another clip has this text".
+ [ ] Edit screen fits at 360 px (all key rows visible) and in landscape.
+
+U) v0.4.4 Text Vault (toolbar item is OFF by default)
+ [ ] Keyboard gear > More settings > Edit toolbar (or hold a toolbar key 1.5 s): turn "Text Vault" ON. A new key appears at the end of the toolbar. Tap it: Vault panel opens, says "Vault is empty".
+ [ ] Type some text in a field, tap "+ Add": message "Saved to Unfiled", a row appears. Tap + Add again with the same text: "Already saved".
+ [ ] Tap the row: text is typed into the field and the keyboard goes back to letters. Open the Vault again: the row shows "1x".
+ [ ] Empty field + "+ Add": the editor opens. Type a title + text with mini keys, "Save". Bangla: type Bangla in the field, Vault > + Add (saves directly) - then Edit shows it right.
+ [ ] Folders > "Add the Novel Translation set": 4 folders. Folders > + New folder > type a name > Create. Tap a folder chip: list shows only that folder; + Add now saves into it.
+ [ ] Manage (or long-press a row) > tick 2 rows > Move > pick a folder: rows move. Edit with 2 ticked = "Select ONE entry to edit". Delete: "Sure? delete 2" then deleted.
+ [ ] Folders > Delete a folder with entries (two taps): entries are still there as Unfiled.
+ [ ] Entry text "Translate {from} to {to}:" : tap it > fill page with 2 lines. Type EN / BN (or use "From field" for Bangla) > Paste: filled text is typed. "As is" pastes with the braces.
+ [ ] Search: type 2-3 letters of a title: only matching rows. Sort button: Newest / A-Z / Used.
+ [ ] Clipboard > Manage > tick clips > "To Vault": message "To Vault: N in ...". Open the Vault: they are there. The clips are still in the clipboard.
+ [ ] App screen > Data & Backup: "Vault entries: N". Backup now, delete an entry, Restore: the entry is back.
+ [ ] Panel fits at 360 px (nothing cut off, scrolls if tall) and in landscape. Letters keyboard typing is not slower than before.
+
+V) v0.4.5 Glossary + Notes (inside the Vault)
+ [ ] Chips under the header: All / Snippets / Notes / Glossary with counts. Notes chip + "+ Add" with text in the field: saved as a Note.
+ [ ] Glossary chip + "+ Add": editor opens with "Typing: Title" - type the term (e.g. Jabra), switch to "Typing: Meaning", type / "From field" the meaning, Save.
+ [ ] Glossary row: tap the row = the TERM is typed. Tap "Meaning" on the row = the meaning is typed.
+ [ ] Edit an entry, tap the Kind button: Snippet > Template > Note > Term. A Term without a title: "A term needs a title".
+ [ ] Bangla term + Bangla meaning: both paste correctly. Chip row + Meaning button fit at 360 px.
+
+W) v0.4.6 Text tools (toolbar item is OFF by default)
+ [ ] Edit toolbar: turn "Text tools" ON. A key "Tt" appears at the end. Tap it in a field with some text: panel with tabs Count / Case / Clean / Repeat / Date.
+ [ ] Count: shows words / characters / sentences / lines / paragraphs. Select part of the text, reopen: numbers are for the selection ("Source: selection").
+ [ ] Case: tap UPPER, Title, Sentence: preview changes. Replace on a selection = replaced at once. Replace with no selection = "Sure? Replace all", second tap replaces the whole field. "Undo" brings it back.
+ [ ] Clean: text with double spaces and many blank lines: switch the 3 options, preview changes, Replace works.
+ [ ] Repeat: - / + changes the number, "Between" cycles. Replace / Copy work.
+ [ ] Date: sample shows today's date; tap to change format; Insert types it into the field and goes back to letters.
+ [ ] Copy: paste somewhere else, the result is there. Bangla text works in Count / Clean / Repeat.
+ [ ] Password field: Tt key does nothing. Panel fits at 360 px and landscape; tabs not cut off.
+
+X) v0.4.8 Theme Studio (custom theme)
+ [ ] Gear > More settings > Theme picker: 20 tiles as before + a button "Custom theme (colours)...". Tap it: studio with a preview and hex keys.
+ [ ] Choose "Background", type 000000 with the hex keys: the preview turns black. "Text" = FFFFFF. Tap a swatch: the colour changes at once.
+ [ ] "Bg 2": type a colour = gradient preview; "None" = plain again.
+ [ ] Round - / + and Opacity - / +: numbers change. Presets (AMOLED, Reading, Cyber, Professional) fill the colours.
+ [ ] Save: message "Saved. Custom theme is ON". Tap ABC: the keyboard uses the colours. Settings > Look = Jabra: round corners / opacity follow the numbers.
+ [ ] Picker shows a 21st tile "Custom" with the blue frame. Choose another theme: it works; choose Custom again: back.
+ [ ] Studio > Reset: first tap "Sure? Delete", second deletes; keyboard goes back to Classic, the Custom tile is gone.
+ [ ] Data & Backup > Backup now, change the custom theme, Restore: the old custom colours are back.
+ [ ] Studio fits at 360 px (scrolls if needed) and in landscape. Typing speed is the same as before.
+
+Y) v0.5.0 language key options + custom character row
+ [ ] Default settings: tap the language key = EN <-> Bangla (same layout as before). Long-press = Avro <-> Probhat. Nothing feels different.
+ [ ] App screen > Languages & layouts > "Language key tap" = Cycle EN > Avro > Probhat: tap 3 times = EN, Avro (বাং), Probhat (প্রভা), back to EN. Try the other cycle order.
+ [ ] "Bangla first" = Probhat: from English, one tap opens Probhat. Back to "Last used": opens the one you used last.
+ [ ] "Avro available" OFF: tap / cycle / long-press never land on Avro. Both OFF: the key stays on EN. Turn them ON again.
+ [ ] Keyboard gear > Typing options: type "@#_-" in a field, tap "Char row: none": it shows "Char row: @#_-". Tap ABC: an extra row of 4 keys above the numbers; tap a key = types it. "Clear row" removes the row.
+ [ ] Char row with Bangla letters (ৎ ঁ ঃ) or an emoji works. Empty field: "Field has no characters", nothing changes.
+ [ ] Letters keyboard height / typing speed are the same as before (with and without the extra row).
+
+Z) v0.5.1 Profiles (toolbar item is OFF by default)
+ [ ] Keyboard gear > Edit toolbar > Profiles > Show (or hold a toolbar key 1.5 s). A "Pf" / 3-cards key appears on the toolbar.
+ [ ] Tap it: panel with 6 ready profiles (Normal, Novel Writing, PC, Compact, One-Handed, Large). Tap Compact: keyboard goes back to letters and is shorter. Tap Large: taller. Tap Normal: back to the default size.
+ [ ] After an apply, open Profiles again: "Undo apply" is there. Tap it: the settings from before come back.
+ [ ] PC: tap it = PC rows appear. Normal = back to the phone keyboard (PC mode off).
+ [ ] Change something (e.g. theme or height), type a name like "Mine" in a text field, open Profiles, tap Save current: message "Saved: Mine", it shows under the ready ones. Change settings again, tap Mine: your old settings are back.
+ [ ] Empty field + Save current = "Profile 1". Ren: type a new name in the field, tap Ren = renamed. Del: first tap "Sure?", second tap deletes.
+ [ ] Close the keyboard / restart the phone: your saved profile is still there. Data & Backup > Backup now > Restore: the profile comes back too.
+ [ ] Theme / look / language did NOT change when you applied a ready profile.
+
+Z2) v0.5.2 Keyboard extras
+ [ ] Typing options > "Vibration strength": tap = Light > Medium > Strong (Medium = the old feel). Type a few keys: the buzz changes. Vibrate OFF = no buzz.
+ [ ] Type  a=!,s=?  in a text field, then Typing options > "Hint override": it shows the pairs. ABC: the small corner label of A is "!" and S is "?". Long-press A types "!" . Other letters are as before.
+ [ ] Hint override with a Bangla letter or an emoji (k=ক) works. A wrong pair (a=ab) is ignored. "Clear" brings the old corner characters back.
+ [ ] With defaults (Medium, no override) the keyboard feels exactly like v0.5.0.
+
+Z3) v0.5.3 Health Check + migration + crash guard
+ [ ] App screen > Data & Backup: a button "Jabra Health Check" is there. Tap it: lines appear (Clipboard, Formatter, Vault, Profiles, Custom theme, Backups, Storage, Settings version, Panels). All fine = "All fine." and no repair buttons.
+ [ ] Settings version says 2 (first start after the update may show "pending" for a second: close and reopen the app screen).
+ [ ] Check does not change anything: Backups list / clips / vault look the same before and after.
+ [ ] Optional: Backup now, then Health Check: Backups: 1 readable (or more).
+ [ ] Keyboard behaves exactly as before: clipboard, Vault, Profiles, Text tools, Theme Studio panels all still open.
+ [ ] (If you have a damaged Vault / Profiles file or a broken panel, send a screenshot of the Health Check lines.)
+
+Z4) v0.5.4 Most used to front
+ [ ] Edit toolbar panel: top row has 2 buttons: "Toolbar: Custom" and "Most used to front: OFF" (fits at 360 px).
+ [ ] OFF: toolbar order is exactly yours, tapping keys changes nothing.
+ [ ] Tap it = ON. Use Copy 5 times, Paste 3 times, All once, then close / reopen the keyboard: the first key is unchanged, Copy, Paste, All come right behind it.
+ [ ] Tap OFF again: your own order is back.
+
+Z5) v0.5.5 Vault key switch
+ [ ] App screen > Clipboard & tools: row "Vault key (toolbar): OFF". Tap = ON. Open the keyboard: a Vlt key is on the toolbar. Tap it = Vault opens.
+ [ ] Edit toolbar panel shows Vault ON too. Switch OFF in either place = key gone; the other place agrees.
+
+
+Z6) v0.5.6 Logo
+ [ ] Home screen / app drawer icon = white keycap, blue J, 3 sparks on navy. Not cut off on your phone's icon shape.
+ [ ] App screen: logo left of the title "Jabra Keyboard".
+ [ ] Keyboard gear panel: logo + "Jabra Keyboard 0.5.6" on top, the rest unchanged (scroll if needed).
+ [ ] Settings > Keyboards / keyboard picker: Jabra Keyboard shows the same icon.
+
+Z7) v0.5.7 Warning line
+ [ ] Normal case: app screen shows NO orange warning line under the version.
+ [ ] (Only if a panel was switched off) the orange line names the panel; Health Check > "Switch the panel on again" removes it.
+
+Z8) v0.5.8 Old-backup warning
+ [ ] Auto backup ON (default): no warning on the app screen.
+ [ ] Data & Backup: Auto backup OFF + no backup files / last backup older than 7 days: orange line appears after reopening the app screen. Backup now + reopen = line gone.
+
+Z9) v0.5.9 Last backup age
+ [ ] Data & Backup > Backup now: "Last backup: <stamp>  (today)". Old backups show "(N days ago)". No backup yet = "none yet".
+
+Z10) v0.6.0 Faster key tap
+ [ ] Typing feels the same or snappier (fast typing in Notes / chat).
+ [ ] Haptic: ON vibrates; Off / Light / Medium / Strong (Typing options) change strength at once, without reopening the keyboard.
+ [ ] Haptic OFF = no vibration. Sound ON = click on each key; Sound OFF = silent. Change either from the gear panel, next tap follows.
+ [ ] Key popup ON: bubble above the pressed letter; OFF: none (switch it and tap again).
+ [ ] Long-press "a" -> "@" still works; Long-press characters OFF = no hint typing; Long-press time Fast / Slow still changes the wait.
+
+
+
+Z11) v0.6.1 Auto capital without lag
+ [ ] New empty Notes / chat box: first letter is capital. Type letters: they stay small (no stuck capital).
+ [ ] After ". " then "? " then "! " the next letter is capital; after a comma it is small. New line (Enter) = capital again.
+ [ ] Type a digit at the start of a sentence ("1 apple"): next letter is small (not capital).
+ [ ] Shift tap = one capital then back; double tap Shift = CAPS (blue) stays through letters. Auto caps OFF (More settings) = no automatic capital.
+ [ ] Move the cursor by tapping inside old text, then after a ". " mid-text: capital follows the new position.
+ [ ] Paste text, then type: capital follows the pasted text end (e.g. paste "Hello." then space -> capital).
+ [ ] Typing feels same or faster in a slow app (Chrome text field / big notes). Avro / Probhat unchanged.
+
+Z12) v0.6.3 Design tokens + UiKit (foundation, NO visible change)
+ [ ] GitHub Actions build of v0.6.3 is green (this is the only real test: the new files are not used by any screen yet).
+ [ ] Install the APK: keyboard opens, typing, clipboard, formatter, vault, themes look EXACTLY like v0.6.1 (nothing should be different).
+
+
+
+Z13) v0.6.4 Clipboard follows the theme
+ [ ] Classic theme + Classic look: Clipboard panel looks the same as in v0.6.1 (grey bg, system buttons, light cards, black text).
+ [ ] Pick Dark (Themes panel), open Clipboard (List view): dark background, dark keys with light text on ABC / Search / Add / Clear, rows readable, "Pinned" / "Recent" headers and the message line readable.
+ [ ] Same in Cards view (Clipboard > View: Cards): card fill / border / text readable; pin star and x icons visible (not dark-on-dark).
+ [ ] Long-press a clip -> select mode in List and in Cards: ticked row / card is clearly highlighted, check box visible, bottom select bar (All, Pin, Unpin, Delete, Paste, Done, Merge, Edit, Paste in 1 line, To Vault) readable.
+ [ ] Edit a clip (select one, Edit): edit screen follows the theme; letters of the mini keyboard readable; Save asks twice.
+ [ ] Search: mini keyboard letters, space and back icons visible in Dark and in Classic.
+ [ ] Try Gloss Black, Ocean and a gradient theme (Purple Haze): panel readable. Try Look = Jabra and Borderless: clipboard buttons follow (rounded / flat).
+ [ ] At 360 px: 2-column cards still fit; long Bangla text does not break the layout.
+
+Z14) v0.6.5 Formatter follows the theme
+ [ ] Classic theme + Classic look: Formatter (Aa) looks the same as in v0.6.4 (grey bg, system buttons, grey notes, pink preview on near-white).
+ [ ] Dark theme: open Aa. Background dark, buttons dark with light text, note / status lines readable, current page tab blue, ON toggles green.
+ [ ] Go through all pages (tabs at the top): every button readable in Dark, Gloss Black and Ocean; Purple Haze (gradient) readable.
+ [ ] Preview (Run page, tap Preview with text in the field): preview box readable in Classic, Dark, Ocean and a light theme (Blue / Mint).
+ [ ] Replace asks twice ("Sure?" style), Undo brings the old text back, Copy formatted, Rules from clipboard, Presets (apply / save / delete) still work exactly as before.
+ [ ] Look = Jabra and Borderless: Formatter buttons follow (rounded / flat). At 360 px the tabs row and the 2-3 buttons per row still fit.
+
+Z15) v0.6.6 Vault follows the theme
+ [ ] Classic theme + Classic look: Vault looks the same as in v0.6.5 (grey bg, white rows, black text, system buttons).
+ [ ] Dark theme: open Vault. Background dark, buttons dark with light text, rows dark (key colour) with light title, grey preview and count readable, folder chips readable.
+ [ ] Try Ocean and Gloss Black and Purple Haze (gradient): rows and buttons readable.
+ [ ] Select mode (long-press a row): ticked rows clearly highlighted in blue in Classic and in Dark; bottom bar buttons readable.
+ [ ] Add / Edit entry: edit screen text, title line, mini keyboard letters, space and back icons readable in Dark; the screen fits inside the keyboard height (scrolls if needed).
+ [ ] Folders screen (move / manage): folder names readable, Delete asks twice. Search: query text readable, mini keyboard works.
+ [ ] Fill screen ({name} template): the active field row is highlighted, other rows readable in Classic and Dark. Paste still fills the text.
+ [ ] Look = Jabra and Borderless: Vault buttons follow (rounded / flat). At 360 px the chips row scrolls and nothing is cut off.
+ [ ] Clipboard cards (Cards view) in Ocean: the small count line under each clip is readable.
+
+Z16) v0.6.7 Text Tools + Profiles follow the theme
+ [ ] Classic theme + Classic look: Text Tools (toolbar "tt" icon) and Profiles look the same as in v0.6.6 (grey bg, system buttons, white result box).
+ [ ] Dark theme: Text Tools. Background dark, buttons dark with light text, info line readable, result box dark (key colour) with light text. Try all pages (tabs) and Replace / Copy / Insert.
+ [ ] Ocean and Purple Haze (gradient): Text Tools and Profiles readable.
+ [ ] Profiles in Dark: buttons, the note line and the starter profiles ("(ready)") readable; Save current, apply a profile, Undo apply, delete (asks twice) still work.
+ [ ] Profiles error line (only if a saved-profiles problem is shown): readable in Classic (dark red) and in Dark (light red).
+ [ ] Toolbar editor (gear > Toolbar) and Quick toolbar editor look the same as before (they were already themed).
+ [ ] Look = Jabra and Borderless: Text Tools / Profiles buttons follow (rounded / flat). At 360 px the tab rows still fit.
+
+Z17) v0.7.1 Housekeeping
+ [ ] App screen > Clipboard & tools: the row "Vault key (toolbar)" shows a grey help line under it.
+ [ ] App screen search box: type "vault" -> the Vault key row is listed; type "templates" -> same row; clear the box -> all groups come back.
+ [ ] Everything else on the app screen looks and works as before (nothing else changed in this version).
+ [ ] (By hand on GitHub) delete HANDOFF.txt and HANDOFF_Jabra-Keyboard_v0.2.4 ... v0.5.9 (28 files); keep only the newest HANDOFF_Jabra-Keyboard_v0.7.1.txt. The next build must still be green.
+
+Z18) v0.8.0 Emoji data engine (E1, nothing visible)
+ [ ] Install / update the app. Keyboard opens, types (English, Avro, Probhat) and the emoji panel (toolbar emoji icon, or long-press ",") looks and works exactly as in v0.7.1: 9 tabs + Recent, tap an emoji = it is typed.
+ [ ] Nothing else changed: no new setting, no new screen, no new permission prompt.
+ [ ] (GitHub) the build of v0.8.0 is GREEN. (Only Java files + docs changed, so a red build would be a surprise: paste the error lines in the next chat.)
+ [ ] (Next chat) send emoji-test.txt so the real data file can be made (v0.8.0.1). Until then the new engine has no data and the app does not use it.
+
+Z19) v0.8.0.1 Emoji data file (E1 data drop, nothing visible)
+ [ ] Update the app. Keyboard types as before; the emoji panel (toolbar emoji icon, or long-press ",") is still the OLD one: 9 tabs + Recent, tap = types the emoji.
+ [ ] Nothing else changed: no new setting, no new screen, no new permission prompt. The app is about 55 KB bigger.
+ [ ] (GitHub) the build of v0.8.0.1 is GREEN (the new file is in app/src/main/assets/emoji/).
+
+Z20) v0.8.1 Fast emoji panel (E2)
+ [ ] (GitHub) the build of v0.8.1 is GREEN. If red: paste the error lines in the next chat (it becomes a FIX).
+ [ ] Open the keyboard, wait a few seconds, then open the emoji panel (toolbar emoji icon or long-press ","): tabs = clock + 9 groups. Scroll the grid: smooth, follows the finger, keeps gliding after a flick.
+ [ ] Tap an emoji: it is typed in the field, you feel the same vibration / sound as on keys, and it appears in the clock (Recent) tab next time.
+ [ ] Recent tab with no recent emoji: the grey line "No recent emoji yet..." shows. Backspace (hold = repeats), space, enter, ABC all work.
+ [ ] Very first open right after installing (file may still load): the OLD panel can show once; close and open again = new panel.
+ [ ] Dark theme (Dark or Gloss Black): panel background dark, tab buttons dark, tap highlight visible, grey line readable.
+ [ ] Rotate to landscape / wide screen: more emoji per row, nothing cut off, still scrolls.
+ [ ] Say what you see if some emoji are empty boxes (E3 will hide them), or if scrolling feels slow.
+
+Z21) v0.8.2 Safe emoji render (E3)
+ [ ] (GitHub) the build of v0.8.2 is GREEN. If red: paste the error lines in the next chat (it becomes a FIX).
+ [ ] Update the app, open any app with the keyboard, wait 2-3 seconds, open the emoji panel: it still opens (old or new panel, never blank). Close and open again: the new grid panel.
+ [ ] Scroll all tabs. You should see NO empty boxes / question marks. (On an old phone some new emoji are simply missing: that is correct.)
+ [ ] Tap an emoji, check the Recent tab: only drawable emoji are listed.
+ [ ] Restart the phone (or force-stop the app), open the emoji panel: the new panel opens at once (cache works).
+ [ ] Tell me: phone model + Android version, and if you miss a tab (for example Flags) or if emoji you know your phone can draw are missing.
+
+Z22) v0.8.3 Emoji search + skin tone (E4)
+ [ ] (GitHub) the build of v0.8.3 is GREEN. If red: paste the error lines in the next chat (it becomes a FIX).
+ [ ] Emoji panel -> first tab (magnifier): search screen opens with the small keyboard and the grey line "Type a word...".
+ [ ] Type "heart": hearts show, tap one = typed in the field + shows in Recent. Type "cat", "pizza", "bangladesh", "smile": results look right. "zzzz" = "No match".
+ [ ] Space and backspace on the mini keyboard work. [Back to emoji] goes back to the tabs, ABC goes to the letters keyboard.
+ [ ] Long press a hand or face emoji (for example thumbs up) in a normal tab: the tab row becomes [base] [5 tones] [x]. Tap a tone: it is typed, the row goes back to tabs.
+ [ ] Now all hand / face / person emoji in the grid show in that tone. Long press again -> tap the first (yellow) one: back to no tone.
+ [ ] Long press an emoji WITHOUT tones (heart, cat): nothing happens, no crash. Long press must not also type the emoji.
+ [ ] Long press inside search results works the same.
+ [ ] Close the keyboard, open again: the chosen tone is still on. Scroll position stays when you pick a tone.
+ [ ] Dark theme: search line, tone row and mini keys readable. Landscape / wide screen: nothing cut off.
+ [ ] Tell me: phone + Android version, if search feels slow, if the search screen is too tall, if a tone shows as an empty box.
+
+Z23) v0.8.4 Kaomoji tab (E5)
+ [ ] (GitHub) the build of v0.8.4 is GREEN (and v0.8.3 too). If red: paste the error lines.
+ [ ] Emoji panel -> scroll the tab row to the end: last tab "^_^". Tap it: list of text faces, 2 per row, scrolls.
+ [ ] Tap the shrug, the table flip, ":D": each is typed in the field exactly. Long ones are not cut off (tell me if one is).
+ [ ] No empty boxes / question marks in any face. (If your phone font misses a symbol, that face is simply not listed.)
+ [ ] Kaomoji are NOT added to the Recent tab. Back to a normal tab: grid + tone + search still work.
+ [ ] Dark theme: buttons readable. Landscape: still fits.
+
+Z24) v0.8.5 Update emoji list (E6)
+ [ ] (GitHub) the build of v0.8.5 is GREEN. If red: paste the error lines.
+ [ ] App screen -> scroll to "Check for updates": two new buttons below it: "Update emoji list" and "Use built-in emoji list".
+ [ ] Tap "Update emoji list" (with internet on): the grey line shows "Downloading..." then one message. Expected today: "Already up to date (Unicode 18.0, 1923 emoji)" unless Unicode has a newer list. Tell me the exact message.
+ [ ] Same with internet OFF (flight mode): "Could not download... Nothing changed." and the keyboard still works.
+ [ ] "Use built-in emoji list" with no downloaded list: "Already using the built-in emoji list."
+ [ ] Emoji panel still opens after both buttons (search, tone, kaomoji tab still there).
+ [ ] Data & Backup page: the privacy line now mentions "Update emoji list".
+
+Z25) v0.8.6 Hint label look
+ [ ] Gear > More settings > Typing: row "Bangla digit hints / Hint size / Hint opacity" is there; all three change when tapped.
+ [ ] Turn Bangla digit hints ON, ABC (apply): number row shows a small ১ ২ ... ০ in each key corner. OFF + apply: they disappear.
+ [ ] Hold key 5 = types ৫. A normal tap = types 5. Same in Avro and Probhat mode.
+ [ ] Hint size Small / Large / Extra and Hint opacity Faint / Strong / Full change the corner characters on letters AND digits. Normal = same as before.
+ [ ] Dark theme + light theme: corner characters readable, do not cover the main character at Extra.
+ [ ] "Hide long-press hints" ON hides the digit hints too; holding still types. Save a profile, change hints, load the profile: hints come back.
+
+Z26) v0.8.7 Clipboard follows the theme
+ [ ] Pick Dark (or Gloss Black / Ocean) theme, open Clipboard: background = theme colour, buttons = theme key colour with readable text, no light grey blocks.
+ [ ] Cards view: card fill / border / text follow the theme; a ticked card is blue-tinted and readable; Pinned tag and check box readable.
+ [ ] List view: ticked row highlighted, grey count text readable, star and x icons visible (light icons on dark theme).
+ [ ] Search (mini keyboard), Edit screen, select bar (All / Pin / Unpin / Delete / Paste / Merge): all readable in a dark and a light theme.
+ [ ] Classic theme + Classic look: looks like before (grey background, light cards). Custom theme from Theme Studio: clipboard uses its colours.
+
+Z27) v0.8.8 Toolbar name tip
+ [ ] Hold any toolbar icon (clipboard, Aa, 123, gear...) for about 0.3 s: a small dim bubble with its name appears above it. Let go: bubble gone and the key did NOT run.
+ [ ] A quick normal tap still runs the key (paste, cut, panel opens).
+ [ ] Hold the fold arrow (« / ») 0.3 s: "Fold toolbar" or "Unfold toolbar".
+ [ ] Keep holding to 1.5 s: the name tip is replaced by the "Edit shortcut" bubble (tap it = quick edit page).
+ [ ] First and last icon: bubble stays fully on screen. Slide the finger off the key: no bubble, nothing runs.
+ [ ] Dark and light theme: bubble readable. Gear > Toolbar page: "Name tip (hold icon)" ON / OFF works (OFF = no bubble).
+
+Z28) v0.8.9 Space swipe language + optional EN key
+ [ ] Gear > More settings > Typing: row "Space swipe = language / Show language key (EN)". Turn Space swipe ON, ABC (apply): the space key now shows "◂ English ▸".
+ [ ] Hold the space key about 0.2 s without moving (short vibration), then swipe right: language changes (English > Avro > Probhat), the space label follows. Swipe left goes back. A long swipe jumps 2 languages.
+ [ ] Quick drag on space (no hold) still moves the cursor. A tap types a space. Hold 0.2 s + let go without swiping types a space.
+ [ ] App screen > Languages & layouts: switch Avro or Probhat OFF: the swipe skips it.
+ [ ] Turn Show language key (EN) OFF + ABC (apply): the EN key is gone from the bottom row, space is wider, swipe still switches. Turn Space swipe OFF: the EN key comes back by itself (after apply).
+ [ ] Typing works in each language after a swipe (Avro words, Probhat letters). Dark + light theme: space label readable and not cut at 360 dp.
+
+Z29) v0.9.0 Reusable key-preview bubble
+ [ ] Gear > More settings > Typing (or app screen): turn "Popup on keypress" ON. Type fast in a note: a bubble with the letter shows above each key and is gone when you lift (no bubble stuck on screen).
+ [ ] Tap a key very quickly many times, then stop: bubble disappears. Wait 2 s, tap again: bubble shows again.
+ [ ] q and p (screen edges): the bubble stays fully on screen.
+ [ ] Change theme (Dark, then a light one) + ABC (apply): bubble colours follow the theme. Jabra look ON: rounded bubble (16 dp). Classic: square-ish (10 dp).
+ [ ] Rotate the phone, type: bubble still works. Switch to Probhat / Avro: bubble shows the Bangla letter.
+ [ ] Hold a letter for the long-press hint: hint types, bubble goes away. Popup OFF: no bubble at all.
+
+Z30) v0.9.1 Feedback at touch-down + system key tap
+ [ ] Gear > More settings > Typing: row "Feedback at touch-down / System key tap vibration" (also app screen > Keys & gestures). Both OFF = typing feels like v0.9.0.
+ [ ] Turn Feedback at touch-down ON (Vibrate ON): put a finger on a letter and hold: you feel ONE short buzz at once, nothing more when you lift. Letter still types when you lift.
+ [ ] Type fast for 10 s: one buzz per letter, no double buzz, no missing letters. Same on the number row (with and without Bangla digit hints).
+ [ ] Hold a letter with a long-press hint (e.g. q): one buzz at touch, the hint character types, no second buzz.
+ [ ] Touch a key and slide off it before lifting: you feel the buzz, no letter is typed. Backspace hold, space drag, Shift, enter: feel and work as before.
+ [ ] Sound ON + touch-down ON: click sound at touch, only once per tap.
+ [ ] System key tap vibration ON: buzz is the phone's own key tap; the Vibration strength level no longer changes it. OFF again: Light / Medium / Strong differ as before.
+ [ ] Vibrate OFF: no buzz at all with either setting. Turn both settings OFF: back to buzz at lift.
+
+
+Z31) v0.9.2 Live language bubble on space swipe
+ [ ] Gear > More settings > Typing: row "Language bubble on swipe" (also app screen > Keys & gestures). Default ON. It matters only while "Space swipe = language" is ON.
+ [ ] Turn Space swipe = language ON (tap ABC to apply). Hold the space key 0.2 s without moving: you feel the short buzz and a bubble above the space key shows the active language (English / Avro / Probhat).
+ [ ] Keep holding and swipe right: the bubble text changes with each step (English > Avro > Probhat > English). Swipe left: reverse. Letters on the keys follow the language.
+ [ ] Lift the finger: the bubble disappears at once. Language stays on the last one shown. Space key caption shows the same language.
+ [ ] Plain tap on space: types a space, no bubble. Quick drag at once: cursor moves, no bubble. Hold 0.2 s then lift without swiping: types a space, bubble goes away.
+ [ ] Turn Language bubble on swipe OFF: swipe still switches the language, no bubble at all. Space swipe OFF: space behaves as before, no bubble.
+ [ ] Check the bubble in Classic, in a dark theme and with Jabra look: text readable, not cut off at 360 dp width, not stuck after rotating the phone or changing the theme.
+ [ ] Popup on keypress ON: letter bubbles still work as before; after a swipe the next letter bubble shows the letter (not the language name).
+
+Z32) v0.9.3 Space swipe without hold
+ [ ] Space swipe = language ON: swipe left / right on space at once (no waiting): language changes, bubble shows the new language, lift = bubble gone.
+ [ ] Type a normal sentence with space taps: no accidental language change, every tap types a space.
+ [ ] Space swipe OFF: dragging on space moves the cursor again.
+
+Z33) v0.9.4 Bangla digits on the number row
+ [ ] Gear > More settings > Typing: row "Bangla digits on number row" (also app screen > Keys & gestures). Default OFF: number row exactly as before.
+ [ ] Turn it ON, tap ABC to apply. Avro active: number row shows Bangla digits. Probhat: same. English: Latin digits. Switch language (EN key / space swipe / long-press): labels change at once.
+ [ ] In Avro, tap the Bangla 1 key: types the Bangla digit. Hold the key: the Latin 1 types (one buzz), small Latin digit is visible top-right.
+ [ ] Open a password field, an email field and a URL field: number row shows Latin digits and types Latin. Back in a normal text field: Bangla digits again.
+ [ ] "Bangla digit hints" ON + this ON: in Bangla layouts the hint is the Latin digit; in English the small Bangla digit hint works as before.
+ [ ] Letter size %, Bold letters, Large number row: Bangla digits look fine and are not cut off. Classic + one dark theme.
+ [ ] Feedback at touch-down ON: number row still buzzes once per tap. Number row OFF: nothing breaks. Setting OFF: back to Latin digits.
+
+Z34) v0.9.5 Symbols page 3 (math / Greek / arrows)
+ [ ] Open the symbols panel (?123 key on the letters keyboard). Page 1 looks as before (digits, @ # taka % & - + ( ) /, * " ' : ; ! ?). Left key of row 3 says "=<".
+ [ ] Tap it: page 2 (~ ` | bullet degree ^ = _ { } / \ [ ] < > pound euro yen rupee $ / ellipsis (c) (R) TM section). Left key now says "pi+root".
+ [ ] Tap it again: NEW page 3: row 1 pi root divide times pilcrow Delta plus-minus not-equal approx infinity; row 2 <= >= arrows (left right up down both) sum integral; row 3 alpha beta gamma theta lambda mu Omega. Left key says "?123".
+ [ ] Tap it once more: back on page 1. Tap every key of page 3 in a text box: each types its own character (none empty, none shown as a box). Tell me which character is shown as a box on your phone, if any.
+ [ ] Same in English, Avro and Probhat (the symbols panel is the same for all). Typing a symbol while an Avro word is half typed: word is committed first, then the symbol (as before).
+ [ ] ABC returns to letters, gear opens settings, 123 opens the number pad, comma / space / period / enter work, backspace hold-repeat works on all 3 pages.
+ [ ] Letter size %, Bold letters, Classic + one dark theme: the 3 pages look fine and the left key label is not cut off at 360 dp.
+
+Z35) v0.9.6 Reference-style key bubble (V1)
+ [ ] Gear > More settings > Typing (also app screen > Keys & gestures): new row "Reference-style bubble" (default ON) next to "Key popup". Turn "Key popup" ON.
+ [ ] Type letters in row 1, 2, 3 and the number row: a rounded bubble shows ABOVE the pressed key, a bit wider than the key and about 1.35 x as tall, big letter, hides the moment you lift.
+ [ ] q and p (screen edges): the bubble stays fully on screen (no part cut off).
+ [ ] Classic theme: bubble white, dark letter, grey thin line. A dark theme (e.g. Dark / Gloss Black): bubble = key colour a little lighter, letter readable. One light coloured theme + Jabra look + Borderless: letter readable in all.
+ [ ] Type FAST with two fingers (hold one letter, tap another, then lift the first): the bubble of the second key does not vanish when the first finger lifts, and it is never shown on a wrong row. Tell me if you still see a bubble on the bottom row (note which key you pressed).
+ [ ] Turn "Reference-style bubble" OFF: wait 2 s (or tap ABC): bubble looks exactly like before (same size as the key, white / Jabra fill).
+ [ ] Space swipe = language ON: the language name bubble shows above space with the new look and goes away on lift; the next letter bubble shows the letter (not the language).
+ [ ] Rotate the phone, change theme, open a panel and come back (ABC): bubble still correct, nothing stuck on screen.
+
+Z36) v0.9.7 Same keyboard height in every language (V2)
+ [ ] Gear > More settings > Typing (also app screen > Keys & gestures): new row "Same keyboard height" (default ON). Tap ABC to apply.
+ [ ] Open a chat app. Swipe on space (or tap the language key): English > Avro > Probhat > English. The TOP EDGE of the keyboard does not move and the chat above does not resize / jump. Empty band above the letters in English / Avro = keyboard background only.
+ [ ] Probhat: vowel row (aa i ii u ...) shows and types as before. English / Avro: tapping the empty band does nothing.
+ [ ] Turn "Same keyboard height" OFF, tap ABC: old behaviour back (keyboard is one row shorter in English / Avro, jumps on switch).
+ [ ] Gear > "Probhat available" OFF: no empty band (Probhat cannot be reached, nothing to reserve).
+ [ ] Number row: is "Number row" ON (Gear > More settings > Typing)? Tell me: English shows digits yes / no, and was the tall row in Probhat digits or vowels?
+ [ ] Rotate to landscape and back; Large number row ON; one-hand mode; Classic + one dark theme: height stays the same on every switch.
+ [ ] Password / email / URL field while Probhat is selected: keyboard height does not change compared with a normal text field.
+
+Z37) v0.9.8 Language-swipe feel (V3)
+ [ ] Gear > More settings > Typing (also app screen > Keys & gestures): Space swipe = language ON. New rows: "Tick on swipe" (default ON) and "Swipe distance" (Normal).
+ [ ] Chat app: swipe left / right on space. Language changes at once, calm, name bubble updates without flicker, a soft tick for each step, bubble goes away on lift. A plain tap on space still types a space; a swipe never types a space.
+ [ ] Swipe far (3+ steps) in one go: ends on the right language. Swipe a full circle back to the same language: nothing odd happens.
+ [ ] Swipe to another language, lift, close the keyboard / restart the phone: the last swiped language is still the one in use.
+ [ ] Cancel test: start a swipe, then pull the notification bar down or switch app mid-swipe: keyboard is back on the language you started on.
+ [ ] "Swipe distance": Small = shorter swipe per step, Large = longer. Works on the next touch without ABC.
+ [ ] "Tick on swipe" OFF: no tick. If you feel nothing with ON, check the phone setting Touch vibration / haptic feedback and tell me.
+ [ ] Language key tap and long-press (Avro <-> Probhat) still work and remember after restart. Classic + one dark theme; portrait + landscape.
+
+Z38) v0.9.9 Fast bubble (V4)
+ [ ] Gear > More settings > Typing (also app screen > Keys & gestures): turn Key popup ON. New row "Fast bubble" (default ON).
+ [ ] Type fast on all letter rows: bubble sits above the pressed key, hides at once on release, no bubble stuck on screen, no bubble on a wrong row.
+ [ ] Top letter row: the bubble still shows (window bubble if there is no room above). q and p stay fully on screen.
+ [ ] Rotate the phone, then type: bubbles are still above the right keys. Same after One-hand mode ON / OFF.
+ [ ] Open a panel (emoji / clipboard), go back to letters (ABC): bubbles still work on the first press.
+ [ ] Change theme (Classic + one dark theme): bubble colours follow the theme. "Reference-style bubble" OFF = old white bubble, still fine.
+ [ ] "Fast bubble" OFF: bubbles work as in v0.9.8. Swipe on space (language bubble) still shows the language name.
+ [ ] Tell me: does the bubble feel smoother / quicker than v0.9.8? (no number yet; the speed meter comes in V5)
+
+Z39) v0.9.10 Speed meter (V5)
+ [ ] Settings > Data & Backup > Health: you see "Speed meter: OFF". Tap it: it says ON.
+ [ ] Open any chat, type ~20 letters, switch language with the globe 3 times, then come back and tap "Refresh numbers": the lines show avg / p95 / max ms (not "no samples yet").
+ [ ] Tap "Reset numbers": every line goes back to "no samples yet".
+ [ ] Turn the meter OFF, type, Refresh: no new samples. Typing feels the same as v0.9.9.
+ [ ] Tell me the numbers (screenshot): they decide which trim comes next.
+
+
+Z40) v0.9.10.1 Keyboard full-screen bug (FIX)
+ [ ] Open any chat, open the keyboard, tap ?123 (symbols), tap ABC (letters): keyboard keeps its normal height, the app / text field above stays visible (before: whole screen green).
+ [ ] Repeat ?123 > ABC 5 times, also after rotate to landscape and back: no full-screen keyboard.
+ [ ] Open emoji / clipboard panel, tap ABC: normal height again.
+ [ ] Turn "Key popup" ON: bubbles still appear above keys (rows 2-4 and top row) as in v0.9.10.
+
+Z41) v0.9.10.2 Space swipe = max 1 language
+ [ ] Swipe right a long way on space: language moves ONE step only (e.g. English > Avro), not more.
+ [ ] Swipe left a long way: ONE step to the previous language.
+ [ ] Swipe right, then bring the finger back to where it started: you are back on the start language.
+ [ ] Short drag still moves the cursor; plain tap still types a space; nothing types a space after a swipe.
+
+Z42) v0.9.10.4 Tap in key gap (FIX)
+ [ ] Settings: set Key gap to a big value. Type fast with 1 finger, tapping the gap between letters: the nearest letter types, nothing is lost.
+ [ ] Type fast with 2 thumbs (two fingers down at once): every press types.
+ [ ] Tap exactly inside a key: same letter as before (no change). Long-press hint letters and key popup still work on a key.
+ [ ] Tap the gap at the left / right edge of a row and between two rows: a letter types (the nearest key of that row).
+ [ ] Backspace hold, space swipe, shift, ?123 still work as before.
+
+Z43) v0.9.10.5 Pinned cards visible (FIX)
+ [ ] Clipboard > View: Cards. Pin a clip (star): the card gets a blue tint, a thicker blue border and a "Pinned" tag by the pin button.
+ [ ] Unpin it: the card goes back to the normal look and moves to the Recent group.
+ [ ] Try Classic and one dark theme: pinned card clear in both, text readable.
+ [ ] Long-press a card (select mode): ticked card look still works, pinned ones still show "★ Pinned". View: List unchanged.
+
+Z44) v0.10.0 Word index engine (G1)
+ [ ] Install the new APK. Type in any chat in English, Avro, Probhat: everything works exactly as before (G1 has no screen change).
+ [ ] Settings > Data & Backup > Health: still opens, no error.
+ [ ] Nothing else to see: the suggestion strip comes in G2.
+
+Z45) v0.10.1 Suggestion row at the top (G2)
+ [ ] Open a chat: the TOP row of the keyboard (where the toolbar was) is now: tools icon (4 small squares) on the left, 3 word slots, mic on the right.
+ [ ] English: type "skin": left + right slots show suggestions, the MIDDLE slot shows what you typed with "..." dots under it. Tap a side word: your word is replaced + a space. Type "He": suggestions start with a capital.
+ [ ] Tap the middle word: your word stays + a space.
+ [ ] Hold a word (about 0.35 s) or pull it down: a 3-column grid of words covers the keys. Slide the finger over a word (it turns blue), lift: that word is typed. Lift outside the grid: nothing typed, grid closes.
+ [ ] Avro: type "ami" / "amar": Bangla suggestions; tap one: Bangla word replaced + space, no leftover Latin letters.
+ [ ] Probhat: type 2 Bangla letters: suggestions show; tap one: letters replaced, no double text.
+ [ ] After a space / full stop the slots go blank. Backspace updates the slots.
+ [ ] Tools icon: the old toolbar appears in the same row. Its first key (<<) brings the suggestions back. Open another app / field: the suggestions are back by themselves.
+ [ ] Mic opens voice typing.
+ [ ] Password / email / URL field: slots stay blank, tapping does nothing; keyboard height does not jump.
+ [ ] Settings > Typing options > "Suggestion row" OFF: the toolbar is back in the top row, keyboard as v0.10.0. ON again: suggestions back.
+ [ ] Type fast: typing feels the same as before. Tell me if it lags.
+ [ ] Classic + one dark theme: words and icons readable; grid colours follow the theme. Does it look like the video? Tell me what differs (colour, size, icon).
+
+Z46) v0.10.2 Learn my words (G3.1)
+ [ ] Settings > Keys > "Learn my words" is OFF by default. With it OFF: type "zorblax zorblax zorblax" - it never shows in the suggestion row.
+ [ ] Turn it ON, type "zorblax " 2 times, then type "zo": "zorblax" is in the row (1st slot). After typing it only once it did NOT show.
+ [ ] Avro: type a Bangla word 2 times (+ space), type its first letters again: the word is suggested. Probhat the same.
+ [ ] Tap a learned suggestion: it replaces your letters + one space, capital style kept (Zo > Zorblax).
+ [ ] Password / email / URL field: nothing is learned (type a word 2 times there, then in a normal field: not suggested).
+ [ ] Close the keyboard / switch app, wait, come back: the learned word is still there. Restart the phone: still there.
+ [ ] "Forget learned words": first tap = "Sure? Tap again", second tap = "Forgot N words"; "zo" gives no learned word any more.
+ [ ] Turn "Learn my words" OFF again: learned words stop showing; typing feels the same as before (tell me if it lags).
+
+Z47) v0.10.3 Auto-correct (G3.2)
+ [ ] Settings > Keys > "Auto-correct" is OFF by default. OFF: type "teh " - stays "teh ".
+ [ ] Turn ON. Type "teh " > becomes "the ". "Teh " > "The ". "freind " > "friend ".
+ [ ] Right after a correction press Backspace once: "teh" is back (no space). Press space: it stays "teh" (not corrected again).
+ [ ] A normal word ("hello ") and a name / acronym ("NASA ", "iPhone ") are never changed. Bangla (Avro / Probhat) words are never changed.
+ [ ] Password / email / URL field: nothing is corrected.
+ [ ] Tell me if a CORRECT word gets "fixed" (the word list is small): which word?
+ [ ] Turn OFF again: typing as before, no lag.
+
+Z48) v0.10.4 Tip / Edit shortcut above the icon
+ [ ] Hold a toolbar icon 0.3 s: its name floats just ABOVE that icon (not at the keyboard bottom). Release: it goes away, the icon does not press.
+ [ ] Keep holding to 1.5 s: "Edit shortcut" shows just above the icon too; tap it = the quick add / remove page opens.
+ [ ] Key popup ON: hold a key on the top letter row / number row: the bubble is above the key (never on the bottom row).
+ [ ] Hold a suggestion slot 0.35 s: the 3-column grid opens over the keys as before.
+ [ ] Bubble position: not shifted up / down by the status bar height? Tell me if it is.
+
+Z49) v0.10.5 Pinned clip visible in Cards view
+ [ ] Clipboard > View: Cards. Pin ONE clip: under "Pinned" a half-width card shows (blue tint, "Pinned" tag), Recent cards below as before.
+ [ ] Pin 2 and 3 clips: 2 cards in a row, the 3rd alone on the next row at half width. Nothing is missing.
+ [ ] Recent with an odd count: the last card is half width and visible. List view unchanged.
+
+Z50) v0.10.6 No extra space before punctuation after a suggestion
+ [ ] Type "hel", tap "hello" (becomes "hello "), then press "," : result "hello," (no space before the comma). Same for "." "!" "?".
+ [ ] Tap a suggestion, then type a letter / space / backspace first, then ",": nothing is removed (normal typing).
+ [ ] Avro and Probhat: tap a Bangla suggestion, then danda or comma: no space before it.
+ [ ] Settings > Keys > "Space before , . ! ?" OFF: "hello ," as before.
+
+Z51) v0.10.7 Backup that survives uninstall
+ [ ] Settings app > Data & Backup > "Choose external backup folder" > pick e.g. Downloads/JabraBackup (make a new folder) > "Folder set. Saving the first copy..." then "External backup saved".
+ [ ] Files app > that folder: jabra_YYYYMMDD.json exists (a few KB). Page shows "External backup folder: Download/JabraBackup" and "Last external backup: ... (today)".
+ [ ] Tap "Backup to folder now" twice the same day: still ONE file for today (overwritten), no "(1)" copy.
+ [ ] Put an unrelated file (photo.jpg) in that folder, make a backup: the photo is untouched.
+ [ ] Vault > add an entry; Typing > "Learn my words" ON, type a few words twice. Backup now. Open Backups > Restore preview shows "data files" count 3 (vault, profiles, learned words).
+ [ ] Real test: Export is not needed. Android Settings > Apps > Jabra > Storage > Clear data (or uninstall + reinstall the same APK). Open app > Data & Backup > Import from file > pick jabra_YYYYMMDD.json from the folder > Restore > Sure? > close + reopen keyboard: vault entries + learned words are back.
+ [ ] Health Check (Data & Backup > Check): folder set + fresh copy = "OK External backup: today".
+ [ ] Android Settings > Apps > Jabra > Permissions (or Files app) revoke the folder, or delete the folder: Health shows WARN "folder is not reachable", page shows "(NOT reachable)", keyboard still types, no crash.
+ [ ] "Turn off external backup": line shows "not set"; files already in the folder stay.
+ [ ] Folder never chosen + Vault has entries: Health shows WARN "No external backup ...".
