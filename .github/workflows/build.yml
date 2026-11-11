@@ -8,6 +8,7 @@ name: Build APK
 #  - report table (version, APK size, SHA-256, signed or debug, build time, update type)
 #  - tells you if the small "ext-only" hot update is possible (only assets/ext changed)
 #  - the build log is saved as a download on the run page when the build fails
+#  - v3.1: every GitHub action is on a Node 24 version (Node 20 was removed from GitHub runners on 23 Sep 2026); setup-gradle stays on v5 (open source), v6 has a separate proprietary cache component
 # Output names (MGB-*.apk, MGB-ext-b<run>-n<hash>.zip, tag v<ver>-b<run>) are NOT changed: the in-app updater needs them.
 on:
   push:
@@ -33,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: main          # ALWAYS the newest main, never the old commit that started this run
           fetch-depth: 0     # full history + tags, needed to revert to an older release
@@ -233,12 +234,12 @@ jobs:
           fi
           cat "$W" || true
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         if: ${{ env.SKIP_BUILD != '1' }}
         with:
           distribution: temurin
           java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
         if: ${{ env.SKIP_BUILD != '1' }}
         with:
           gradle-version: '8.7'
@@ -331,14 +332,14 @@ jobs:
 
       - name: Save the build log (only when the build failed)
         if: ${{ failure() && steps.build.outcome == 'failure' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-log
           path: ${{ runner.temp }}/build.log
           retention-days: 14
           if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ env.SKIP_BUILD != '1' }}
         with:
           name: MGB-apk
