@@ -459,7 +459,14 @@ object Downloader {
     }
 
     private fun publish(item: DlItem, part: File): Pub {
-        val rel = item.rel.ifEmpty { "download" }
+        val rel0 = item.rel.ifEmpty { "download" }
+        // 0.0.404: no real extension (".bin" ...) but the file content is a known type (apk, zip, pdf ...) = use the right extension
+        val rel = NameSniff.fix(rel0, part)
+        if (rel != rel0) {
+            val fixedName = rel
+            val fixedMime = safeMime(fixedName.substringAfterLast('/'), "")
+            DownloadsApi.change(item) { this.rel = fixedName; this.mime = fixedMime }
+        }
         val dir = rel.substringBeforeLast('/', "")
         val name = rel.substringAfterLast('/')
         val ext = name.substringAfterLast('.', "").lowercase()
