@@ -28,7 +28,7 @@ object LinkInbox {
     private var lastSeen = "" // last text that was offered (or dismissed): never offered twice in a row
 
     private fun sp(c: Context) = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
-    fun on(c: Context): Boolean = sp(c).getBoolean("li_on", true) // 0.0.405: default ON (was OFF). A person who switched it OFF keeps OFF.
+    fun on(c: Context): Boolean = sp(c).getBoolean("li_on", false)
     fun setOn(c: Context, v: Boolean) { sp(c).edit().putBoolean("li_on", v).apply() }
 
     /** Share: any single link counts (the person chose to send it). Clipboard: only links that look like video. */
@@ -36,8 +36,6 @@ object LinkInbox {
         val t = text.trim()
         val u = (if (ONE_URL.matches(t)) t else Regex("https?://[^\\s\"'<>]+").find(t)?.value.takeIf { !strict }) ?: return null
         if (!strict) return u
-        // 0.0.405: Facebook / Pinterest / Reddit / Discord links: only real video / post / file links (not a profile or home page)
-        if (LinkGrabCore.kindOf(u) != "other") return if (LinkGrabCore.worthCard(u)) u else null
         val host = Util.host(u)
         return if (MEDIA_EXT.containsMatchIn(u) || VIDEO_HOST.containsMatchIn(host)) u else null
     }
@@ -72,8 +70,8 @@ object LinkInbox {
         fun btn(label: String, color: Int, run: () -> Unit) = TextView(act).apply {
             this.text = label; textSize = 14f; setTextColor(color)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            gravity = Gravity.CENTER; minHeight = dp(44); minWidth = dp(56)
-            setPadding(dp(9), 0, dp(9), 0)
+            gravity = Gravity.CENTER; minHeight = dp(44); minWidth = dp(72)
+            setPadding(dp(12), 0, dp(12), 0)
             setOnClickListener { run() }
         }
         val card = LinearLayout(act).apply {
@@ -87,11 +85,10 @@ object LinkInbox {
             }
             contentDescription = "Download this link?"
         }
-        val head = TextView(act).apply {
-            this.text = LinkGrabCore.siteName(LinkGrabCore.kindOf(url)).let { if (it == "link") "Download this link?" else "Download from $it?" }; textSize = 15f; setTextColor(cText)
+        card.addView(TextView(act).apply {
+            this.text = "Download this link?"; textSize = 15f; setTextColor(cText)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        }
-        card.addView(head)
+        })
         card.addView(TextView(act).apply {
             this.text = url; textSize = 12f; setTextColor(dim)
             maxLines = 1; ellipsize = TextUtils.TruncateAt.MIDDLE
@@ -99,23 +96,7 @@ object LinkInbox {
         val row = LinearLayout(act).apply { gravity = Gravity.END }
         row.addView(btn("Dismiss", dim) { area.removeView(card) })
         row.addView(btn("Private", dim) { area.removeView(card); tabs.newTab(url, 0, true, true) }) // 0.0.331
-        val sup = LinkGrab.supported(url)
-        row.addView(btn("Open", if (sup) dim else primary) { area.removeView(card); tabs.newTab(url) })
-        // 0.0.405: Download = LinkGrab finds the real file (Facebook / Pinterest / Reddit / Discord / direct link) and starts the app download.
-        // Not possible or failed = the page opens in a new tab like "Open" (sniffer + Files detected panel take over).
-        if (sup) {
-            var busy = false
-            row.addView(btn("Download", primary) {
-                if (busy) return@btn
-                busy = true
-                head.text = "Getting the file..."
-                LinkGrab.grab(act, url) { ok, msg ->
-                    if (card.parent === area) area.removeView(card)
-                    if (ok) Util.toast(act, "Downloading: $msg")
-                    else { Util.toast(act, "$msg. Opening the page"); tabs.newTab(url) }
-                }
-            })
-        }
+        row.addView(btn("Open", primary) { area.removeView(card); tabs.newTab(url) })
         card.addView(row)
         val reduce = TabPrefs.reduce(act)
         if (!reduce) card.alpha = 0f
