@@ -1,0 +1,82 @@
+--- a/app/src/main/java/com/jabra/mgb/LinkInbox.kt
++++ b/app/src/main/java/com/jabra/mgb/LinkInbox.kt
+@@ -28,7 +28,7 @@
+     private var lastSeen = "" // last text that was offered (or dismissed): never offered twice in a row
+ 
+     private fun sp(c: Context) = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
+-    fun on(c: Context): Boolean = sp(c).getBoolean("li_on", false)
++    fun on(c: Context): Boolean = sp(c).getBoolean("li_on", true) // 0.0.405: default ON (was OFF). A person who switched it OFF keeps OFF.
+     fun setOn(c: Context, v: Boolean) { sp(c).edit().putBoolean("li_on", v).apply() }
+ 
+     /** Share: any single link counts (the person chose to send it). Clipboard: only links that look like video. */
+@@ -36,6 +36,8 @@
+         val t = text.trim()
+         val u = (if (ONE_URL.matches(t)) t else Regex("https?://[^\\s\"'<>]+").find(t)?.value.takeIf { !strict }) ?: return null
+         if (!strict) return u
++        // 0.0.405: Facebook / Pinterest / Reddit / Discord links: only real video / post / file links (not a profile or home page)
++        if (LinkGrabCore.kindOf(u) != "other") return if (LinkGrabCore.worthCard(u)) u else null
+         val host = Util.host(u)
+         return if (MEDIA_EXT.containsMatchIn(u) || VIDEO_HOST.containsMatchIn(host)) u else null
+     }
+@@ -70,8 +72,8 @@
+         fun btn(label: String, color: Int, run: () -> Unit) = TextView(act).apply {
+             this.text = label; textSize = 14f; setTextColor(color)
+             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+-            gravity = Gravity.CENTER; minHeight = dp(44); minWidth = dp(72)
+-            setPadding(dp(12), 0, dp(12), 0)
++            gravity = Gravity.CENTER; minHeight = dp(44); minWidth = dp(56)
++            setPadding(dp(9), 0, dp(9), 0)
+             setOnClickListener { run() }
+         }
+         val card = LinearLayout(act).apply {
+@@ -85,10 +87,11 @@
+             }
+             contentDescription = "Download this link?"
+         }
+-        card.addView(TextView(act).apply {
+-            this.text = "Download this link?"; textSize = 15f; setTextColor(cText)
++        val head = TextView(act).apply {
++            this.text = LinkGrabCore.siteName(LinkGrabCore.kindOf(url)).let { if (it == "link") "Download this link?" else "Download from $it?" }; textSize = 15f; setTextColor(cText)
+             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+-        })
++        }
++        card.addView(head)
+         card.addView(TextView(act).apply {
+             this.text = url; textSize = 12f; setTextColor(dim)
+             maxLines = 1; ellipsize = TextUtils.TruncateAt.MIDDLE
+@@ -96,7 +99,23 @@
+         val row = LinearLayout(act).apply { gravity = Gravity.END }
+         row.addView(btn("Dismiss", dim) { area.removeView(card) })
+         row.addView(btn("Private", dim) { area.removeView(card); tabs.newTab(url, 0, true, true) }) // 0.0.331
+-        row.addView(btn("Open", primary) { area.removeView(card); tabs.newTab(url) })
++        val sup = LinkGrab.supported(url)
++        row.addView(btn("Open", if (sup) dim else primary) { area.removeView(card); tabs.newTab(url) })
++        // 0.0.405: Download = LinkGrab finds the real file (Facebook / Pinterest / Reddit / Discord / direct link) and starts the app download.
++        // Not possible or failed = the page opens in a new tab like "Open" (sniffer + Files detected panel take over).
++        if (sup) {
++            var busy = false
++            row.addView(btn("Download", primary) {
++                if (busy) return@btn
++                busy = true
++                head.text = "Getting the file..."
++                LinkGrab.grab(act, url) { ok, msg ->
++                    if (card.parent === area) area.removeView(card)
++                    if (ok) Util.toast(act, "Downloading: $msg")
++                    else { Util.toast(act, "$msg. Opening the page"); tabs.newTab(url) }
++                }
++            })
++        }
+         card.addView(row)
+         val reduce = TabPrefs.reduce(act)
+         if (!reduce) card.alpha = 0f
+--- a/app/src/main/java/com/jabra/mgb/SettingsScreen.kt
++++ b/app/src/main/java/com/jabra/mgb/SettingsScreen.kt
+@@ -1099,7 +1099,7 @@
+                 Row(R.drawable.ic_download, "Audio only downloads", if (QualityPrefs.audioOnlyOn()) "ON" else "OFF", "Streams with a separate audio track. Also in batches") { QualityPrefs.toggleAudioOnly(act) { fill() } },
+                 Row(R.drawable.ic_folder, "Batch: folder and number", if (NameIndex.on()) "ON" else "OFF", "Show folder and 01 - title for batches") { NameIndex.toggle(act) { fill() } },
+                 Sub("Downloader"), // 0.0.376: app downloader + rules + link inbox in their own group
+-                Row(R.drawable.ic_download, "Link inbox", if (LinkInbox.on(act)) "ON" else "OFF", "Card for a shared or copied video link") { LinkInbox.setOn(act, !LinkInbox.on(act)); fill() },
++                Row(R.drawable.ic_download, "Link inbox", if (LinkInbox.on(act)) "ON" else "OFF", "Copy a Facebook / Pinterest / Reddit / Discord / video link, come back here: card with Download (also Share > this app)") { LinkInbox.setOn(act, !LinkInbox.on(act)); fill() },
+                 Row(R.drawable.ic_download, "App downloader", DlPartsUi.summary(act), "For files (tab link, blob, grabber file): parts, speed limit, queue, resume") { DlPartsUi.open(act) { fill() } }, // 0.0.359 S3
+                 Row(R.drawable.ic_download, "Download rules", DlRules.summary(act), "Wi-Fi only, battery, storage. Checked before a download starts") { DlRules.dialog(act) { fill() } }
+             ))

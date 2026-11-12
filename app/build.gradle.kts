@@ -3,12 +3,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val appVersionName = "0.0.404"
+// Version: change ONLY this line to bump the version (the workflow reads it).
+val appVersionName = "0.0.409"
 // CI sets GITHUB_RUN_NUMBER, so every build has a higher versionCode (needed for updates)
 // CI provides "owner/repo"; the in-app updater reads releases from it
 val ghRepo = System.getenv("GITHUB_REPOSITORY") ?: ""
 val appVersionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
-// S16: CI fingerprint of all non-ext sources; ext-only hot updates (ExtUpdater) are allowed only when it matches
+// CI step "Native fingerprint" (build.yml) sets MGB_NATIVE_HASH; ExtUpdater (ext-only hot update) compares it with BuildConfig.NATIVE_HASH. Empty = ext-only update off.
 val nativeHash = System.getenv("MGB_NATIVE_HASH") ?: ""
 
 android {
@@ -64,18 +65,26 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    // a lint finding must never stop the APK build (same as before)
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
+    }
 }
 
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
-    implementation("com.google.android.material:material:1.12.0")
+    implementation("com.google.android.material:material:1.12.0")   // also brings fragment, activity, recyclerview
     implementation("androidx.webkit:webkit:1.11.0")
+    implementation("androidx.biometric:biometric:1.1.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("androidx.media3:media3-exoplayer:1.3.1") // S36: PlayerActivity
+    // player (PlayerScreen / PlayerService)
+    implementation("androidx.media3:media3-exoplayer:1.3.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.3.1")
+    implementation("androidx.media3:media3-exoplayer-dash:1.3.1")
     implementation("androidx.media3:media3-ui:1.3.1")
-    implementation("androidx.media3:media3-exoplayer-hls:1.3.1") // S39: web streams (.m3u8)
-    implementation("androidx.media3:media3-exoplayer-dash:1.3.1") // S39: web streams (.mpd)
-    implementation("com.google.android.gms:play-services-auth:21.2.0") // 0.0.311: Google sign-in (Authorization API) for Passport + Drive
-    implementation("androidx.biometric:biometric:1.1.0") // S30: unlock for saved passwords
+    // 0.0.303 Orbit / CloudSync: Google sign-in + Drive passport
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 }

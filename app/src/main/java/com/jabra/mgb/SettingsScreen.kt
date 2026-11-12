@@ -1099,7 +1099,7 @@ object SettingsScreen {
                 Row(R.drawable.ic_download, "Audio only downloads", if (QualityPrefs.audioOnlyOn()) "ON" else "OFF", "Streams with a separate audio track. Also in batches") { QualityPrefs.toggleAudioOnly(act) { fill() } },
                 Row(R.drawable.ic_folder, "Batch: folder and number", if (NameIndex.on()) "ON" else "OFF", "Show folder and 01 - title for batches") { NameIndex.toggle(act) { fill() } },
                 Sub("Downloader"), // 0.0.376: app downloader + rules + link inbox in their own group
-                Row(R.drawable.ic_download, "Link inbox", if (LinkInbox.on(act)) "ON" else "OFF", "Card for a shared or copied video link") { LinkInbox.setOn(act, !LinkInbox.on(act)); fill() },
+                Row(R.drawable.ic_download, "Link inbox", if (LinkInbox.on(act)) "ON" else "OFF", "Copy a Facebook / Pinterest / Reddit / Discord / video link, come back here: card with Download (also Share > this app)") { LinkInbox.setOn(act, !LinkInbox.on(act)); fill() },
                 Row(R.drawable.ic_download, "App downloader", DlPartsUi.summary(act), "For files (tab link, blob, grabber file): parts, speed limit, queue, resume") { DlPartsUi.open(act) { fill() } }, // 0.0.359 S3
                 Row(R.drawable.ic_download, "Download rules", DlRules.summary(act), "Wi-Fi only, battery, storage. Checked before a download starts") { DlRules.dialog(act) { fill() } }
             ))
