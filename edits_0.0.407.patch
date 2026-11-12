@@ -1,0 +1,13 @@
+--- a/app/src/main/java/com/jabra/mgb/LinkInbox.kt
++++ b/app/src/main/java/com/jabra/mgb/LinkInbox.kt
+@@ -60,6 +60,10 @@
+         if (t == lastSeen) return
+         val u = linkOf(t, true) ?: return
+         lastSeen = t
++        // 0.0.407: remembered across app restarts (hash only, the link itself is never stored): the same copied link is not offered again after a cold start
++        val hv = t.hashCode().toString()
++        if (sp(act).getString("li_last", "") == hv) return
++        sp(act).edit().putString("li_last", hv).apply()
+         show(act, tabs, u)
+     }
+ 
