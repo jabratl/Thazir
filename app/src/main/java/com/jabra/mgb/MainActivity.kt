@@ -177,7 +177,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                 MenuSheet.Item("Copy link", R.drawable.ic_copy) { tabs.copyText(u) },
                 MenuSheet.Item("Paste & go", R.drawable.ic_paste, clip.isNotEmpty()) { urlBar.setText(clip); submitUrl() },
                 MenuSheet.Item("Share", R.drawable.ic_share) { tabs.shareText(u) }
-            ))
+            ) + (if (LinkGrab.menuOk(u)) listOf(MenuSheet.Item("Download video / file (smart)", R.drawable.ic_download) { LinkGrab.run(this, u) }) else emptyList())) // 0.0.410
             true
         }
 

@@ -818,6 +818,7 @@ class TabManager(
             })
             rows.add(MenuSheet.Item("Copy link", R.drawable.ic_list) { copyText(l) })
             if (!text.isNullOrBlank()) rows.add(MenuSheet.Item("Copy text", R.drawable.ic_edit) { copyText(text.trim()) })
+            if (LinkGrab.menuOk(l)) rows.add(MenuSheet.Item("Download video / file (smart)", R.drawable.ic_download) { LinkGrab.run(ctx, l) }) // 0.0.410
             rows.add(MenuSheet.Item("Download link", R.drawable.ic_download) { downloadImage(tab, l) })
             rows.add(MenuSheet.Item("Share...", R.drawable.ic_share) { shareText(l) })
         }

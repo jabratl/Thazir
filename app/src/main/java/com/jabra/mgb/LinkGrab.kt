@@ -1,6 +1,6 @@
 package com.jabra.mgb
 
-import android.app.Activity
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.webkit.CookieManager
@@ -31,8 +31,18 @@ object LinkGrab {
     /** Cheap check (no network): can LinkGrab even try this link? */
     fun supported(url: String): Boolean = LinkGrabCore.kindOf(url) in setOf("fb", "pin", "reddit", "vredd", "direct", "discord")
 
+    /** 0.0.410: show the menu entry only for a real video / post link of the 4 sites (not a profile, not a plain file: "Download link" does those). */
+    fun menuOk(url: String): Boolean = LinkGrabCore.kindOf(url) in setOf("fb", "pin", "reddit", "vredd") && LinkGrabCore.worthCard(url)
+
+    /** 0.0.410: long-press menu / address bar menu entry: toast, grab, toast. Failure only tells the reason (the page stays where it is). Main thread. */
+    fun run(ctx: Context, url: String) {
+        val u = LinkClean.clean(url.trim())
+        Util.toast(ctx, "Looking for the file...")
+        grab(ctx, u) { ok, msg -> Util.toast(ctx, if (ok) "Downloading: $msg" else msg) }
+    }
+
     /** onDone(ok, text): text = file name on success, short reason on failure. Called on the main thread. */
-    fun grab(act: Activity, url: String, onDone: (Boolean, String) -> Unit) {
+    fun grab(ctx: Context, url: String, onDone: (Boolean, String) -> Unit) {
         val u = url.trim()
         if (!supported(u)) { onDone(false, "No direct file found"); return }
         Thread {
