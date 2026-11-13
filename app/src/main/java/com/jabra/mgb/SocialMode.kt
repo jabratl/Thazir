@@ -185,24 +185,49 @@ object SocialMode {
         return ua
     }
 
+    private class UaPlan(val ua: String?, val kind: Kind)
+    private val uaPending = WeakHashMap<WebView, String>() // view -> newest address waiting for the deferred switch
+    private val uaHandler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
+
+    /** Pure check, changes nothing: what would have to change for this address? null = nothing to do. */
+    private fun planFor(ctx: Context, view: WebView, url: String, handDesktop: Boolean): UaPlan? {
+        if (handDesktop || !on(ctx) || !url.startsWith("http", true)) return null
+        val k = kindFor(ctx, url)
+        if (k == Kind.NONE) return if (applied.containsKey(view)) UaPlan(null, k) else null
+        val want = if (k == Kind.CHAT) BrowserExtras.desktopUa(ctx) else mobileUa(ctx)
+        val cur = try { view.settings.userAgentString } catch (_: Throwable) { return null }
+        return if (cur == want) null else UaPlan(want, k)
+    }
+
+    private fun commitPlan(view: WebView, p: UaPlan) {
+        val s = view.settings
+        if (p.ua == null) { applied.remove(view); s.userAgentString = null; return } // default again
+        s.userAgentString = p.ua
+        if (p.kind == Kind.CHAT) { s.useWideViewPort = true; s.loadWithOverviewMode = true } // the viewport script then makes the chat fit; feed / Instagram keep their own mobile viewport
+        applied[view] = true
+    }
+
     /**
-     * Sets the user agent for this address. true = it changed, the caller must load the address again (the new user agent
-     * is used from the next request). false = nothing to do (switch OFF, Desktop site chosen by hand, already right, not a social page).
+     * Sets the user agent for this address. true = it changes and this function loads the address again by itself (the caller must NOT
+     * load it again and must cancel the current navigation). false = nothing to do (switch OFF, Desktop site chosen by hand, already right, not a social page).
+     * 0.0.414 (CRASH FIX): WebSettings.setUserAgentString used to run right here, inside shouldOverrideUrlLoading / onPageStarted / doUpdateVisitedHistory,
+     * i.e. in the middle of a Chromium navigation callback: native crash (SIGSEGV in libwebviewchromium.so, AwSettings.setUserAgentString <- ensure <- shouldOverrideUrlLoading).
+     * Now the switch + reload are posted to the main looper and run after the callback has returned.
      */
     fun ensure(ctx: Context, view: WebView, url: String, handDesktop: Boolean): Boolean {
-        if (handDesktop || !on(ctx) || !url.startsWith("http", true)) return false
-        val s = view.settings
-        val k = kindFor(ctx, url)
-        if (k == Kind.NONE) {
-            if (applied.remove(view) == null) return false
-            s.userAgentString = null // default again
-            return true
+        if (planFor(ctx, view, url, handDesktop) == null) return false
+        val already = uaPending.containsKey(view)
+        uaPending[view] = url // newest address wins
+        if (already) return true
+        val app = ctx.applicationContext
+        uaHandler.post {
+            val target = uaPending.remove(view) ?: return@post
+            try {
+                planFor(app, view, target, handDesktop)?.let { commitPlan(view, it) }
+                view.stopLoading()
+                view.loadUrl(target)
+            } catch (e: Throwable) { /* WebView already destroyed (tab closed): nothing to do */ }
         }
-        val want = if (k == Kind.CHAT) BrowserExtras.desktopUa(ctx) else mobileUa(ctx)
-        if (s.userAgentString == want) return false
-        s.userAgentString = want
-        if (k == Kind.CHAT) { s.useWideViewPort = true; s.loadWithOverviewMode = true } // the viewport script then makes the chat fit; feed / Instagram keep their own mobile viewport
-        applied[view] = true
         return true
     }
 

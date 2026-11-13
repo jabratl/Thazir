@@ -549,7 +549,7 @@ class TabManager(
                 return true
             }
             // 0.0.224: Social mode: user agent follows the page (chat = desktop, feed / Instagram = mobile); app links stay in the browser
-            if (!tab.isExt && request.isForMainFrame && u.scheme == "https" && view != null && SocialMode.ensure(ctx, view, u.toString(), tab.desktop)) { view.loadUrl(u.toString()); return true }
+            if (!tab.isExt && request.isForMainFrame && u.scheme == "https" && view != null && SocialMode.ensure(ctx, view, u.toString(), tab.desktop)) return true // 0.0.414: ensure() switches the user agent + loads later (never inside this callback)
             if (!tab.isExt && request.isForMainFrame && SocialMode.blockApp(ctx, tab.url, u)) { Util.toast(ctx, "Staying in the browser"); return true }
             if (!tab.isExt && request.isForMainFrame && MediaPrefs.blockYtApp(ctx, u)) { Util.toast(ctx, "Staying in the browser"); return true } // 0.0.296: Media > Open YouTube links in Thazir
             // 0.0.271 (D4): a tapped link that leaves a social site asks: new tab / here / cancel (pref OFF = false)
@@ -650,7 +650,7 @@ class TabManager(
             if (!tab.isExt && view != null) YtAds.flag(view, url) // 0.0.105
             if (!tab.isExt && view != null) SiteMute.flag(view, url) // 0.0.296: Mute site
             if (!tab.isExt && !tab.savedPage && view != null) WebNotify.inject(view) // 0.0.284
-            if (!tab.isExt && !tab.savedPage && view != null && url != null && SocialMode.ensure(ctx, view, url, tab.desktop)) container.post { view.stopLoading(); view.loadUrl(url) } // 0.0.224
+            if (!tab.isExt && !tab.savedPage && view != null && url != null && SocialMode.ensure(ctx, view, url, tab.desktop)) { /* 0.0.414: ensure() posts the switch + reload itself */ } // 0.0.224
             TabsApi.onUpdated(tab, JSONObject().put("status", "loading").put("url", tab.url)) // S6
             listener.onPageInfo(tab)
         }
@@ -681,7 +681,7 @@ class TabManager(
 
         override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
             tab.url = url ?: tab.url
-            if (!tab.isExt && !tab.savedPage && view != null && url != null && SocialMode.onRoute(ctx, view, url, tab.desktop)) container.post { view.stopLoading(); view.loadUrl(url) } // 0.0.235 (U1)
+            if (!tab.isExt && !tab.savedPage && view != null && url != null && SocialMode.onRoute(ctx, view, url, tab.desktop)) { /* 0.0.414: ensure() posts the switch + reload itself */ } // 0.0.235 (U1)
             listener.onPageInfo(tab)
         }
     }
