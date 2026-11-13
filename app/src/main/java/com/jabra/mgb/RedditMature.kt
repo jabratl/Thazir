@@ -18,6 +18,7 @@ import android.webkit.WebView
 object RedditMature {
     private const val KEY = "rd_mature"
     fun on(c: Context): Boolean = try { c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getBoolean(KEY, true) } catch (_: Throwable) { true }
+    fun setOn(c: Context, v: Boolean) { try { c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).edit().putBoolean(KEY, v).apply() } catch (_: Throwable) { } } // 0.0.416: Settings row
 
     private fun isReddit(url: String?): Boolean {
         if (url == null || !url.startsWith("https://", true)) return false

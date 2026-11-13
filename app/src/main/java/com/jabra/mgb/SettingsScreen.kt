@@ -1045,6 +1045,14 @@ object SettingsScreen {
                 Sub("Sites and media"), // 0.0.322
                 Row(R.drawable.ic_desktop, "Social sites", if (SocialMode.on(act)) "ON" else "OFF", "Facebook, Reddit, X, Discord and more fit the phone. Switch per site") { SocialScreen.open(act) { fill() } }, // 0.0.224
                 Row(R.drawable.ic_play, "Media", "DRM, background play, YouTube") { MediaScreen.open(act) }, // 0.0.296
+                Row(R.drawable.ic_close, "Block auto app-open", if (AppNag.on(act)) "ON" else "OFF", "A page that opens TikTok / Instagram / Reddit / Facebook app by itself stays in the browser. A link you tap still opens the app") { // 0.0.416
+                    AppNag.setOn(act, !AppNag.on(act))
+                    fill()
+                },
+                Row(R.drawable.ic_desktop, "Reddit 18+ without the app", if (RedditMature.on(act)) "ON" else "OFF", "Mature Content wall on reddit.com opens the same post on old.reddit.com") { // 0.0.416
+                    RedditMature.setOn(act, !RedditMature.on(act))
+                    fill()
+                },
                 Sub("Tabs"),
                 Row(R.drawable.ic_list, "Swipe a tab card to close it", if (TabPrefs.swipeClose(act)) "ON" else "OFF") {
                     TabPrefs.set(act, "swipe_close", !TabPrefs.swipeClose(act))

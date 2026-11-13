@@ -568,7 +568,12 @@ class TabManager(
             when (u.scheme?.lowercase()) {
                 null, "http", "https", "about", "data", "blob", "file", "javascript" -> return false
             }
-            if (request.isForMainFrame) openExternal(u.toString())
+            // 0.0.416: a page that opens a social app by itself (no tap) stays in the browser (pref app_nag_block)
+            if (!tab.isExt && request.isForMainFrame && !request.hasGesture() && AppNag.blocksAuto(ctx, u)) { Util.toast(ctx, "App open blocked, staying in the browser"); return true }
+            if (request.isForMainFrame && !openExternal(u.toString())) {
+                val fb = AppNag.fallbackUrl(u.toString()) // 0.0.416: no app for this intent:// link -> its own web address, in this tab
+                if (fb != null && view != null) container.post { try { view.loadUrl(fb) } catch (_: Throwable) { } }
+            }
             return true
         }
 
@@ -750,7 +755,8 @@ class TabManager(
         }
     }
 
-    private fun openExternal(url: String) {
+    /** true = an app was started. false = no app (a toast is shown unless an intent:// link has its own web address, 0.0.416). */
+    private fun openExternal(url: String): Boolean {
         try {
             val i = if (url.startsWith("intent:")) Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
             else Intent(Intent.ACTION_VIEW, Uri.parse(url))
@@ -758,8 +764,10 @@ class TabManager(
             i.component = null
             i.selector = null
             ctx.startActivity(i)
+            return true
         } catch (_: Exception) {
-            Util.toast(ctx, "No app to open this link")
+            if (AppNag.fallbackUrl(url) == null) Util.toast(ctx, "No app to open this link")
+            return false
         }
     }
 
