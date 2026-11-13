@@ -275,6 +275,125 @@
     });
   }
 
+  // ---------- 0.0.413 compat layer ----------
+  // APIs that Chrome has and this bridge has not. Many extensions touch them while they load (a listener, a stub call);
+  // a missing one threw "undefined" and the whole extension stopped. Rules: JS only, added only where the name is still
+  // missing (every real handler above or in Kotlin wins), nothing here fakes data an extension could act on wrongly:
+  // lists are empty, "not supported" is a rejected promise with Chrome's wording, events simply never fire.
+  function noop() { /* nothing */ }
+  function rej(msg) { return function () { return Promise.reject(new Error(msg)); }; }
+  function stub(v) { return wrap(function () { return Promise.resolve(typeof v === 'function' ? v.apply(null, arguments) : v); }); }
+  function ev(name) { return makeEvent(name, false); }
+  function fill(o, spec) { Object.keys(spec).forEach(function (k) { if (o[k] === undefined) o[k] = spec[k]; }); return o; }
+  function ns(name, spec) { if (!chrome[name]) chrome[name] = {}; return fill(chrome[name], spec); }
+  var NOHOST = 'Specified native messaging host not found.';
+
+  fill(runtime, {
+    setUninstallURL: stub(undefined),
+    restart: noop,
+    restartAfterDelay: noop,
+    getPackageDirectoryEntry: wrap(rej('Not supported')),
+    sendNativeMessage: wrap(rej(NOHOST)),
+    connectNative: function () {
+      var pid = newPortId(), port = makePort(pid, '', undefined);
+      setTimeout(function () { closePort(pid, NOHOST); }, 0);
+      return port;
+    },
+    onBrowserUpdateAvailable: ev('runtime.onBrowserUpdateAvailable'),
+    onRestartRequired: ev('runtime.onRestartRequired')
+  });
+  fill(chrome.extension, { sendMessage: runtime.sendMessage, onMessage: runtime.onMessage, onRequest: ev('extension.onRequest'), onRequestExternal: ev('extension.onRequestExternal') });
+  if (!storage.managed) storage.managed = { get: stub(function () { return {}; }), getBytesInUse: stub(0), onChanged: ev('storage.managed.onChanged') };
+
+  if (isExt) {
+    // MV2 names: browserAction is the same object as action (same arguments, same handlers)
+    if (!chrome.browserAction && chrome.action) chrome.browserAction = chrome.action;
+    ns('pageAction', { show: stub(undefined), hide: stub(undefined), setTitle: stub(undefined), setIcon: stub(undefined), setPopup: stub(undefined), getTitle: stub(''), getPopup: stub(''), onClicked: ev('pageAction.onClicked') });
+    if (chrome.action) fill(chrome.action, { onUserSettingsChanged: ev('action.onUserSettingsChanged'), getUserSettings: stub(function () { return { isOnToolbar: true }; }) });
+    if (chrome.sidePanel) fill(chrome.sidePanel, { getOptions: stub(function () { return { enabled: true }; }), getPanelBehavior: stub(function () { return { openPanelOnActionClick: false }; }) });
+    if (chrome.declarativeNetRequest) fill(chrome.declarativeNetRequest, { getMatchedRules: stub(function () { return { rulesMatchedInfo: [] }; }), onRuleMatchedDebug: ev('declarativeNetRequest.onRuleMatchedDebug') });
+    if (chrome.webRequest) fill(chrome.webRequest, { handlerBehaviorChanged: stub(undefined), MAX_HANDLER_BEHAVIOR_CHANGED_CALLS_PER_10_MINUTES: 20, onAuthRequired: ev('webRequest.onAuthRequired'), onBeforeRedirect: ev('webRequest.onBeforeRedirect'), onResponseStarted: ev('webRequest.onResponseStarted') });
+
+    // tabs / windows: the rest of the common surface (one window, so most events never fire)
+    fill(chrome.tabs, {
+      TAB_ID_NONE: -1,
+      getSelected: wrap(function () { return chrome.tabs.query({ active: true, currentWindow: true }).then(function (r) { return r && r[0]; }); }),
+      detectLanguage: stub('und'),
+      insertCSS: wrap(function (a, b) { // MV2 chrome.tabs.insertCSS([tabId,] {code|file}) -> scripting.insertCSS
+        var num = typeof a === 'number', d = (num ? b : a) || {}, inj = { target: {} };
+        if (num) inj.target.tabId = a;
+        if (d.code) inj.css = String(d.code); else if (d.file) inj.files = [d.file];
+        return call('scripting.insertCSS', [inj]).then(function () { return undefined; });
+      }),
+      onMoved: ev('tabs.onMoved'), onReplaced: ev('tabs.onReplaced'), onHighlighted: ev('tabs.onHighlighted'), onHighlightChanged: ev('tabs.onHighlightChanged'),
+      onAttached: ev('tabs.onAttached'), onDetached: ev('tabs.onDetached'), onZoomChange: ev('tabs.onZoomChange')
+    });
+    ns('windows', {
+      WINDOW_ID_NONE: -1, WINDOW_ID_CURRENT: -2,
+      getAll: stub(function () { return [{ id: 1, focused: true, incognito: false, type: 'normal', state: 'normal', alwaysOnTop: false }]; }),
+      getLastFocused: wrap(function () { return call('windows.getCurrent', []); }),
+      remove: stub(undefined),
+      onCreated: ev('windows.onCreated'), onRemoved: ev('windows.onRemoved'), onFocusChanged: ev('windows.onFocusChanged'), onBoundsChanged: ev('windows.onBoundsChanged')
+    });
+
+    // webNavigation: main frame only, built from tabs.onUpdated (loading + url = before navigate / committed, complete = DOM / completed).
+    // The tabs.onUpdated listener is added only when an extension adds its first webNavigation listener. URL filters are ignored.
+    var WN = ['onBeforeNavigate', 'onCommitted', 'onDOMContentLoaded', 'onCompleted', 'onErrorOccurred', 'onCreatedNavigationTarget', 'onHistoryStateUpdated', 'onReferenceFragmentUpdated', 'onTabReplaced'];
+    var wn = ns('webNavigation', { getFrame: stub(null), getAllFrames: stub(function () { return []; }) });
+    var wnOn = false, wnUrl = {};
+    function wnFire(n, tabId, url) { fire('webNavigation.' + n, [{ tabId: tabId, url: url, frameId: 0, parentFrameId: -1, processId: -1, timeStamp: Date.now() }]); }
+    function wnStart() {
+      if (wnOn) return;
+      wnOn = true;
+      chrome.tabs.onUpdated.addListener(function (tabId, change, tab) {
+        change = change || {};
+        if (Object.keys(wnUrl).length > 500) wnUrl = {};
+        var url = change.url || (tab && tab.url) || wnUrl[tabId] || '';
+        if (change.url) wnUrl[tabId] = change.url;
+        if (change.status === 'loading' && change.url) { wnFire('onBeforeNavigate', tabId, url); wnFire('onCommitted', tabId, url); }
+        else if (change.status === 'complete' && url) { wnFire('onDOMContentLoaded', tabId, url); wnFire('onCompleted', tabId, url); }
+      });
+    }
+    WN.forEach(function (n) {
+      var e = wn[n] = wn[n] || ev('webNavigation.' + n), add = e.addListener;
+      e.addListener = function () { wnStart(); return add.apply(e, arguments); };
+    });
+
+    // management: only this extension is visible
+    var selfInfo = function () {
+      return { id: CFG.id, name: manifest.name || '', shortName: manifest.short_name || manifest.name || '', description: manifest.description || '', version: manifest.version || '',
+        mayDisable: true, enabled: true, isApp: false, type: 'extension', installType: 'normal', homepageUrl: manifest.homepage_url || '',
+        optionsUrl: manifest.options_page ? runtime.getURL(manifest.options_page) : '',
+        permissions: (manifest.permissions || []).filter(function (x) { return typeof x === 'string'; }), hostPermissions: manifest.host_permissions || [] };
+    };
+    ns('management', {
+      getSelf: stub(selfInfo), getAll: stub(function () { return [selfInfo()]; }),
+      get: wrap(function (id) { return id === CFG.id ? Promise.resolve(selfInfo()) : Promise.reject(new Error('Failed to get extension. No extension with id ' + id)); }),
+      getPermissionWarningsById: stub(function () { return []; }),
+      setEnabled: wrap(rej('Not supported')), uninstallSelf: wrap(rej('Not supported')),
+      onInstalled: ev('management.onInstalled'), onUninstalled: ev('management.onUninstalled'), onEnabled: ev('management.onEnabled'), onDisabled: ev('management.onDisabled')
+    });
+
+    // present but empty: the browser has these (history, bookmarks, ...) natively, the bridge does not expose them yet
+    ns('idle', { queryState: stub('active'), setDetectionInterval: stub(undefined), onStateChanged: ev('idle.onStateChanged') });
+    ns('history', { search: stub(function () { return []; }), getVisits: stub(function () { return []; }), addUrl: stub(undefined), deleteUrl: stub(undefined), deleteRange: stub(undefined), deleteAll: stub(undefined), onVisited: ev('history.onVisited'), onVisitRemoved: ev('history.onVisitRemoved') });
+    ns('bookmarks', {
+      getTree: stub(function () { return [{ id: '0', title: '', children: [] }]; }), get: stub(function () { return []; }), getChildren: stub(function () { return []; }),
+      getRecent: stub(function () { return []; }), getSubTree: stub(function () { return []; }), search: stub(function () { return []; }),
+      create: wrap(rej('Not supported')), update: wrap(rej('Not supported')), move: wrap(rej('Not supported')), remove: wrap(rej('Not supported')), removeTree: wrap(rej('Not supported')),
+      onCreated: ev('bookmarks.onCreated'), onRemoved: ev('bookmarks.onRemoved'), onChanged: ev('bookmarks.onChanged'), onMoved: ev('bookmarks.onMoved')
+    });
+    ns('topSites', { get: stub(function () { return []; }) });
+    ns('sessions', { MAX_SESSION_RESULTS: 25, getRecentlyClosed: stub(function () { return []; }), getDevices: stub(function () { return []; }), restore: wrap(rej('Not supported')), onChanged: ev('sessions.onChanged') });
+    ns('omnibox', { setDefaultSuggestion: stub(undefined), onInputStarted: ev('omnibox.onInputStarted'), onInputChanged: ev('omnibox.onInputChanged'), onInputEntered: ev('omnibox.onInputEntered'), onInputCancelled: ev('omnibox.onInputCancelled') });
+    ns('identity', {
+      getRedirectURL: function (path) { return 'https://' + CFG.id + '.chromiumapp.org/' + String(path || '').replace(/^\/+/, ''); },
+      getProfileUserInfo: stub(function () { return { email: '', id: '' }; }),
+      launchWebAuthFlow: wrap(rej('Not supported')), getAuthToken: wrap(rej('Not supported')), removeCachedAuthToken: stub(undefined),
+      onSignInChanged: ev('identity.onSignInChanged')
+    });
+  }
+
   try { send({ i: 0, a: '__hello', p: [CFG.kind] }); } catch (e) { return null; }
   try { G.addEventListener('pagehide', function () { try { send({ i: 0, a: '__bye', p: [] }); } catch (e) { /* ignore */ } }); } catch (e) { /* ignore */ }
   return chrome;

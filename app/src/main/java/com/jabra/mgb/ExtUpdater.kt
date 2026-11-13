@@ -166,7 +166,7 @@ object ExtUpdater {
                             status.text = "Downloading ${Util.fmtBytes(done)}" +
                                 if (total > 0) " / ${Util.fmtBytes(total)}" else ""
                         }
-                    }, { note -> main.post { if (!cancelled.get()) status.text = note } }) // 0.0.412: "Server busy, retrying (n/6)"
+                    }, { note -> main.post { if (!cancelled.get()) status.text = note } }) // 0.0.413: "Server busy, retrying (n/6)"
                     main.post {
                         if (cancelled.get()) return@post
                         dlg.setOnDismissListener(null)
@@ -237,7 +237,7 @@ object ExtUpdater {
         }
     }
 
-    /** 0.0.412: a temporary server / network problem (408, 429, 5xx, connection lost) is retried up to 6 times; a real error (404, bad file) fails at once. */
+    /** 0.0.413: a temporary server / network problem (408, 429, 5xx, connection lost) is retried up to 6 times; a real error (404, bad file) fails at once. */
     private class Busy(m: String, val waitMs: Long) : IOException(m)
 
     private fun download(url: String, size: Long, part: File, cancelled: AtomicBoolean, onProgress: (Long, Long) -> Unit, onNote: (String) -> Unit) {
@@ -272,7 +272,7 @@ object ExtUpdater {
         c.setRequestProperty("Accept", "application/octet-stream")
         try {
             val code = c.responseCode
-            if (code == 408 || code == 429 || code in 500..599) { // 0.0.412: temporary, retry (Retry-After seconds respected, max 30 s)
+            if (code == 408 || code == 429 || code in 500..599) { // 0.0.413: temporary, retry (Retry-After seconds respected, max 30 s)
                 val ra = (c.getHeaderField("Retry-After")?.trim()?.toLongOrNull() ?: 0L).coerceIn(0L, 30L) * 1000L
                 throw Busy("server busy (HTTP $code)", ra)
             }

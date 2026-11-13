@@ -261,7 +261,7 @@ class PlayerActivity : AppCompatActivity() {
         if (hasFocus) hideBars()
     }
 
-    // 0.0.412: same StackOverflow guard as MainActivity (uiMode is in configChanges, AppCompat can call this method again from inside super)
+    // 0.0.413: same StackOverflow guard as MainActivity (uiMode is in configChanges, AppCompat can call this method again from inside super)
     private var inCfgChange = false
 
     override fun onConfigurationChanged(newConfig: Configuration) {

@@ -4,7 +4,7 @@ plugins {
 }
 
 // Version: change ONLY this line to bump the version (the workflow reads it).
-val appVersionName = "0.0.412"
+val appVersionName = "0.0.413"
 // CI sets GITHUB_RUN_NUMBER, so every build has a higher versionCode (needed for updates)
 // CI provides "owner/repo"; the in-app updater reads releases from it
 val ghRepo = System.getenv("GITHUB_REPOSITORY") ?: ""
