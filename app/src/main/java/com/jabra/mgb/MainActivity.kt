@@ -760,16 +760,27 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         return super.dispatchGenericMotionEvent(ev)
     }
 
+    // 0.0.411 FIX: StackOverflowError (MIUI). With uiMode in configChanges, AppCompat calls this method from
+    // updateActivityConfiguration, and super.onConfigurationChanged makes AppCompat call it again when the night mode it
+    // wants never shows up in resources.configuration (MIUI Configuration, forced Light / Dark). A re-entry guard cuts the loop.
+    private var inCfgChange = false
+
     override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
-        applyNavArrows(); refreshShield() // A1: narrow / wide rule follows rotation
-        // S35 FIX: compare the colours the app really uses (resources, after AppCompat applied the saved theme),
-        // not newConfig (= the system theme). With a forced Dark/Light theme the old test was true on EVERY rotation,
-        // so rotating recreated the Activity: the player closed and every tab reloaded.
-        val n = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-        if (n != lastNight) {
-            lastNight = n
-            recreate()
+        if (inCfgChange) return // 0.0.411: nested call from AppCompat = stop here
+        inCfgChange = true
+        try {
+            super.onConfigurationChanged(newConfig)
+            applyNavArrows(); refreshShield() // A1: narrow / wide rule follows rotation
+            // S35 FIX: compare the colours the app really uses (resources, after AppCompat applied the saved theme),
+            // not newConfig (= the system theme). With a forced Dark/Light theme the old test was true on EVERY rotation,
+            // so rotating recreated the Activity: the player closed and every tab reloaded.
+            val n = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+            if (n != lastNight) {
+                lastNight = n
+                recreate()
+            }
+        } finally {
+            inCfgChange = false
         }
     }
 }
