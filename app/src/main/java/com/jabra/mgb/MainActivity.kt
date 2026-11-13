@@ -760,13 +760,13 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         return super.dispatchGenericMotionEvent(ev)
     }
 
-    // 0.0.411 FIX: StackOverflowError (MIUI). With uiMode in configChanges, AppCompat calls this method from
+    // 0.0.412 FIX: StackOverflowError (MIUI). With uiMode in configChanges, AppCompat calls this method from
     // updateActivityConfiguration, and super.onConfigurationChanged makes AppCompat call it again when the night mode it
     // wants never shows up in resources.configuration (MIUI Configuration, forced Light / Dark). A re-entry guard cuts the loop.
     private var inCfgChange = false
 
     override fun onConfigurationChanged(newConfig: Configuration) {
-        if (inCfgChange) return // 0.0.411: nested call from AppCompat = stop here
+        if (inCfgChange) return // 0.0.412: nested call from AppCompat = stop here
         inCfgChange = true
         try {
             super.onConfigurationChanged(newConfig)

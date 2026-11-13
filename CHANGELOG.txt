@@ -1,10 +1,12 @@
-0.0.411 (FIX: crash StackOverflowError in MainActivity.onConfigurationChanged (MainActivity.kt:764, Xiaomi / MIUI))
+0.0.412 (FIX: crash StackOverflowError in MainActivity.onConfigurationChanged (MainActivity.kt:764, Xiaomi / MIUI))
 - WHY: Crash report: java.lang.StackOverflowError, endless loop AppCompatDelegateImpl.onConfigurationChanged -> AppCompatActivity.onConfigurationChanged -> MainActivity.onConfigurationChanged -> updateActivityConfiguration -> updateResourcesConfiguration -> updateAppConfiguration -> applyApplicationSpecificConfig -> onConfigurationChanged ... uiMode is in configChanges, so AppCompat calls the Activity method itself; when the night mode it wants does not show up in resources.configuration (MIUI Configuration, forced Light / Dark theme) it calls again and again.
 - What: MainActivity.onConfigurationChanged has a re-entry guard (inCfgChange): a nested call returns at once, the first call runs as before (super, applyNavArrows, refreshShield, night-change recreate). try / finally always clears the flag.
 - CHANGED BEHAVIOUR: none on purpose (a normal rotation / theme change runs the same code once).
 - NOT tested: Gradle build (CI), device. DEVICE TEST: Xiaomi / MIUI phone: switch System / Light / Dark theme, rotate, change system dark mode while the app is open: no crash, theme follows.
 - Rollback: restore the old onConfigurationChanged body in MainActivity.kt (remove inCfgChange), or revert to 0.0.410.
-- Files: MainActivity.kt, app/build.gradle.kts, CHANGELOG.txt.
+- ALSO (0.0.412): PlayerActivity.onConfigurationChanged got the same re-entry guard (its manifest entry also has uiMode in configChanges, same loop risk).
+- ALSO (0.0.412, MODIFY ExtUpdater): the extension-files download now retries temporary errors (HTTP 408 / 429 / 5xx, connection lost) up to 6 times with a growing wait (Retry-After respected, max 30 s) and shows "Server busy, retrying (n/6)..." in the dialog, like UpdateService since 0.0.339. 404 / bad file / cancel still fail at once. Each retry restarts the (small) zip from 0. Cancel works during the wait.
+- Files: MainActivity.kt, PlayerActivity.kt, ExtUpdater.kt, app/build.gradle.kts, CHANGELOG.txt.
 
 0.0.404 (FIX: apk (and other files) saved as ".bin" - the name is now taken from the file content)
 - WHY: A download from a site that sends no file name and a generic type (application/octet-stream) was saved as something.bin, while other browsers save it as .apk. 0.0.381 only helped when the server answer had a name or a good type. Now the content decides, like a browser that checks the file itself.

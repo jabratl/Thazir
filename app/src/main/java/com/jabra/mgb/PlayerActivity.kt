@@ -261,10 +261,19 @@ class PlayerActivity : AppCompatActivity() {
         if (hasFocus) hideBars()
     }
 
+    // 0.0.412: same StackOverflow guard as MainActivity (uiMode is in configChanges, AppCompat can call this method again from inside super)
+    private var inCfgChange = false
+
     override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig) // declared in configChanges: no recreate, the player keeps playing
-        hideBars()
-        applyCompact() // P7
+        if (inCfgChange) return
+        inCfgChange = true
+        try {
+            super.onConfigurationChanged(newConfig) // declared in configChanges: no recreate, the player keeps playing
+            hideBars()
+            applyCompact() // P7
+        } finally {
+            inCfgChange = false
+        }
     }
 
     // S45: background audio: keep playing when the screen turns off / the user leaves (not after PiP, not when finishing)

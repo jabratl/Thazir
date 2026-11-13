@@ -16,6 +16,7 @@ import com.google.android.material.progressindicator.LinearProgressIndicator
 import org.json.JSONObject
 import java.io.File
 import java.io.FileInputStream
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
@@ -159,13 +160,13 @@ object ExtUpdater {
             status.text = "Starting…"
             io.execute {
                 try {
-                    install(url, size, build, cancelled) { done, total ->
+                    install(url, size, build, cancelled, { done, total ->
                         main.post {
                             if (total > 0) progress.progress = (done * 100 / total).toInt()
                             status.text = "Downloading ${Util.fmtBytes(done)}" +
                                 if (total > 0) " / ${Util.fmtBytes(total)}" else ""
                         }
-                    }
+                    }, { note -> main.post { if (!cancelled.get()) status.text = note } }) // 0.0.412: "Server busy, retrying (n/6)"
                     main.post {
                         if (cancelled.get()) return@post
                         dlg.setOnDismissListener(null)
@@ -213,7 +214,7 @@ object ExtUpdater {
 
     // ---------- download + unpack + check + switch ----------
 
-    private fun install(url: String, size: Long, build: Int, cancelled: AtomicBoolean, onProgress: (Long, Long) -> Unit) {
+    private fun install(url: String, size: Long, build: Int, cancelled: AtomicBoolean, onProgress: (Long, Long) -> Unit, onNote: (String) -> Unit = {}) {
         if (!inited) throw Exception("not ready")
         root.mkdirs()
         val part = File(root, "dl.part")
@@ -221,7 +222,7 @@ object ExtUpdater {
         val dirName = "b$build"
         val dest = File(root, dirName)
         try {
-            download(url, size, part, cancelled, onProgress)
+            download(url, size, part, cancelled, onProgress, onNote)
             stage.deleteRecursively()
             stage.mkdirs()
             unzip(part, stage)
@@ -236,7 +237,33 @@ object ExtUpdater {
         }
     }
 
-    private fun download(url: String, size: Long, part: File, cancelled: AtomicBoolean, onProgress: (Long, Long) -> Unit) {
+    /** 0.0.412: a temporary server / network problem (408, 429, 5xx, connection lost) is retried up to 6 times; a real error (404, bad file) fails at once. */
+    private class Busy(m: String, val waitMs: Long) : IOException(m)
+
+    private fun download(url: String, size: Long, part: File, cancelled: AtomicBoolean, onProgress: (Long, Long) -> Unit, onNote: (String) -> Unit) {
+        var attempt = 0
+        while (true) {
+            try {
+                downloadOnce(url, size, part, cancelled, onProgress)
+                return
+            } catch (e: IOException) {
+                if (cancelled.get()) throw Exception("cancelled")
+                attempt++
+                if (attempt >= 6) throw Exception(e.message ?: "connection lost")
+                val busy = e is Busy
+                val waitMs = if (e is Busy && e.waitMs > 0) e.waitMs else if (busy) minOf(3000L * attempt, 20_000L) else minOf(2000L * attempt, 10_000L)
+                onNote((if (busy) "Server busy, retrying" else "Connection lost, retrying") + " ($attempt/6)…")
+                var w = 0L
+                while (w < waitMs) {
+                    if (cancelled.get()) throw Exception("cancelled")
+                    try { Thread.sleep(250) } catch (_: InterruptedException) { throw Exception("cancelled") }
+                    w += 250
+                }
+            }
+        }
+    }
+
+    private fun downloadOnce(url: String, size: Long, part: File, cancelled: AtomicBoolean, onProgress: (Long, Long) -> Unit) {
         val c = URL(url).openConnection() as HttpURLConnection
         c.connectTimeout = 15_000
         c.readTimeout = 30_000
@@ -244,7 +271,12 @@ object ExtUpdater {
         c.setRequestProperty("User-Agent", "MGB-updater")
         c.setRequestProperty("Accept", "application/octet-stream")
         try {
-            if (c.responseCode != 200) throw Exception("download HTTP ${c.responseCode}")
+            val code = c.responseCode
+            if (code == 408 || code == 429 || code in 500..599) { // 0.0.412: temporary, retry (Retry-After seconds respected, max 30 s)
+                val ra = (c.getHeaderField("Retry-After")?.trim()?.toLongOrNull() ?: 0L).coerceIn(0L, 30L) * 1000L
+                throw Busy("server busy (HTTP $code)", ra)
+            }
+            if (code != 200) throw Exception("download HTTP $code")
             val total = if (c.contentLengthLong > 0) c.contentLengthLong else size
             c.inputStream.use { inp ->
                 part.outputStream().use { out ->
