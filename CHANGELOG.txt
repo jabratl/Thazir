@@ -1,3 +1,12 @@
+0.0.418 (NEW: sign-in dialog for sites that ask a user name and password, HTTP Basic / Digest)
+- Base = 0.0.417. Two files: HttpAuthUi.kt (new) + one override in TabManager.
+- WHY: the browser had no onReceivedHttpAuthRequest. When a site, router, NAS, staging server or proxy answers "401 + WWW-Authenticate", WebView cancels the request itself and the person only sees an empty / "unauthorized" page with no way to sign in.
+- What: TabManager client(tab).onReceivedHttpAuthRequest shows HttpAuthUi.ask: a dialog "Sign in" with the host + realm, a User name and a Password box (password hidden), Sign in / Cancel. Nothing is saved anywhere; the values go only to the HttpAuthHandler of that request. One dialog at a time (a second request meanwhile is cancelled; the page asks again). The handler is answered exactly once (Sign in / Cancel / back / dismiss / any error = cancel), so the page never hangs. A plain http:// page shows the line "Not secure (http): the password is sent without encryption". Extension pages and a non-Activity context cancel like before.
+- CHANGED BEHAVIOUR: only the case that used to end as a blank / unauthorized page; everything else is untouched.
+- NOT tested: Gradle build (CI), device. DEVICE TEST: open https://httpbingo.org/basic-auth/user/pass (or httpbin.org/basic-auth/user/pass): dialog appears, user / pass signs in and shows JSON; wrong password asks again; Cancel shows the 401 page; back key = cancel; no crash on rotate while the dialog is open.
+- Rollback: remove the onReceivedHttpAuthRequest override in TabManager.kt (and HttpAuthUi.kt).
+- Files: HttpAuthUi.kt (new), TabManager.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.418.txt.
+
 0.0.417 (FIX: the whole app was killed when a tab's WebView render process died; now the tab is rebuilt and the app stays alive)
 - Base = 0.0.416. ONE change, one file (TabManager.kt).
 - WHY: TabManager's WebViewClient.onRenderProcessGone (S83) only logged and returned false. For a WebView, false = "not handled" = Android kills the whole app process whenever the render process dies (low memory while the phone is busy, a heavy / buggy page, WebView update in the background). Users see this as "the app closed by itself". All tabs share one render process, so one death hits every tab.

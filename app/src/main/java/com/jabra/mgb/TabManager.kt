@@ -676,6 +676,14 @@ class TabManager(
             }
         }
 
+        // 0.0.418: a site / router / NAS that asks for a user name + password (HTTP Basic / Digest): ask in a dialog instead of silently cancelling
+        override fun onReceivedHttpAuthRequest(view: WebView?, handler: android.webkit.HttpAuthHandler?, host: String?, realm: String?) {
+            if (handler == null) return
+            val act = ctx as? android.app.Activity
+            if (act == null || tab.isExt) { handler.cancel(); return }
+            HttpAuthUi.ask(act, host ?: "", realm ?: "", view?.url?.startsWith("http://", true) == true, handler)
+        }
+
         override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?, errorResponse: WebResourceResponse?) { // S83
             super.onReceivedHttpError(view, request, errorResponse)
             if (request?.isForMainFrame == true) Diag.w("page", "http " + (errorResponse?.statusCode ?: 0), if (tab.priv) "(private tab)" else request.url.toString())
