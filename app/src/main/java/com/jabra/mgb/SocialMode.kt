@@ -210,7 +210,7 @@ object SocialMode {
     /**
      * Sets the user agent for this address. true = it changes and this function loads the address again by itself (the caller must NOT
      * load it again and must cancel the current navigation). false = nothing to do (switch OFF, Desktop site chosen by hand, already right, not a social page).
-     * 0.0.414 (CRASH FIX): WebSettings.setUserAgentString used to run right here, inside shouldOverrideUrlLoading / onPageStarted / doUpdateVisitedHistory,
+     * 0.0.415 (CRASH FIX): WebSettings.setUserAgentString used to run right here, inside shouldOverrideUrlLoading / onPageStarted / doUpdateVisitedHistory,
      * i.e. in the middle of a Chromium navigation callback: native crash (SIGSEGV in libwebviewchromium.so, AwSettings.setUserAgentString <- ensure <- shouldOverrideUrlLoading).
      * Now the switch + reload are posted to the main looper and run after the callback has returned.
      */
