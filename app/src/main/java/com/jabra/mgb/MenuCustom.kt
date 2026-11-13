@@ -62,7 +62,7 @@ object MenuCustom {
         Entry("Clone tab", R.drawable.ic_copy), // T1
         Entry("Translate page", R.drawable.ic_search), Entry("Reader view", R.drawable.ic_list),
         Entry("Text size", R.drawable.ic_edit), Entry("Detected files", R.drawable.ic_download),
-        Entry("Page info", R.drawable.ic_info), Entry("View page source", R.drawable.ic_code), Entry("Save page", R.drawable.ic_save), Entry("Add to home screen", R.drawable.ic_home), Entry("Install app", R.drawable.ic_add), Entry("Userscripts", R.drawable.ic_code), // T2, T3, T8
+        Entry("Page info", R.drawable.ic_info), Entry("View page source", R.drawable.ic_code), Entry("Save page", R.drawable.ic_save), Entry("Print / Save as PDF", R.drawable.ic_save), Entry("Add to home screen", R.drawable.ic_home), Entry("Install app", R.drawable.ic_add), Entry("Userscripts", R.drawable.ic_code), // T2, T3, T8
         Entry("Fill password", R.drawable.ic_lock),
         Entry("Email alias", R.drawable.ic_share), Entry("Privacy Guard", R.drawable.ic_shield)
     )

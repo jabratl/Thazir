@@ -1,3 +1,12 @@
+0.0.420 (NEW: Menu > Page actions > "Print / Save as PDF")
+- Base = 0.0.419. NEW file PagePrint.kt + 3 one-line additions (MainActivity menu row, MenuCustom entry, HowToUse text).
+- WHY: the browser could save a page offline (.mht, Save page) and show the source, but had no way to print a page or make a PDF of it (receipts, tickets, articles, forms, exam results).
+- What: the row "Print / Save as PDF" (Page actions, after "Save page", icon ic_save, only on a web page) calls PagePrint.print: WebView.createPrintDocumentAdapter(name) + PrintManager.print (Android's own print screen: printer, or "Save as PDF" with a place to store it / share it). The job name = page title cleaned of characters a file name cannot have (max 80), so the PDF gets a sensible name. No permission, the app writes no file and stores nothing. Not for the speed dial, extension pages, a suspended / not yet loaded tab (toast "Open the page first, then print it"); every error = toast, never a crash (try / catch Throwable). The row is also in the Customise menu list (MenuCustom.PAGE) so it can be hidden / moved like the others; a new row is shown by default.
+- CHANGED BEHAVIOUR: none for existing rows; one new row.
+- NOT tested: Gradle build (CI), device. DEVICE TEST: open a long article, Menu > Print / Save as PDF: print screen with preview, choose Save as PDF, save, open the PDF (all pages, readable); a suspended background tab then opened = works; speed dial = row greyed out; Customise menu shows the new row.
+- Rollback: remove the row in MainActivity (marker 0.0.420), the Entry in MenuCustom.PAGE, PagePrint.kt, and the HowToUse words.
+- Files: PagePrint.kt (new), MainActivity.kt, MenuCustom.kt, HowToUse.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.420.txt.
+
 0.0.419 (NEW: certificate warning page / dialog with "Go back" and "Continue (unsafe)")
 - Base = 0.0.418. Two files: SslWarn.kt (new) + one override in TabManager.
 - WHY: the browser had no onReceivedSslError. WebView cancelled every bad certificate by itself, the person saw only a "net::ERR_CERT_..." page with no reason and no way on (home router https, NAS, test server with a self-signed / expired certificate, a phone with a wrong date).

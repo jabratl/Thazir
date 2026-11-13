@@ -50,7 +50,7 @@ object HowToUse {
         Topic(R.drawable.ic_search, "Menu and Command Center", "Find any action fast",
             listOf(
                 "Open the 3-dot menu. The top part is for the app, the lower part is for the page you are on.",
-                "Page actions: Find on page, Desktop site, Reader view, Translate page, Text size, Page info, Save page.",
+                "Page actions: Find on page, Desktop site, Reader view, Translate page, Text size, Page info, Save page, Print / Save as PDF.",
                 "Menu > Command Center: type a few letters to find an action, an open tab or a bookmark.",
                 "Menu > Customise menu lets you hide rows you never use. Hold a row and drag it up or down to change the order, or drop it on one of the 4 quick tiles to put it there (the old tile goes back to its list).",
                 "The round icon bar at the bottom of the menu stays in place while the list scrolls. Hold one icon for 1.5 seconds, tap Edit shortcut and pick what that button does (15 actions, or Reset all 5 buttons). Picking an action that sits in another slot swaps the two. A short tap still runs the action.",
