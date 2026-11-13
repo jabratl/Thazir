@@ -202,6 +202,63 @@ class TabManager(
         }
     }
 
+    // ---------- 0.0.417: render process recovery ----------
+    // The WebView render process can die (low memory, a bug in a page). If onRenderProcessGone returns false the whole APP is killed.
+    // Now the dead WebView is replaced by a fresh one (like doSuspend) and the page comes back: the open tab at once, other tabs when opened.
+    private val crashLog = HashMap<Int, ArrayList<Long>>()
+
+    private fun freeDead(dead: WebView) {
+        try { (dead.parent as? ViewGroup)?.removeView(dead) } catch (_: Throwable) { }
+        try { dead.stopLoading() } catch (_: Throwable) { }
+        try { ChromeBridge.unbind(dead) } catch (_: Throwable) { }
+        try { dead.webChromeClient = null } catch (_: Throwable) { }
+        try { dead.destroy() } catch (_: Throwable) { }
+    }
+
+    private fun recoverTab(t: Tab, dead: WebView) {
+        if (t.web !== dead || !tabs.contains(t)) { freeDead(dead); return } // already replaced, or the tab was closed meanwhile
+        val now = System.currentTimeMillis()
+        val log = crashLog.getOrPut(t.id) { ArrayList() }
+        log.removeAll { now - it > 30_000L }
+        log.add(now)
+        val loop = log.size >= 3 // the same tab died 3 times in 30 s: do not reload it again by itself
+        val wasActive = active === t
+        val du = try { dead.url } catch (_: Throwable) { null }
+        val u = if (du != null && du.startsWith("http")) du else t.url
+        val b = android.os.Bundle()
+        try { dead.saveState(b) } catch (_: Throwable) { }
+        val fresh = createWebView(t.priv, t.socialProfile)
+        fresh.webViewClient = client(t)
+        fresh.webChromeClient = chrome(t)
+        fresh.setOnLongClickListener(longPress(t))
+        if (t.desktop || t.extWide) {
+            fresh.settings.userAgentString = BrowserExtras.desktopUa(ctx)
+            fresh.settings.useWideViewPort = true
+            fresh.settings.loadWithOverviewMode = true
+        }
+        UiMode.applyPage(fresh, UiMode.darkPages(ctx) && !t.isExt)
+        bgViews.remove(t)
+        freeDead(dead)
+        t.web = fresh
+        ChromeBridge.bindTab(fresh, t.id)
+        if (loop || u.isBlank() || t.home) {
+            t.savedState = null; t.pending = null; t.suspended = false
+            if (loop) Util.toast(ctx, "This page keeps crashing. Open it again by hand")
+        } else {
+            t.url = u
+            t.savedState = if (b.isEmpty) null else b
+            t.pending = u
+            t.suspended = true // resume() in switchTo restores the history, or pending loads the address
+        }
+        Diag.w("tab", "recovered after render process loss" + (if (loop) " (loop stop)" else ""), if (t.priv) "(private tab)" else t.url)
+        if (wasActive) {
+            active = null // lets switchTo put the new WebView on screen and load it
+            switchTo(t)
+            if (!loop) Util.toast(ctx, "Page crashed, reloading")
+        }
+        listener.onTabsChanged()
+    }
+
     var active: Tab? = null
         private set
     val count: Int get() = tabs.size
@@ -626,7 +683,15 @@ class TabManager(
 
         override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean { // S83: same result as the default (false), only logged
             Diag.e("tab", if (detail?.didCrash() == true) "tab crashed (render process)" else "tab killed by the system (low memory?)", if (tab.priv) "(private tab)" else tab.url)
-            return false
+            // 0.0.417: false made Android kill the whole app. Now the tab is rebuilt (recoverTab) and the app stays alive.
+            if (view == null) return false
+            return try {
+                container.post {
+                    try { recoverTab(tab, view) }
+                    catch (e: Throwable) { Diag.e("tab", "recover failed", e); Util.toast(ctx, "Tab crashed. Close it and open it again") }
+                }
+                true
+            } catch (_: Throwable) { false }
         }
 
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
