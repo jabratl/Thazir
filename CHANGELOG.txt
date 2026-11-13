@@ -1,3 +1,12 @@
+0.0.419 (NEW: certificate warning page / dialog with "Go back" and "Continue (unsafe)")
+- Base = 0.0.418. Two files: SslWarn.kt (new) + one override in TabManager.
+- WHY: the browser had no onReceivedSslError. WebView cancelled every bad certificate by itself, the person saw only a "net::ERR_CERT_..." page with no reason and no way on (home router https, NAS, test server with a self-signed / expired certificate, a phone with a wrong date).
+- What: TabManager client(tab).onReceivedSslError calls SslWarn.handle. Main page only: dialog "Connection is not private" with the host, the reason (expired / wrong site name / not trusted / not valid yet / wrong date) and the risk line; buttons "Go back" (first, safe; also back key / dismiss = cancel) and "Continue (unsafe)". A bad certificate on a sub-resource (image, script, frame: host differs from the tab address) is ALWAYS cancelled, as before. "Continue" is remembered in memory only, per tab, for this host AND this exact certificate (SHA-256 of its bytes): another certificate asks again; closing the app forgets it; nothing is written to disk. Extension pages are always cancelled. One dialog at a time. The handler is answered exactly once (any error = cancel). Diag line "certificate warning ..." (tag ssl) for the Report center.
+- CHANGED BEHAVIOUR: only the case that used to end as an error page: you can now choose to continue. Everything else is untouched.
+- NOT tested: Gradle build (CI), device. DEVICE TEST: https://expired.badssl.com, https://self-signed.badssl.com, https://wrong.host.badssl.com: dialog with the right reason; Go back = error page stays, Continue = page opens; reload the same page = opens without asking (same certificate); a normal https site = no dialog; phone date set to 2030 = "date / expired" reason.
+- Rollback: remove the onReceivedSslError override in TabManager.kt (and SslWarn.kt).
+- Files: SslWarn.kt (new), TabManager.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.419.txt.
+
 0.0.418 (NEW: sign-in dialog for sites that ask a user name and password, HTTP Basic / Digest)
 - Base = 0.0.417. Two files: HttpAuthUi.kt (new) + one override in TabManager.
 - WHY: the browser had no onReceivedHttpAuthRequest. When a site, router, NAS, staging server or proxy answers "401 + WWW-Authenticate", WebView cancels the request itself and the person only sees an empty / "unauthorized" page with no way to sign in.

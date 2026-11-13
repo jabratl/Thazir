@@ -684,6 +684,13 @@ class TabManager(
             HttpAuthUi.ask(act, host ?: "", realm ?: "", view?.url?.startsWith("http://", true) == true, handler)
         }
 
+        // 0.0.419: bad certificate: warning dialog (Go back / Continue unsafe) for the main page; sub-resources are always cancelled
+        override fun onReceivedSslError(view: WebView?, handler: android.webkit.SslErrorHandler?, error: android.net.http.SslError?) {
+            if (handler == null) return
+            if (error == null) { handler.cancel(); return }
+            SslWarn.handle(ctx as? android.app.Activity, tab.id, tab.url, view?.url, tab.isExt, handler, error)
+        }
+
         override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?, errorResponse: WebResourceResponse?) { // S83
             super.onReceivedHttpError(view, request, errorResponse)
             if (request?.isForMainFrame == true) Diag.w("page", "http " + (errorResponse?.statusCode ?: 0), if (tab.priv) "(private tab)" else request.url.toString())
