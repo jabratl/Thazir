@@ -626,6 +626,8 @@ object ContentInjector {
             val oo = LinkedHashSet<String>()
             for (e in list) oo.addAll(e.origins)
             ExtTheme.script(ctx, oo)?.let { addScript(web, it, oo, keep) }
+            // 0.0.434 (S9): CSS compat for an old WebView (null on a modern WebView = nothing added), before the extension scripts
+            if (oo.isNotEmpty()) ExtCssCompat.script(ctx)?.let { addScript(web, it, oo, keep) }
         } catch (ex: Exception) { Log.e(TAG, "theme hint failed", ex) }
         // S2: installed extensions (a failing entry is skipped, others still run)
         for (e in list) {
@@ -641,6 +643,8 @@ object ContentInjector {
         try { addScript(web, extPageScript(ctx), setOf(EXT_ORIGIN), keep) } catch (ex: Exception) { Log.e(TAG, "ext page script failed", ex) }
         // 0.0.427 (S2): viewport for pages of installed extensions opened as tabs (null = no installed extension)
         try { ExtFit.script(ctx)?.let { addScript(web, it, setOf(EXT_ORIGIN), keep) } } catch (ex: Exception) { Log.e(TAG, "ext fit script failed", ex) }
+        // 0.0.434 (S9): CSS compat for extension pages opened as tabs (only when installed extensions exist and the WebView is old / switch On)
+        try { if (list.isNotEmpty()) ExtCssCompat.script(ctx)?.let { addScript(web, it, setOf(EXT_ORIGIN), keep) } } catch (ex: Exception) { Log.e(TAG, "ext css compat failed", ex) }
         // 0.0.433 (S8): externally_connectable (a listed web page may message the extension); never in private tabs
         try { if (!priv) ExtWeb.attach(web, keep) } catch (ex: Exception) { Log.e(TAG, "ext web failed", ex) }
         synchronized(extHandles) { extHandles[web] = keep }

@@ -271,6 +271,7 @@ object ExtScreen {
             }
             UiMode.applyExt(act, w, startUrl) // 0.0.421 / 0.0.424: per-extension dark choice: dark app = dark popup, app-coloured backdrop (no white flash)
             ContentInjector.attachExt(act, w) // window.chrome + bridge (before the first load)
+            try { if (extIdOf(startUrl) != null) ExtCssCompat.script(act)?.let { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(w, it, setOf(ContentInjector.EXT_ORIGIN)) } } catch (_: Throwable) { } // 0.0.434 (S9): old WebView CSS compat, installed extension pages only
             container.addView(w, FrameLayout.LayoutParams(MATCH, MATCH))
             w.loadUrl(startUrl)
         }
