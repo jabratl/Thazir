@@ -100,6 +100,13 @@ object SettingsScreen {
             "data" to listOf("auto_backup")
         )
         private val RESTART = setOf("Theme", "Rotate browser with phone", "Extra native download button") // Step C: restart icon
+        /** 0.0.443: plain switches (one pref flip, no dialog, no sign-in) that get an Undo bar. Add a label only for a row whose onClick is just a toggle. */
+        private val UNDO_OK = setOf(
+            "Hide bar while scrolling", "Pull down to refresh", "Address suggestions", "Reddit 18+ without the app", "Block auto app-open",
+            "Swipe a tab card to close it", "Ask before Close all", "Auto Diagnose pill", "Sub-folders in the chosen folder", "Link inbox",
+            "Play video links in built-in player", "HTTPS-only mode", "Hide ad spaces on pages", "Hide cookie banners", "Smarter login detection",
+            "New password screens", "Fill chip near the bar", "Password health card", "Player gestures", "Slide while holding", "Keep speed"
+        )
         private val RESTART_BAR = setOf("Rotate browser with phone", "Extra native download button") // Snackbar (Theme recreates itself)
         private var flashAt = 0L
         private var valFlashLabel: String? = null // 0.0.280: row whose value text just changed (fades in once)
@@ -492,6 +499,10 @@ object SettingsScreen {
                         if (r.value.isNotEmpty() && r.label !in NO_RECENT) noteRecent(r.label) // Step A
                         if (r.value == "ON" || r.value == "OFF") { flashLabel = r.label; flashAt = android.os.SystemClock.uptimeMillis() } // Step B
                         r.onClick.invoke()
+                        if (r.label in UNDO_OK && (r.value == "ON" || r.value == "OFF")) { // 0.0.443: Undo = the same toggle once more
+                            val was = r.value
+                            BmUndo.show(findViewById<View>(android.R.id.content), SettingsIndex.name(r.label) + " turned " + (if (was == "ON") "OFF" else "ON")) { r.onClick.invoke() }
+                        }
                         if (r.label in RESTART_BAR) restartBar() // Step C
                     }
                 }
@@ -880,8 +891,11 @@ object SettingsScreen {
         private fun restartBar() {
             try {
                 val v = findViewById<View>(android.R.id.content) ?: return
-                Snackbar.make(v, "Restart needed to apply this fully", Snackbar.LENGTH_LONG)
+                Snackbar.make(v, "Restart needed to apply this fully", 8000) // 0.0.443: 8 s (was about 3 s), theme colours
                     .setAction("Apply now") { dismiss(); UiMode.smoothRecreate(act) } // 0.0.422
+                    .setBackgroundTint(act.getColor(R.color.mg_surface_variant))
+                    .setTextColor(act.getColor(R.color.mg_text))
+                    .setActionTextColor(act.getColor(R.color.mg_primary))
                     .show()
             } catch (_: Exception) { }
         }
@@ -1465,11 +1479,26 @@ object SettingsScreen {
             ))
             if (query.isNotBlank() && col.childCount == 0) { // S48
                 col.addView(TextView(act).apply {
-                    text = "No setting found"
+                    text = "No setting found for \"" + query.trim() + "\""
                     textSize = 14f
                     gravity = Gravity.CENTER
                     setTextColor(act.getColor(R.color.mg_text_dim))
                 }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(40) })
+                // 0.0.443: next step instead of a dead end
+                fun helpBtn(label: String, go: () -> Unit) = TextView(act).apply {
+                    text = label
+                    textSize = 14f
+                    gravity = Gravity.CENTER
+                    minimumHeight = dp(48)
+                    setPadding(dp(16), dp(10), dp(16), dp(10))
+                    setTextColor(act.getColor(R.color.mg_primary))
+                    background = round(ColorUtils.setAlphaComponent(act.getColor(R.color.mg_primary), 0x1F), 14)
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener { go() }
+                }
+                tabs?.let { tm -> col.addView(helpBtn("Search in Command Center") { dismiss(); CommandCenter.show(act, tm) }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(16); marginStart = dp(24); marginEnd = dp(24) }) }
+                col.addView(helpBtn("Open How to use") { HowToUse.open(act) }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8); marginStart = dp(24); marginEnd = dp(24) })
             }
             sv?.post { sv?.scrollTo(0, keepY) }
         }
