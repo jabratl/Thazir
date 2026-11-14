@@ -387,7 +387,7 @@ object AppearanceScreen {
                     fill()
                     try {
                         Snackbar.make(findViewById<View>(android.R.id.content), "Restart needed to move the bar", Snackbar.LENGTH_INDEFINITE)
-                            .setAction("Apply now") { AppearanceScreen.markReopen(); dismiss(); act.recreate() }
+                            .setAction("Apply now") { AppearanceScreen.markReopen(); dismiss(); UiMode.smoothRecreate(act) }
                             .show()
                     } catch (_: Exception) { }
                 }
@@ -566,7 +566,7 @@ object AppearanceScreen {
         private fun applySnack(msg: String) {
             try {
                 Snackbar.make(findViewById<View>(android.R.id.content), msg, Snackbar.LENGTH_INDEFINITE)
-                    .setAction("Apply now") { AppearanceScreen.markReopen(); dismiss(); act.recreate() }
+                    .setAction("Apply now") { AppearanceScreen.markReopen(); dismiss(); UiMode.smoothRecreate(act) }
                     .show()
             } catch (_: Exception) { }
         }

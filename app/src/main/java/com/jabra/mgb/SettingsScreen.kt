@@ -700,7 +700,7 @@ object SettingsScreen {
                         BookmarksScreen.tabsRef?.applyDarkPages()
                     }
                     Util.toast(act, "$title reset to default")
-                    if (key == "general" && (themeBefore != 0 || barBefore != "bottom")) { dismiss(); act.recreate() } else fill()
+                    if (key == "general" && (themeBefore != 0 || barBefore != "bottom")) { dismiss(); UiMode.smoothRecreate(act) } else fill() // 0.0.422
                 } catch (e: Exception) {
                     Log.e(TAG, "reset failed", e)
                     Util.toast(act, "Could not reset")
@@ -792,7 +792,7 @@ object SettingsScreen {
             try {
                 val v = findViewById<View>(android.R.id.content) ?: return
                 Snackbar.make(v, "Restart needed to apply this fully", Snackbar.LENGTH_LONG)
-                    .setAction("Apply now") { dismiss(); act.recreate() }
+                    .setAction("Apply now") { dismiss(); UiMode.smoothRecreate(act) } // 0.0.422
                     .show()
             } catch (_: Exception) { }
         }

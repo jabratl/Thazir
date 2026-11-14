@@ -1,3 +1,12 @@
+0.0.422 (IMPROVE: reader view follows the soft light theme, every theme-related recreate fades, extension popup slides up)
+- Base = 0.0.421. Files: PageInfo.kt, MainActivity.kt, Backup.kt, SettingsScreen.kt, AppearanceScreen.kt, ExtScreen.kt (one-line hooks), res/anim/mgb_popup_in.xml + mgb_popup_out.xml + res/values/mgb_popup_anim.xml (new).
+- What: (1) Reader view light background / text = mg_surface / mg_text (was pure #FFFFFF / #14171C); dark reader unchanged. (2) The remaining Activity.recreate() calls for theme / bar position / backup import / system night flip use UiMode.smoothRecreate (fade, none with Reduce motion). (3) The bottom popup of an installed extension slides up (240 ms) and down (180 ms); Reduce motion = no animation.
+- CHANGED BEHAVIOUR: look and motion only.
+- NOT done on purpose (needs device test, too risky blind): "Classic white" / "True black" switch (XML theme colours are not reached by the AccentTheme Resources wrapper, would give mixed colours), accent-tinted light background, auto schedule, page theme-color toolbar, per-extension force dark, per-site dark pages exception.
+- NOT tested: Gradle build (CI), device. DEVICE TEST: reader view in light (soft paper colour) and dark; Settings > Reset general with theme change = fade; Backup restore with theme = fade; open / close an extension popup = slide; Reduce motion ON = no slide, no fade.
+- Rollback: revert the one-line hooks; delete the 3 new res files.
+- Files: see above + app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF+Thazir+0.0.422.txt.
+
 0.0.421 (FIX: light theme is a soft cool tint instead of plain white; extension popups / pages no longer open full white in a dark app)
 - Base = 0.0.420. Files: res/values/colors.xml (light tokens only), UiMode.kt (2 new functions), ExtScreen.kt, TabManager.kt, AppearanceScreen.kt (one-line hooks).
 - WHY 1 (light look): light tokens were #F8F8FC background + #FFFFFF cards = looked plain white. Now like Chrome / Edge light: mg_bg #E9EDF6 (soft blue-grey), mg_surface #F8FAFE (tinted off-white card), mg_surface_variant #DCE2EF, mg_outline #C5CCDF, mg_text #151823, mg_text_dim #4F586F. Contrast: text on bg ~15:1, dim text on bg ~6:1, violet primary on bg ~5.3:1 (all >= 4.5). Dark tokens (values-night) NOT touched. Every native screen uses R.color.mg_*, so all of them follow; the names are unchanged.

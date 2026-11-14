@@ -165,6 +165,7 @@ object ExtScreen {
                     it.setGravity(Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
                     it.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
                     it.setDimAmount(0.45f)
+                    if (!TabPrefs.reduce(act)) it.setWindowAnimations(R.style.MgbPopupWindow) // 0.0.422: slide up / down, Reduce motion = none
                     val r = Util.dp(act, 24).toFloat()
                     it.setBackgroundDrawable(android.graphics.drawable.GradientDrawable().apply {
                         setColor(act.getColor(R.color.mg_bg))

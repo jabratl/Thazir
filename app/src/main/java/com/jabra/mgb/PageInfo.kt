@@ -242,7 +242,8 @@ object PageInfo {
     fun reader(act: Activity, t: TabManager.Tab) { // S41: also a menu row
         val dark = (act.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val js = READER_JS.replace("__BG__", if (dark) "#0A0C10" else "#FFFFFF").replace("__FG__", if (dark) "#ECEFF4" else "#14171C")
+        fun hex(id: Int) = String.format("#%06X", act.getColor(id) and 0xFFFFFF) // 0.0.422: reader follows the app tokens (soft light / dark), not pure white
+        val js = READER_JS.replace("__BG__", if (dark) "#0A0C10" else hex(R.color.mg_surface)).replace("__FG__", if (dark) "#ECEFF4" else hex(R.color.mg_text))
         t.web.evaluateJavascript(js) { res ->
             if ((res ?: "").contains("none")) Util.toast(act, "No readable article found on this page")
             else Util.toast(act, "Reader view (reload the page to leave)")

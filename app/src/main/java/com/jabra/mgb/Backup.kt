@@ -250,7 +250,7 @@ object Backup {
         Util.toast(act, "Imported: " + parts.joinToString(", "))
         if (recreate) {
             UiMode.apply(act)
-            act.recreate()
+            UiMode.smoothRecreate(act) // 0.0.422
         }
     }
 

@@ -778,7 +778,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             val n = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
             if (n != lastNight) {
                 lastNight = n
-                recreate()
+                UiMode.smoothRecreate(this) // 0.0.422
             }
         } finally {
             inCfgChange = false
