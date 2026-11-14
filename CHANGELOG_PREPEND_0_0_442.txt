@@ -1,0 +1,8 @@
+0.0.442 (UI: "OFF = ..." line under switches + Reset dialog names the settings)
+- 2) 21 switch rows now end their grey hint with what OFF does (e.g. App lock: "OFF = app opens without asking", Ad blocker: "OFF = ads and trackers load"). Only added when the hint is short (60 characters or less) and has no "OFF" yet; rows that already explain OFF or have long hints are untouched. Hint area may use 3 lines (was 2).
+- 3) "Reset to default" dialog now says which settings are in the card: "Reset "Browser" to default? Only the settings of this card change, for example: A, B, C, D, E, F and N more. Bookmarks, passwords and files are not touched." Names come from the rows the card shows (rows with a value or switch; friendly names), taken when the card is built without a search.
+- Code: SettingsScreen OFFTXT + hintOf, cardNames, resetCard message, hint maxLines 3. No setting, key or behaviour changed.
+- NOT tested: Gradle build (CI), device.
+- DEVICE TEST: 1) Settings > Privacy: App lock, HTTPS-only, Ad blocker rows show an "OFF = ..." end. 2) Settings > Browser > Reset to default: the question lists some setting names, Cancel closes it. 3) Search "ad": hints still fine, no cut text.
+- Rollback: remove OFFTXT / cardNames and restore hintOf, resetCard text, maxLines 2.
+- Files: app/build.gradle.kts, SettingsScreen.kt, CHANGELOG_PREPEND_0_0_442.txt, HANDOFF_Thazir_EXT_PLAN_0.0.442.txt

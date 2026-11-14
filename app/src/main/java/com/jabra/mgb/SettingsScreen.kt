@@ -429,7 +429,36 @@ object SettingsScreen {
             setPadding(dp(18), dp(14), dp(16), dp(4))
         }
 
-        private fun hintOf(r: Row): String = r.hint.ifEmpty { HINTS[r.label] ?: "" } // Step B
+        /** 0.0.442: what OFF does, added to the hint of a switch row when the hint is short (max 60 chars) and does not say it already. */
+        private val OFFTXT = mapOf(
+            "Hide bar while scrolling" to "OFF = bar always stays",
+            "Pull down to refresh" to "OFF = use the reload button",
+            "Address suggestions" to "OFF = no suggestions",
+            "Video button on pages" to "OFF = no video button",
+            "Grabber button on pages" to "OFF = no floating button",
+            "Grabber button on video players" to "OFF = no button on videos",
+            "Extra native download button" to "OFF = no second button",
+            "Player gestures" to "OFF = no swipe or hold gestures",
+            "Keep speed" to "OFF = speed resets for each video",
+            "App lock" to "OFF = app opens without asking",
+            "HTTPS-only mode" to "OFF = http pages open as they are",
+            "Hide private tabs in app preview" to "OFF = Recents shows the page",
+            "Lock private tabs" to "OFF = private tabs open freely",
+            "Ad blocker" to "OFF = ads and trackers load",
+            "Hide ad spaces on pages" to "OFF = empty ad boxes stay",
+            "Hide cookie banners" to "OFF = cookie popups show",
+            "Auto backup (daily)" to "OFF = no daily file",
+            "Run userscripts" to "OFF = no userscript runs",
+            "Userscripts in private tabs" to "OFF = not in private tabs",
+            "Smarter login detection" to "OFF = basic detection",
+            "Sub-folders in the chosen folder" to "OFF = all files in one folder"
+        )
+
+        private fun hintOf(r: Row): String { // Step B; 0.0.442: + what OFF does
+            val base = r.hint.ifEmpty { HINTS[r.label] ?: "" }
+            val off = OFFTXT[r.label]
+            return if (off != null && (r.value == "ON" || r.value == "OFF") && base.length <= 60 && !base.contains("OFF")) (if (base.isEmpty()) off else "$base. $off") else base
+        }
 
         /** 0.0.280: a finger on a row / header makes it 2 % smaller for a moment (ripple stays). Reduce motion = nothing. Never eats the touch. */
         private fun pressFx(v: View) {
@@ -498,7 +527,7 @@ object SettingsScreen {
             if (hintText.isNotEmpty()) labelBox.addView(TextView(act).apply { // S64: one line of help under the title
                 text = hintText
                 textSize = 12f
-                maxLines = 2
+                maxLines = 3
                 setTextColor(act.getColor(R.color.mg_text_dim))
             })
             line.addView(labelBox, LinearLayout.LayoutParams(0, WRAP, 1f))
@@ -573,6 +602,7 @@ object SettingsScreen {
                 if (out.isEmpty()) return
                 shown = out
             }
+            if (!searching) cardNames[key] = shown.filterIsInstance<Row>().filter { it.label != "Reset to default" && (it.value == "ON" || it.value == "OFF" || it.value.isNotEmpty()) }.map { SettingsIndex.name(it.label) } // 0.0.442: for the Reset dialog
             val fold = !searching && !sub && key !in NOFOLD && shown.count { it is Row } > SUB_FOLD // 0.0.320: privacy keeps plain group labels
             val isOpen = searching || sub || (!link && openCat == key)
             val card = LinearLayout(act).apply {
@@ -736,9 +766,11 @@ object SettingsScreen {
         }
 
         // ---- Step C: utility rows ----
+        private val cardNames = HashMap<String, List<String>>() // 0.0.442: settings shown in each card (names for the Reset dialog)
+
         private fun resetCard(key: String, title: String) {
             val keys = RESET[key] ?: return
-            confirm("Reset \"$title\" to default? Only the settings of this card change. Bookmarks, passwords and files are not touched.", "Reset") {
+            confirm("Reset \"$title\" to default? Only the settings of this card change" + (cardNames[key]?.takeIf { it.isNotEmpty() }?.let { n -> ", for example: " + n.take(6).joinToString(", ") + (if (n.size > 6) " and " + (n.size - 6) + " more" else "") } ?: "") + ". Bookmarks, passwords and files are not touched.", "Reset") {
                 try {
                     val themeBefore = UiMode.mode(act)
                     val lookBefore = AccentTheme.id(act) + "|" + SurfaceStyle.id(act) // 0.0.423: accent / surface reset needs a restart too
