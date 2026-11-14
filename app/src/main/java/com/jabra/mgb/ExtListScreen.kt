@@ -425,6 +425,40 @@ object ExtListScreen {
                     }
                 }
             }
+            // 0.0.437 (S12): COMPATIBILITY block: old WebView warning, the 3 switches in one line, chrome.* calls Thazir does not support (list shows 5, tap for all)
+            try {
+                col.addView(TextView(act).apply {
+                    text = "COMPATIBILITY"
+                    textSize = 11f
+                    letterSpacing = 0.08f
+                    setTextColor(act.getColor(R.color.mg_primary))
+                    setPadding(0, dp(16), 0, dp(4))
+                })
+                val wvm = ExtProbe.webViewMajor()
+                val head = StringBuilder("Dark mode: " + ExtDark.label(ExtDark.mode(act, e.id)) + "\nPage width: " + ExtFit.label(ExtFit.mode(act, e.id)) +
+                    "\nMatch page theme: " + ExtTheme.label(ExtTheme.mode(act)) + " (all extensions)\nCSS compatibility: " + ExtCssCompat.label(ExtCssCompat.mode(act)) + " (all extensions)")
+                if (wvm in 1..119) head.append("\n\nAndroid System WebView is old (version " + wvm + "). This extension may look wrong. Update Android System WebView in Play Store.")
+                col.addView(TextView(act).apply {
+                    text = head.toString()
+                    textSize = 13f
+                    setTextColor(act.getColor(R.color.mg_text))
+                })
+                val gaps = ExtGaps.forExt(e.id)
+                col.addView(TextView(act).apply {
+                    textSize = 13f
+                    setTextColor(act.getColor(R.color.mg_text_dim))
+                    setPadding(0, dp(8), 0, dp(8))
+                    var all = false
+                    fun upd() {
+                        text = if (gaps.isEmpty()) "No unsupported chrome.* call recorded for this extension."
+                        else "chrome.* calls Thazir does not support (that call fails, the extension keeps running):\n" +
+                            (if (all || gaps.size <= 5) gaps else gaps.take(5)).joinToString("\n") { "  " + it } +
+                            (if (!all && gaps.size > 5) "\n  ... " + (gaps.size - 5) + " more (tap to show all)" else "")
+                    }
+                    upd()
+                    if (gaps.size > 5) { isClickable = true; setOnClickListener { all = !all; upd() } }
+                })
+            } catch (_: Throwable) { }
             MaterialAlertDialogBuilder(act)
                 .setTitle(e.name)
                 .setView(ScrollView(act).apply { addView(col) })

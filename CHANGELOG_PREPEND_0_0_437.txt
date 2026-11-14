@@ -1,0 +1,18 @@
+0.0.437 (S12 BUILD: per-extension compatibility card, reset keys, final regression pass - END OF THE EXTENSION PLAN)
+- What: Settings > Extensions > tap an extension now ends with a COMPATIBILITY block: its Dark mode, Page width, Match page theme and CSS compatibility in one place, a warning when Android System WebView is older than 120, and the chrome.* calls Thazir does not support for THIS extension (5 shown, tap for all). New ExtGaps.forExt(id).
+- Fixed on the way: the per-extension Dark mode key ext_dark was missing in the Settings reset list and in "Changed from default". Now both have it (Reset on the card that holds ext_theme clears ext_dark, ext_fit, ext_fit_w, ext_theme, ext_css; ext_gaps lives in its own prefs file mgb_ext_gaps by design since S4, so Backup / Reset never touch it).
+- Regression review (by reading, no run): injection order on a tab page = theme hint, CSS compat (only old WebView / switch On), extension scripts; popup = attachExt then CSS compat; an extension page opened as a TAB gets CSS compat only through addExtScripts, never twice (the script also guards itself with window.__mgbCssCompat). ExtDark (popup colours) and ExtTheme (matchMedia on normal pages, never on extension pages) do not meet on the same page. ExtFit only touches installed extensions' pages. Built-in Media Grabber: no change in this step.
+- Changed files: app/build.gradle.kts, app/src/main/java/com/jabra/mgb/{ExtListScreen.kt, ExtGaps.kt, SettingsScreen.kt, DiagMore.kt, HowToUse.kt}, CHANGELOG_PREPEND_0_0_437.txt, HANDOFF_Thazir_EXT_PLAN_0.0.437.txt
+- CHANGED BEHAVIOUR: only the new block in the extension details dialog; Reset now also clears per-extension Dark mode.
+- NOT tested: Gradle build (CI), device. Kotlin only checked for brace / paren balance.
+- DEVICE TEST of the whole plan S1-S12 (needed only, plain steps; run once after this build is installed):
+  1) Settings > Extensions > ChatGPT Exporter: the dialog shows Dark mode, Page width, COMPATIBILITY block (no old-WebView warning on a modern phone).
+  2) Open its popup (tray or "Open popup"): readable, fills the width, not tiny.
+  3) chatgpt.com in the dark app, Dark pages ON: Export dialog + Select Messages panel dark and readable. Dark pages OFF: light and readable.
+  4) chatgpt.com: the floating download button is there; a PRIVATE tab with an extension works and shows no private data to it.
+  5) https://chatgptexporter.com with the extension ON: the site sees the extension; in a PRIVATE tab it does not.
+  6) Settings > Extensions > "Compatibility self-test": result list in ~10 s, no FAIL in supported lines (send me the FAIL lines if any); "Thazir Self-Test" is not left in the list.
+  7) Menu > Report center: sections "Extension compat" (WebView + "CSS compat: ..."), "Extension API gaps", "Extension self-test".
+  8) Media Grabber (built-in): popup, queue, one download from a video page, YouTube ad block = same as before.
+  9) Rotate with a popup open; Reduce motion ON; Settings > Extensions card > Reset to default, then Backup export + import: switches go back to Auto.
+- Rollback: remove the COMPATIBILITY block in ExtListScreen.details, ExtGaps.forExt, ExtDark.KEY in the SettingsScreen reset list, the DiagMore line, the HowToUse line.

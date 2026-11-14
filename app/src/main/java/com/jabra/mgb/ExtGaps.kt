@@ -77,6 +77,11 @@ object ExtGaps {
         list.filter { ExtRegistry.get(it.ext) != null }.sortedWith(compareBy<Gap>({ it.ext }, { -it.n }))
     }
 
+    /** 0.0.437 (S12): "api  xN" lines of one extension, most called first (details screen). */
+    fun forExt(extId: String): List<String> = synchronized(list) {
+        list.filter { it.ext == extId }.sortedByDescending { it.n }.map { it.api + "  x" + it.n }
+    }
+
     /** "Name: api (n)" for the Report center verdict (the 3 most called). */
     fun top(max: Int): List<String> =
         rows().sortedByDescending { it.n }.take(max).map { (ExtRegistry.get(it.ext)?.name ?: it.ext) + ": " + it.api + " (" + it.n + ")" }
