@@ -430,6 +430,20 @@ object VaultScreen {
                 c.addView(btn(a, "Use fingerprint or screen lock", false) { quick(a, err) }, lp(dp(a, 8), MATCH, dp(a, 48)))
             }
             c.addView(link(a, "Use recovery key instead") { recoveryUnlock() }, lp(dp(a, 8), MATCH, dp(a, 48)))
+            // 0.0.448: index lost (index.enc + index.bak gone): rebuild the list from the d/ files. Uses the passphrase typed above.
+            c.addView(link(a, "Index lost? Rebuild list from files") {
+                val x = text(pw)
+                if (x.isEmpty()) { err.text = "Type your passphrase above first, then tap this."; err.visibility = View.VISIBLE; return@link }
+                err.text = "Rebuilding..."; err.visibility = View.VISIBLE
+                bg.execute {
+                    val r = VaultStore.rebuildIndex(a, x) // wipes x
+                    main.post {
+                        if (dlg?.isShowing != true) return@post
+                        if (r.ok) { pw.setText(""); unlocked(a); Util.toast(a, r.msg) }
+                        else { err.text = r.msg; err.visibility = View.VISIBLE }
+                    }
+                }
+            }, lp(0, MATCH, dp(a, 48)))
             c.addView(link(a, "Close") { close() }, lp(0, MATCH, dp(a, 48)))
         }
     }
