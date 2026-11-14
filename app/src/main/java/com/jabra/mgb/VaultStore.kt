@@ -234,17 +234,37 @@ object VaultStore {
     }
 
     private fun loadIndex(c: Context, k: ByteArray): JSONObject? {
+        lastError = "" // 0.0.447: a stale message from an earlier action must not be shown for this failure
         val tree = treeUri(c) ?: return null
         val root = rootDoc(tree)
-        for (name in arrayOf(IDX, IDX_BAK)) {
+        val why = ArrayList<String>()
+        // 0.0.447: index.tmp is the 3rd try. flush() reads it back and checks it BEFORE the swap, so a tmp that decrypts is a complete copy.
+        for (name in arrayOf(IDX, IDX_BAK, IDX_TMP)) {
             try {
-                val d = child(c, tree, root, name) ?: continue
-                val o = JSONObject(VaultCrypto.decStr(k, String(readAll(c, d.uri), Charsets.UTF_8)) ?: continue)
+                val d = child(c, tree, root, name)
+                if (d == null) { why.add("$name missing"); continue }
+                val raw = readAll(c, d.uri)
+                if (raw.isEmpty()) { why.add("$name empty"); continue }
+                val txt = VaultCrypto.decStr(k, String(raw, Charsets.UTF_8))
+                if (txt == null) { why.add("$name cannot be decrypted, " + raw.size + " B"); continue }
+                val o = JSONObject(txt)
                 if (o.optInt("v", 1) > INDEX_V) { lastError = "This vault was made by a newer Thazir. Update the app first."; return null }
                 return migrate(o)
-            } catch (e: Exception) { /* try the backup */ }
+            } catch (e: Exception) { why.add(name + " " + e.javaClass.simpleName) }
         }
+        // 0.0.447: say WHICH file failed and what the folder holds (a provider that renamed a file shows up here). Nothing is changed or deleted.
+        val seen = try { listNames(c, tree, root) } catch (e: Exception) { "?" }
+        lastError = "The vault index cannot be read (" + why.joinToString("; ") + "). Folder: " + seen
         return null
+    }
+
+    private fun listNames(c: Context, tree: Uri, parent: Uri): String {
+        val out = ArrayList<String>()
+        val kids = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getDocumentId(parent))
+        c.contentResolver.query(kids, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)?.use { q ->
+            while (q.moveToNext() && out.size < 8) out.add(q.getString(0) ?: "?")
+        }
+        return if (out.isEmpty()) "empty" else out.joinToString(", ")
     }
 
     /** Schema upgrades go here (index v1 is current). Unknown fields stay because the JSON is kept whole. */
