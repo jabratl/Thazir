@@ -1126,6 +1126,29 @@ class TabManager(
         tabs.add(index.coerceIn(0, tabs.size), t)
     }
 
+    /** 0.0.430 (S5): chrome.tabs.move: pinned tabs stay first, the tab list and the session are updated. */
+    fun moveTab(t: Tab, index: Int) {
+        if (!tabs.contains(t)) return
+        val pc = tabs.count { it.pinned && it !== t }
+        moveTo(t, if (t.pinned) index.coerceIn(0, pc) else index.coerceAtLeast(pc))
+        saveSession()
+        listener.onTabsChanged()
+    }
+
+    /** 0.0.430 (S5): chrome.tabs.getZoom / setZoom = text size of the tab (1.0 = 100 %); factor 0 = the site's own text size. */
+    fun zoomOf(t: Tab): Double = t.web.settings.textZoom / 100.0
+    fun setZoomOf(t: Tab, f: Double) {
+        val pct = if (f == 0.0) TextZoom.get(ctx, Util.host(t.url)) else Math.round(f * 100).toInt().coerceIn(25, 500)
+        if (t.web.settings.textZoom != pct) t.web.settings.textZoom = pct
+    }
+
+    /** 0.0.430 (S5): chrome.tabs.discard = the same free-the-WebView step as Suspend. false = this tab cannot be discarded. */
+    fun discardTab(t: Tab): Boolean {
+        if (!tabs.contains(t) || t === active || t.priv || t.home || t.isExt || t.suspended || t.pending != null || !t.url.startsWith("http")) return false
+        doSuspend(t)
+        return t.suspended
+    }
+
     /** S33: vertical scroll of any tab WebView (positive = page moves up, finger swipes up). */
     var onScroll: ((Int) -> Unit)? = null
     /** S45: tap on the in-page video button (address of the video or "" / blob:, page title). Set by MainActivity. */

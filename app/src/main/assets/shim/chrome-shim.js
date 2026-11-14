@@ -8,6 +8,7 @@
   if (!bridge || typeof bridge.postMessage !== 'function') return null;
   var post = bridge.postMessage.bind(bridge);
   var isExt = CFG.kind === 'ext';
+  var GAPS = isExt && CFG.gaps === true; // 0.0.429 (S4): installed extensions only (the built-in Media Grabber pages never get the extra stubs)
   var seq = 0, pending = {}, listeners = {}, lastError;
   var slice = Array.prototype.slice;
 
@@ -264,6 +265,12 @@
       call('tabs.connect', [tabId, pid, String(info.name || ''), info.frameId === undefined ? null : info.frameId]).then(null, function (e) { closePort(pid, String((e && e.message) || e)); });
       return port;
     };
+    // 0.0.430 (S5): installed extensions only; handlers are "ext.<api>" in ExtApi2.kt
+    if (GAPS) {
+      ['duplicate', 'move', 'goBack', 'goForward', 'getZoom', 'setZoom', 'getZoomSettings', 'setZoomSettings', 'highlight', 'discard'].forEach(function (m) { chrome.tabs[m] = method('tabs.' + m); });
+      chrome.tabs.onMoved = makeEvent('tabs.onMoved', true);
+      ['getAll', 'getLastFocused', 'remove'].forEach(function (m) { chrome.windows[m] = method('windows.' + m); });
+    }
     chrome.scripting.executeScript = wrap(function (inj) { return call('scripting.executeScript', [injection(inj)]); });
     // MV2 style chrome.tabs.executeScript(tabId, {code|file}) -> same path
     chrome.tabs.executeScript = wrap(function (tabId, d) {
@@ -391,6 +398,58 @@
       getProfileUserInfo: stub(function () { return { email: '', id: '' }; }),
       launchWebAuthFlow: wrap(rej('Not supported')), getAuthToken: wrap(rej('Not supported')), removeCachedAuthToken: stub(undefined),
       onSignInChanged: ev('identity.onSignInChanged')
+    });
+  }
+
+  // ---------- 0.0.429 (S4): safety net for INSTALLED extensions ----------
+  // chrome.* names that Chrome has and this bridge has not: added only where the name is still missing (real handlers always win).
+  // A method answers like Chrome does for an API that is not available: the promise rejects / runtime.lastError is set with
+  // "Not supported in Thazir: <api>" (never fake data, never a throw); an event is an object that never fires.
+  // Every call of such a method is counted (message "__miss", max 1 per api per 5 s) -> Report center "Extension API gaps".
+  if (GAPS) {
+    var missAt = {}, UNS = 'Not supported in Thazir: ';
+    var miss = function (api) {
+      var now = Date.now();
+      if (missAt[api] && now - missAt[api] < 5000) return;
+      if (Object.keys(missAt).length > 300) missAt = {};
+      missAt[api] = now;
+      try { send({ i: 0, a: '__miss', p: [api] }); } catch (e) { /* ignore */ }
+    };
+    var unsup = function (api) { return wrap(function () { miss(api); return Promise.reject(new Error(UNS + api)); }); };
+    var CSET = { m: ['get', 'set', 'clear'], e: ['onChange'] }; // chrome.types.ChromeSetting
+    var GAP = {
+      'tabs': { m: ['group', 'ungroup'] },
+      'tabGroups': { m: ['get', 'query', 'update', 'move'], e: ['onCreated', 'onUpdated', 'onMoved', 'onRemoved'], c: { TAB_GROUP_ID_NONE: -1 } },
+      'browsingData': { m: ['remove', 'removeCache', 'removeCookies', 'removeDownloads', 'removeFormData', 'removeHistory', 'removeLocalStorage', 'removePasswords', 'removeServiceWorkers', 'removeIndexedDB', 'removeFileSystems', 'removeWebSQL', 'removeAppcache', 'settings'] },
+      'search': { m: ['query'] },
+      'clipboard': { m: ['setImageData'], e: ['onClipboardDataChanged'] },
+      'tts': { m: ['speak', 'stop', 'pause', 'resume', 'isSpeaking', 'getVoices'], e: ['onEvent'] },
+      'power': { m: ['requestKeepAwake', 'releaseKeepAwake', 'reportActivity'] },
+      'privacy.network': CSET, 'privacy.services': CSET, 'privacy.websites': CSET,
+      'proxy': { e: ['onProxyError'] }, 'proxy.settings': CSET,
+      'readingList': { m: ['addEntry', 'query', 'removeEntry', 'updateEntry'], e: ['onEntryAdded', 'onEntryRemoved', 'onEntryUpdated'] },
+      'userScripts': { m: ['register', 'unregister', 'getScripts', 'update', 'configureWorld', 'resetWorldConfiguration'] },
+      'debugger': { m: ['attach', 'detach', 'sendCommand', 'getTargets'], e: ['onEvent', 'onDetach'] },
+      'gcm': { m: ['register', 'unregister', 'send'], e: ['onMessage', 'onMessagesDeleted', 'onSendError'], c: { MAX_MESSAGE_SIZE: 4096 } },
+      'system.cpu': { m: ['getInfo'] }, 'system.memory': { m: ['getInfo'] },
+      'system.storage': { m: ['getInfo', 'ejectDevice', 'getAvailableCapacity'], e: ['onAttached', 'onDetached'] },
+      'system.display': { m: ['getInfo', 'getDisplayLayout'], e: ['onDisplayChanged'] },
+      'downloads': { m: ['acceptDanger', 'setShelfEnabled', 'getFileIcon', 'setUiOptions'], e: ['onErased', 'onDeterminingFilename'] },
+      'notifications': { m: ['getAll', 'getPermissionLevel'], e: ['onPermissionLevelChanged', 'onShowSettings'] },
+      'permissions': { m: ['remove'], e: ['onAdded', 'onRemoved'] },
+      'scripting': { m: ['removeCSS'] },
+      'runtime': { m: ['getBackgroundPage'] }
+    };
+    Object.keys(GAP).forEach(function (path) {
+      var o = chrome, parts = path.split('.'), s = GAP[path], i;
+      for (i = 0; i < parts.length; i++) {
+        if (o[parts[i]] === undefined) o[parts[i]] = {};
+        o = o[parts[i]];
+        if (!o || typeof o !== 'object' && typeof o !== 'function') return; // a real non-object member: leave it
+      }
+      (s.m || []).forEach(function (m) { if (o[m] === undefined) o[m] = unsup(path + '.' + m); });
+      (s.e || []).forEach(function (e) { if (o[e] === undefined) o[e] = ev(path + '.' + e); });
+      Object.keys(s.c || {}).forEach(function (k) { if (o[k] === undefined) o[k] = s.c[k]; });
     });
   }
 

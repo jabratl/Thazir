@@ -159,6 +159,7 @@ object ChromeBridge {
                 return
             }
             "__log" -> { if (logged++ < 80) Log.d("MGB.shim", args.optString(0).take(600)); return }
+            "__miss" -> { if (xid != ContentInjector.EXT_ID && ctx.kind == Kind.EXT) ExtGaps.record(xid, args.optString(0)); return } // 0.0.429 (S4): a stub of the shim was called
         }
         val call = Call(ctx, api, args, m.optInt("i"), xid)
         // S6: an installed extension is checked per api + manifest permission (ExtApi.gate); V77 keeps the old rule
@@ -184,7 +185,7 @@ object ChromeBridge {
         }
         // S6: "ext.<api>" = version of a handler that knows which extension is calling (alarms, notifications ...)
         val h = (if (xid != ContentInjector.EXT_ID) handlers["ext.$api"] else null) ?: handlers[api]
-        if (h == null) { call.fail("Not implemented: $api"); return }
+        if (h == null) { if (xid != ContentInjector.EXT_ID && ctx.kind == Kind.EXT) ExtGaps.record(xid, api); call.fail("Not implemented: $api"); return } // 0.0.429 (S4)
         try { h(call) } catch (e: Exception) { call.fail(e.message ?: e.toString()) }
     }
 

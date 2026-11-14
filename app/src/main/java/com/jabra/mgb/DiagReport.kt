@@ -115,6 +115,7 @@ object DiagReport {
         secs.add(Section("webview", "Browser", "WebView", if (wvMajor in 1..99) WARN else INFO, listOf(
             wv, if (wvMajor in 1..99) "WebView is old (version $wvMajor): update Android System WebView / Chrome" else "WebView version looks fine")))
         secs.add(safe(Section("extcompat", "Browser", "Extension compat", INFO, listOf("not readable"))) { ExtProbe.section() }) // 0.0.426 (S1)
+        secs.add(safe(Section("extgaps", "Browser", "Extension API gaps", INFO, listOf("not readable"))) { ExtGaps.section() }) // 0.0.429 (S4)
         secs.add(Section("device", "Device", "Device", INFO, listOf(
             Build.MANUFACTURER + " " + Build.MODEL, "Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")",
             "ABI " + (Build.SUPPORTED_ABIS.firstOrNull() ?: "?"))))
@@ -258,6 +259,7 @@ object DiagReport {
         val TEN_MIN = 10 * 60 * 1000L
         x.online = online; x.hasNetwork = hasNet; x.vpn = vpnOn
         x.freeBytes = free; x.ramLow = ramLow; x.wvMajor = wvMajor; x.tabCrashed = crashed; x.cssMissing = safe(emptyList()) { ExtProbe.cssMissing() } // 0.0.426 (S1)
+        x.extGaps = safe(emptyList()) { ExtGaps.top(3) } // 0.0.429 (S4)
         x.pageIsWeb = tab != null && !tab.priv && !tab.isExt && !tab.home && tab.url.startsWith("http")
         x.pageLoading = tab?.loading == true
         val pageEv = Diag.recent(30, "page", false).filter { it.ts >= now - TEN_MIN }

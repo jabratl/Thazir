@@ -49,6 +49,9 @@ object TabsApi {
 
     fun attach(t: TabManager?) { tm = t }
 
+    /** 0.0.430 (S5): the tab manager for ExtApi2. */
+    fun manager(): TabManager? = tm
+
     /** 0.0.112 (S2): the tab on screen (ExtTray: badge of that tab, tab argument of action.onClicked). */
     fun activeTab(): TabManager.Tab? = tm?.active
 

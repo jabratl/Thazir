@@ -238,6 +238,7 @@ object HowToUse {
                 "Settings > Extensions: add, turn on or off and remove them.",
                 "Settings > Extensions > tap an extension > Dark mode: Auto (follows the app), Always dark (also darkens a light popup) or Never dark (keeps its own colours). Reopen the popup to see it.",
                 "Settings > Extensions > Match page theme (Auto by default): in a dark app, a site that Thazir shows dark tells extensions that the phone is dark, so the extension panel is dark too. Off = old behaviour. Reload the page after changing it.",
+                "Report center > Extension API gaps lists chrome.* functions that an extension called and Thazir does not support. The call fails with \"Not supported in Thazir\", the extension keeps running.",
                 "Settings > Extensions > tap an extension > Page width: Auto (the popup or page fits the phone and the popup is only as tall as its content), Phone width, or Desktop width (wide page scaled down). Reopen the popup to see it.",
                 "Menu > Report center helps you collect details when something is wrong, so you can copy or share them. Its Extension compat part shows the WebView version, which modern CSS features it supports and the theme of the page you are on, so an extension that looks wrong can be explained."
             ), "",

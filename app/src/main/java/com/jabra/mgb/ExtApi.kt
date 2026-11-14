@@ -30,8 +30,8 @@ object ExtApi {
     private val CONTENT_OK = Regex("^(runtime\\.(sendMessage|connect)|port\\.(post|disconnect)|storage\\.(local|sync|session)\\.[A-Za-z]+)$") // 0.0.118: storage.session only after setAccessLevel (see gate) // 0.0.111: + ports
     private val EXT_OK = Regex(
         "^(runtime\\.(sendMessage|openOptionsPage|connect|getContexts)|port\\.(post|disconnect)|event\\.add|storage\\.(local|sync|session)\\.[A-Za-z]+" +
-            "|tabs\\.(sendMessage|connect|create|update|getCurrent|remove|get|query|reload|executeScript)" +
-            "|windows\\.(create|get|getCurrent|update)|action\\.[A-Za-z]+|alarms\\.[A-Za-z]+|notifications\\.[A-Za-z]+" +
+            "|tabs\\.(sendMessage|connect|create|update|getCurrent|remove|get|query|reload|executeScript|duplicate|move|goBack|goForward|getZoom|setZoom|getZoomSettings|setZoomSettings|highlight|discard|captureVisibleTab)" +
+            "|windows\\.(create|get|getCurrent|update|getAll|getLastFocused|remove)|action\\.[A-Za-z]+|alarms\\.[A-Za-z]+|notifications\\.[A-Za-z]+" +
             "|contextMenus\\.[A-Za-z]+|scripting\\.(executeScript|insertCSS|registerContentScripts|updateContentScripts|unregisterContentScripts|getRegisteredContentScripts)|cookies\\.[A-Za-z]+|permissions\\.[A-Za-z]+|commands\\.getAll" +
             "|declarativeNetRequest\\.(updateSessionRules|updateDynamicRules|getSessionRules|getDynamicRules|getEnabledRulesets|updateEnabledRulesets|isRegexSupported|setExtensionActionOptions))$"
     )
@@ -97,6 +97,7 @@ object ExtApi {
             (api == "storage.session.setAccessLevel" || synchronized(sessionOpen) { xid !in sessionOpen })) return "Access to storage is not allowed from this context."
         if (ctx.kind == ChromeBridge.Kind.EXT && !EXT_OK.matches(api)) {
             Diag.w("ext", "api not supported", info.name + ": " + api) // S16: so the Report center shows which chrome.* call an extension needs
+            ExtGaps.record(xid, api) // 0.0.429 (S4)
             return "Not supported in MGB: $api"
         }
         // S7: declarativeNetRequest (or ...WithHostAccess, which still needs a matching host permission to act)
@@ -122,6 +123,7 @@ object ExtApi {
         if (inited) return
         inited = true
         app = ctx.applicationContext
+        ExtGaps.init(ctx) // 0.0.429 (S4)
         registerHandlers()
         ChromeBridge.onCtxGone = { ctxGone(it) } // 0.0.111
         loadAlarms()
@@ -676,6 +678,7 @@ object ExtApi {
 
     private fun registerHandlers() {
         ChromeBridge.on("ext.runtime.sendMessage") { c -> send(c) }
+        ExtApi2.register() // 0.0.430 (S5): tabs.duplicate / move / goBack / goForward / zoom / highlight / discard / captureVisibleTab, windows.getAll / getLastFocused / remove
         ChromeBridge.onSync("storage.session.setAccessLevel") { c -> // 0.0.118 (S6)
             val lv = c.args.optJSONObject(0)?.optString("accessLevel", "") ?: ""
             if (lv != "TRUSTED_CONTEXTS" && lv != "TRUSTED_AND_UNTRUSTED_CONTEXTS") throw IllegalArgumentException("Invalid value for 'accessLevel'.")

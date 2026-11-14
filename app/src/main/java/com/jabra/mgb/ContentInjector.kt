@@ -525,7 +525,7 @@ object ContentInjector {
                     val mf = File(info.dir, "manifest.json")
                     if (!mf.isFile || mf.length() > 2_000_000L) continue
                     val man = JSONObject(mf.readText())
-                    cfgs.put(info.id, JSONObject().put("token", tokenFor(info.id)).put("kind", "ext")
+                    cfgs.put(info.id, JSONObject().put("token", tokenFor(info.id)).put("kind", "ext").put("gaps", true) // 0.0.429 (S4): installed extensions get the API safety net
                         .put("base", EXT_BASE + info.id + "/").put("id", info.id).put("manifest", man)
                         .put("messages", messagesFor(info.id, info.dir, man))) // 0.0.108: chrome.i18n
                 } catch (ex: Exception) { Log.e(TAG, "ext page cfg ${info.id} skipped", ex) }
