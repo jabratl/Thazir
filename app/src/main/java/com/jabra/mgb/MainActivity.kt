@@ -201,9 +201,10 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         }
         onBackPressedDispatcher.addCallback(this, backCb)
 
+        CrashGuard.begin(this) // 0.0.451: native crash loop guard (see CrashGuard.kt)
         if (siteWin) SiteWindow.start(this, tabs, intent, savedInstanceState == null) // 0.0.247 (A7): only this site, no session restore
         else if (!tabs.restoreSession()) tabs.newTab(TabManager.HOME_PAGE) // S13
-        else if (AppearancePrefs.startPage(this)) tabs.newTab(TabManager.HOME_PAGE) // A8: restored tabs + a fresh home tab selected
+        else if (AppearancePrefs.startPage(this) && !CrashGuard.safe) tabs.newTab(TabManager.HOME_PAGE) // A8: restored tabs + a fresh home tab selected
         LinkInbox.fromIntent(this, tabs, intent) // D1
         if (savedInstanceState == null) SocialShortcuts.fromIntent(this, tabs, intent) // 0.0.230 (P6): home-screen shortcut
         if (savedInstanceState == null) HomeShortcut.fromIntent(this, tabs, intent) // 0.0.298: "Add to home screen" icon of a page
@@ -643,6 +644,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     }
 
     override fun onStop() {
+        CrashGuard.end(this) // 0.0.451
         VaultStore.onAppStop(this) // V3
         AppLock.onStop(this) // S45
         AppLock.privStop(this, tabs.active?.priv == true) // 0.0.331

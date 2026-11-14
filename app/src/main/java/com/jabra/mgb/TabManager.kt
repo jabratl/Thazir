@@ -532,6 +532,11 @@ class TabManager(
         }
         sp.getString("groups", null)?.let { g -> TabSwitcher.importGroups(g) { i -> ids.getOrNull(i) } } // S41
         val sel = target ?: tabs.firstOrNull() ?: return false
+        if (CrashGuard.safe) { // 0.0.451: the last run ended in a crash: keep the tabs, load none of them, show a fresh Home tab
+            newTab(HOME_PAGE, 0, true, false)
+            Util.toast(ctx, "The app crashed last time. Your tabs are kept but not loaded: tap one to open it.")
+            return true
+        }
         switchTo(sel)
         return true
     }
