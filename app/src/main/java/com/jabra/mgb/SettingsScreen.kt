@@ -156,7 +156,14 @@ object SettingsScreen {
             "My email aliases" to "List, edit or delete aliases",
             "Check for updates" to "Look for a newer version",
             "Version history" to "What changed in each version",
-            "Engine status" to "Shows the web engine state"
+            "Engine status" to "Shows the web engine state",
+            "Hosts and filters" to "Extra ad block lists and rules", // 0.0.441: hints for rows that had none
+            "Encrypted backup of passwords" to "Save logins in a locked file",
+            "Restore passwords from backup" to "Load a locked password file",
+            "Sites never saved" to "Sites where no login is offered",
+            "Smarter login detection" to "Finds login forms on more sites",
+            "Run userscripts" to "Master switch for all userscripts",
+            "Userscripts in private tabs" to "Let userscripts run in private tabs"
         )
         /** S21f: hidden search words per row label (the row is found by these too). */
         private val KW = mapOf(
@@ -482,7 +489,7 @@ object SettingsScreen {
             }
             val labelBox = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
             labelBox.addView(TextView(act).apply {
-                text = r.label
+                text = SettingsIndex.name(r.label) // 0.0.441: friendlier name, label stays the key
                 textSize = 15f
                 maxLines = 2
                 setTextColor(act.getColor(R.color.mg_text))
@@ -556,7 +563,7 @@ object SettingsScreen {
                 for (item in items) {
                     when (item) {
                         is Sub -> pend = item
-                        is Row -> if (item.label.contains(q, true) || hintOf(item).contains(q, true) || (KW[item.label]?.contains(q, true) == true)) { // S21f: search keywords
+                        is Row -> if (item.label.contains(q, true) || SettingsIndex.name(item.label).contains(q, true) || hintOf(item).contains(q, true) || (KW[item.label]?.contains(q, true) == true)) { // S21f: search keywords
                             pend?.let { out.add(it) }
                             pend = null
                             out.add(item)

@@ -1,0 +1,9 @@
+0.0.441 (UI: clearer names for 6 Grabber rows + hint line for 7 rows that had none)
+- Names (display only, the internal label / pref / search keys are unchanged, the old names are still found by search and in Command Center):
+  App downloader -> File downloads (parts, speed); Download engine -> Stream downloads (HLS / DASH); Grabber settings -> Grabber site settings; All V82 options page -> Full Grabber options page (old); V82 Grabber (backup) -> Use old V82 Grabber; Grabber temporary data -> Grabber temporary files.
+- Hints (grey line under the name) added: Hosts and filters, Encrypted backup of passwords, Restore passwords from backup, Sites never saved, Smarter login detection, Run userscripts, Userscripts in private tabs. Rows that already had a hint are untouched.
+- Code: SettingsIndex.DISPLAY + name(); SettingsScreen rowView shows name(label); search also matches the new name; HINTS +7; Command Center shows the new name and still matches the old one.
+- No behaviour, order or setting changed. NOT tested: Gradle build (CI), device.
+- DEVICE TEST: 1) Settings > Downloads and player: the 6 rows show new names, tap each = same screen as before. 2) Search "V82" and "engine": rows are found. 3) Passwords / Userscripts rows show the new grey line. 4) Command Center "V82": finds "Use old V82 Grabber".
+- Rollback: remove SettingsIndex.DISPLAY / name() and the 3 small edits.
+- Files: app/build.gradle.kts, SettingsIndex.kt, SettingsScreen.kt, CommandCenter.kt, CHANGELOG_PREPEND_0_0_441.txt, HANDOFF_Thazir_EXT_PLAN_0.0.441.txt

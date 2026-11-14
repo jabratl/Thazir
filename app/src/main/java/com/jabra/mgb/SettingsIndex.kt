@@ -7,6 +7,18 @@ package com.jabra.mgb
  * Keep in sync when a Settings row is added (add one Triple).
  */
 object SettingsIndex {
+    /** 0.0.441: friendlier names shown instead of the old row label (the label stays the internal key; the old name is still found by search). */
+    val DISPLAY: Map<String, String> = mapOf(
+        "App downloader" to "File downloads (parts, speed)",
+        "Download engine" to "Stream downloads (HLS / DASH)",
+        "Grabber settings" to "Grabber site settings",
+        "All V82 options page" to "Full Grabber options page (old)",
+        "V82 Grabber (backup)" to "Use old V82 Grabber",
+        "Grabber temporary data" to "Grabber temporary files"
+    )
+
+    fun name(label: String): String = DISPLAY[label] ?: label
+
     val ROWS: List<Triple<String, String, String>> = listOf(
         Triple("Appearance", "Browser", "Look and feel"),
         Triple("Accessibility", "Browser", "Look and feel"),

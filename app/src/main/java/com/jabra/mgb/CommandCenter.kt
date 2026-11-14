@@ -227,7 +227,7 @@ object CommandCenter {
         reg(R.drawable.ic_theme, "Appearance", "Theme, address bar, home and gestures", "dark light wallpaper look", { AppearanceScreen.open(act) })
         reg(R.drawable.ic_settings, "Settings", "All browser settings", "preferences options", { SettingsScreen.open(act) })
         // 0.0.440: every settings row by name (only while typing, so the empty list stays short). Opens Settings with the name in its search box.
-        for ((label, card, grp) in SettingsIndex.ROWS) if (actions.none { it.title.equals(label, true) }) reg(R.drawable.ic_settings, label, "Settings · " + card, grp + " setting option", { SettingsScreen.open(act, label) })
+        for ((label, card, grp) in SettingsIndex.ROWS) if (actions.none { it.title.equals(label, true) }) reg(R.drawable.ic_settings, SettingsIndex.name(label), "Settings · " + card, grp + " setting option " + label, { SettingsScreen.open(act, SettingsIndex.name(label)) })
 
         fun score(tokens: List<String>, title: String, extra: String): Int {
             val t = title.lowercase(); val k = extra.lowercase()
