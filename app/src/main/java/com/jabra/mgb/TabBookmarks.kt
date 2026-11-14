@@ -98,16 +98,16 @@ object TabBookmarks {
     // ---------- T1: copy links / open links from the clipboard ----------
 
     /** Web address of a tab for copying: null for private, home and extension tabs and for non-web pages. */
-    fun linkOf(t: TabManager.Tab, allowPriv: Boolean = false): String? { // 0.0.449: allowPriv = copy only, from the private view
-        if ((t.priv && !allowPriv) || t.isExt || t.home) return null
+    fun linkOf(t: TabManager.Tab): String? {
+        if (t.priv || t.isExt || t.home) return null
         val u = t.pending ?: t.url
         return if (u.startsWith("http://") || u.startsWith("https://")) u else null
     }
 
     /** One address per line, no duplicates. Private tabs are never copied. */
-    fun copyLinks(ctx: Context, tabs: List<TabManager.Tab>, allowPriv: Boolean = false) {
+    fun copyLinks(ctx: Context, tabs: List<TabManager.Tab>) {
         val seen = LinkedHashSet<String>()
-        for (t in tabs) linkOf(t, allowPriv)?.let { seen.add(it) }
+        for (t in tabs) linkOf(t)?.let { seen.add(it) }
         if (seen.isEmpty()) { Util.toast(ctx, "No web tabs to copy"); return }
         try {
             (ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
