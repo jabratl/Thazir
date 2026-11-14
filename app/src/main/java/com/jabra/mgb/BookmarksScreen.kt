@@ -121,16 +121,6 @@ object BookmarksScreen {
         return seg
     }
 
-    /**
-     * 0.0.446: add the rows of a list in small batches: the first screen at once, the rest one batch per frame, so opening a page or
-     * switching Bookmarks / History / Downloads never blocks the UI thread while the slide runs. alive() = false means a newer render started: stop.
-     */
-    internal fun fillChunked(box: LinearLayout, jobs: List<() -> View>, alive: () -> Boolean, from: Int = 0, first: Int = 10, step: Int = 8) {
-        val end = minOf(jobs.size, from + (if (from == 0) first else step))
-        for (i in from until end) box.addView(jobs[i]())
-        if (end < jobs.size) box.post { if (alive()) fillChunked(box, jobs, alive, end, first, step) }
-    }
-
     /** 0.0.366: DownloadsScreen hands over: take the open screen out of `current` (it is dismissed after the new one is shown). */
     internal fun detach(): Dialog? { val s = current; current = null; return s }
     internal fun hasNone() = current == null
@@ -517,25 +507,19 @@ object BookmarksScreen {
                 .show()
         }
 
-        private var renderGen = 0 // 0.0.446: a newer render() stops the batches of an older one
-
         private fun render() {
             val box = list ?: return
-            val fresh = box.childCount == 0 // 0.0.446: only a NEW (empty) list is filled in batches; a refresh of a filled list stays at once so the scroll position is kept
             box.removeAllViews()
-            val gen = ++renderGen
-            val jobs = ArrayList<() -> View>()
             val q = query.trim()
             var count = 0
             visible.clear() // S27
             if (mode == Mode.BOOKMARKS) {
                 val all = Bookmarks.bookmarks()
                 val open = folder
-                jobs.add { BmUi.bar(act, open, q.isNotEmpty(), { p -> folder = p; render() }, { render() }).also { it.layoutParams = LinearLayout.LayoutParams(MATCH, WRAP) } } // 0.0.348: breadcrumb + sort (was folder title S24)
+                box.addView(BmUi.bar(act, open, q.isNotEmpty(), { p -> folder = p; render() }, { render() }), LinearLayout.LayoutParams(MATCH, WRAP)) // 0.0.348: breadcrumb + sort (was folder title S24)
                 if (q.isEmpty()) { // 0.0.328: folders of this level (top level or the sub folders of the open folder)
                     for (f in BmSort.folders(Bookmarks.childFolders(open ?: ""), all)) { // 0.0.348
-                        val n = all.count { Bookmarks.under(it.folder, f) }
-                        jobs.add { folderRow(f, n) }
+                        box.addView(folderRow(f, all.count { Bookmarks.under(it.folder, f) }))
                         count++
                     }
                 }
@@ -544,25 +528,24 @@ object BookmarksScreen {
                     open == null -> all.filter { it.folder.isEmpty() }
                     else -> all.filter { it.folder == open }
                 }
-                for (b in BmSort.apply(items)) { jobs.add { row(b, Util.host(b.url)) }; visible.add(keyOf(b)) } // 0.0.332: Sort
+                for (b in BmSort.apply(items)) { box.addView(row(b, Util.host(b.url))); visible.add(keyOf(b)) } // 0.0.332: Sort
                 count += items.size
             } else {
                 val fmt = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
                 val all = (if (HistoryFilter.active) HistoryFilter.apply(Bookmarks.history()) else Bookmarks.history()).take(300) // 0.0.330
                 empty?.text = if (HistoryFilter.active || q.isNotEmpty()) "No history matches" else "No history yet"
                 val items = if (q.isEmpty()) all else all.filter { it.title.contains(q, true) || it.url.contains(q, true) } // S23
-                for (b in items) { jobs.add { row(b, Util.host(b.url) + " · " + fmt.format(java.util.Date(b.time))) }; visible.add(keyOf(b)) }
+                for (b in items) { box.addView(row(b, Util.host(b.url) + " · " + fmt.format(java.util.Date(b.time)))); visible.add(keyOf(b)) }
                 count = items.size
             }
             empty?.visibility = if (count == 0) View.VISIBLE else View.GONE
-            if (count > 0) jobs.add { TextView(act).apply {
+            if (count > 0) box.addView(TextView(act).apply {
                 text = if (selecting) "Tap to select or unselect" else "Long press an item to select"
                 setTextColor(act.getColor(R.color.mg_text_dim))
                 textSize = 12f
                 gravity = Gravity.CENTER
                 setPadding(dp(16), dp(16), dp(16), dp(24))
-            } }
-            if (fresh) fillChunked(box, jobs, { gen == renderGen && list === box }) else for (j in jobs) box.addView(j())
+            })
         }
 
         /** S24: one folder line (icon, name, count). Tap = open, long press = delete folder. */
@@ -660,8 +643,8 @@ object BookmarksScreen {
                 iv.visibility = View.VISIBLE
                 letter.visibility = View.GONE
             }
-            val have = Favicons.peek(host) // 0.0.446: memory only here; a disk read per row on the UI thread made the page switch stutter
-            if (have != null) showIcon(have) else Favicons.lookup(host) { bm -> showIcon(bm) }
+            val have = Favicons.get(host)
+            if (have != null) showIcon(have) else Favicons.fetch(host) { bm -> showIcon(bm) }
             return box
         }
 
