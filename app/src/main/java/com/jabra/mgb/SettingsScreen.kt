@@ -46,13 +46,14 @@ object SettingsScreen {
     private const val TAG = "MGB.settings"
     private var current: Screen? = null
 
-    fun open(host: Activity) {
+    fun open(host: Activity, query: String = "") { // 0.0.440: query = text put in the search box (Command Center)
         if (host.isFinishing || host.isDestroyed) return
         closeAll()
         try {
             val s = Screen(host)
             current = s
             s.show()
+            if (query.isNotBlank()) s.preSearch(query)
         } catch (e: Exception) {
             Log.e(TAG, "open failed", e)
             current = null
@@ -408,6 +409,9 @@ object SettingsScreen {
             isClickable = false
             isFocusable = false
         }
+
+        /** 0.0.440: Command Center opened Settings for one setting: type its name in the search box (the normal search then shows it). */
+        fun preSearch(q: String) { searchEdit?.setText(q) }
 
         private fun subLabel(title: String) = TextView(act).apply {
             text = title.uppercase()

@@ -226,6 +226,8 @@ object CommandCenter {
         reg(R.drawable.ic_edit, "Accessibility", "Default zoom and saved site zoom", "text size zoom bigger larger font read", { AccessScreen.open(act) }) // A2
         reg(R.drawable.ic_theme, "Appearance", "Theme, address bar, home and gestures", "dark light wallpaper look", { AppearanceScreen.open(act) })
         reg(R.drawable.ic_settings, "Settings", "All browser settings", "preferences options", { SettingsScreen.open(act) })
+        // 0.0.440: every settings row by name (only while typing, so the empty list stays short). Opens Settings with the name in its search box.
+        for ((label, card, grp) in SettingsIndex.ROWS) if (actions.none { it.title.equals(label, true) }) reg(R.drawable.ic_settings, label, "Settings · " + card, grp + " setting option", { SettingsScreen.open(act, label) })
 
         fun score(tokens: List<String>, title: String, extra: String): Int {
             val t = title.lowercase(); val k = extra.lowercase()
@@ -274,7 +276,7 @@ object CommandCenter {
             val sections = ArrayList<Pair<String, List<Cmd>>>()
 
             if (scope == Scope.ALL || scope == Scope.ACTIONS) {
-                val hits = if (!searching) actions.take(if (scope == Scope.ACTIONS) 30 else 8)
+                val hits = if (!searching) actions.filter { !it.sub.startsWith("Settings · ") }.take(if (scope == Scope.ACTIONS) 30 else 8)
                 else actions.mapNotNull { c -> score(tokens, c.title, c.kw + " " + c.sub).let { s -> if (s < 0) null else s to c } }
                     .sortedBy { it.first }.map { it.second }.take(if (scope == Scope.ACTIONS) 30 else 8)
                 if (hits.isNotEmpty()) sections.add("Actions" to hits)

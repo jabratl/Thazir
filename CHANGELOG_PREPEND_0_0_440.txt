@@ -1,0 +1,8 @@
+0.0.440 (Command Center finds every setting by name)
+- Why: Command Center only had one "Settings" entry; single settings could not be found from it.
+- What: new SettingsIndex.kt (116 setting names + card + group). CommandCenter registers them; typing a name (e.g. "hold speed", "cookies", "app lock") lists "Settings · <card>"; tap opens Settings with that name in its search box (SettingsScreen.open(host, query) + Screen.preSearch). Empty list / ">" without text does not show them. Names that already are an action (Downloads, Extensions, Vault, ...) are not duplicated.
+- Checked by reading (no setting removed): the only rows not drawn in a card list are "Hide bar while scrolling" + "Reduce motion" (they are the quick chips at the top; the search still lists them) and "Lock after" (only while App lock is ON). Rows with a runtime label (social sites, etc.) stay findable in the Settings search box, not in Command Center.
+- NOT tested: Gradle build (CI), device.
+- DEVICE TEST: 1) Command Center: type "hold speed" > row "Settings · Player" > tap > Settings opens filtered. 2) type "cookies" similarly. 3) empty Command Center list unchanged.
+- Rollback: delete SettingsIndex.kt, the 2 lines in CommandCenter, open(query) + preSearch in SettingsScreen.
+- Files: app/build.gradle.kts, SettingsIndex.kt (new), CommandCenter.kt, SettingsScreen.kt, CHANGELOG_PREPEND_0_0_440.txt, HANDOFF_Thazir_EXT_PLAN_0.0.440.txt
