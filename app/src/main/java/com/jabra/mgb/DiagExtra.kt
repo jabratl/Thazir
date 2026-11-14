@@ -236,7 +236,117 @@ object DiagExtra {
         head.add("Last 24 h: low memory $low, not responding (ANR) $anr, crash $crash")
         head.add("Newest first (Android keeps only a few):")
         val level = if (low + anr >= 3) DiagReport.WARN else DiagReport.INFO
-        return Triple(sec(level, head + rows), low, anr)
+        val nativeStack = try { nativeCrashLines(ctx, list) } catch (_: Throwable) { listOf("Native crash stack: not readable") }
+        return Triple(sec(level, head + rows + nativeStack), low, anr)
+    }
+
+    // ------------------------------------------------------------------ 2b. native crash stack (0.0.445)
+
+    private class Fld(val num: Int, val v: Long, val s: Int, val e: Int)
+
+    /** Minimal protobuf reader: the top-level fields of b[s0, e0). Throws IllegalStateException on bad data. */
+    private fun pbFields(b: ByteArray, s0: Int, e0: Int): List<Fld> {
+        val out = ArrayList<Fld>()
+        var p = s0
+        fun vi(): Long {
+            var r = 0L
+            var sh = 0
+            while (true) {
+                if (p >= e0 || sh > 63) throw IllegalStateException("pb")
+                val c = b[p++].toInt() and 0xff
+                r = r or ((c and 0x7f).toLong() shl sh)
+                if ((c and 0x80) == 0) return r
+                sh += 7
+            }
+        }
+        while (p < e0) {
+            val tag = vi()
+            val num = (tag ushr 3).toInt()
+            when ((tag and 7L).toInt()) {
+                0 -> out.add(Fld(num, vi(), 0, 0))
+                1 -> { if (p + 8 > e0) throw IllegalStateException("pb"); p += 8 }
+                5 -> { if (p + 4 > e0) throw IllegalStateException("pb"); p += 4 }
+                2 -> {
+                    val n = vi()
+                    if (n < 0 || p + n > e0) throw IllegalStateException("pb")
+                    out.add(Fld(num, 0, p, p + n.toInt()))
+                    p += n.toInt()
+                }
+                else -> throw IllegalStateException("pb")
+            }
+        }
+        return out
+    }
+
+    /** Android 12+ keeps a native crash as a protobuf tombstone (AOSP tombstone.proto): signal, abort message, crashing thread frames. */
+    private fun tombstoneLines(b: ByteArray): List<String> {
+        fun str(f: Fld) = String(b, f.s, f.e - f.s, Charsets.UTF_8)
+        val top = pbFields(b, 0, b.size)
+        val tid = top.firstOrNull { it.num == 6 }?.v ?: -1L
+        val out = ArrayList<String>()
+        top.firstOrNull { it.num == 10 }?.let { f ->
+            val sig = pbFields(b, f.s, f.e)
+            val name = sig.firstOrNull { it.num == 2 }?.let { str(it) } ?: ""
+            val code = sig.firstOrNull { it.num == 4 }?.let { str(it) } ?: ""
+            out.add("signal: $name $code".trim())
+        }
+        top.firstOrNull { it.num == 14 }?.let { out.add("abort message: " + str(it).take(300)) }
+        for (c in top.filter { it.num == 15 }) {
+            pbFields(b, c.s, c.e).firstOrNull { it.num == 1 }?.let { out.add("cause: " + str(it).take(300)) }
+        }
+        for (t in top.filter { it.num == 16 }) {
+            val entry = pbFields(b, t.s, t.e) // map entry: key = 1, value = Thread = 2
+            val thr = entry.firstOrNull { it.num == 2 } ?: continue
+            val tf = pbFields(b, thr.s, thr.e)
+            val id = tf.firstOrNull { it.num == 1 }?.v ?: -2L
+            if (id != tid) continue
+            out.add("crashing thread: " + (tf.firstOrNull { it.num == 2 }?.let { str(it) } ?: "?") + " (tid " + id + ")")
+            var n = 0
+            for (fr in tf.filter { it.num == 4 }) {
+                if (n >= 40) break
+                val ff = pbFields(b, fr.s, fr.e)
+                val fn = ff.firstOrNull { it.num == 4 }?.let { str(it) } ?: ""
+                val file = ff.firstOrNull { it.num == 5 }?.let { str(it) } ?: ""
+                val off = ff.firstOrNull { it.num == 1 }?.v ?: 0L
+                out.add("  #" + n + " " + file.substringAfterLast('/') + " +0x" + java.lang.Long.toHexString(off) + (if (fn.isNotEmpty()) " " + fn else ""))
+                n++
+            }
+        }
+        return out
+    }
+
+    /** Older Android keeps the tombstone as text: keep the signal line, abort message and the "#NN pc" frames. */
+    private fun textTombstoneLines(b: ByteArray): List<String> {
+        val keep = Regex("^\\s*(signal \\d+|Abort message|Cause:|\\*\\*\\* \\*\\*\\*|pid:|#\\d+ pc )")
+        return String(b, Charsets.UTF_8).lineSequence().filter { keep.containsMatchIn(it) }.take(60).toList()
+    }
+
+    /** The stack of the newest native crash (signal 11 ...) of the MAIN process. Read only, capped at 2 MB, never throws. */
+    @RequiresApi(30)
+    private fun nativeCrashLines(ctx: Context, list: List<ApplicationExitInfo>): List<String> {
+        val e = list.firstOrNull { it.reason == ApplicationExitInfo.REASON_CRASH_NATIVE && it.processName == ctx.packageName }
+            ?: return emptyList()
+        val head = "Native crash stack (newest main process crash, " + fmtTime(e.timestamp) + "):"
+        val bytes = try {
+            e.traceInputStream?.use { ins ->
+                val buf = java.io.ByteArrayOutputStream()
+                val tmp = ByteArray(16384)
+                while (buf.size() < 2_000_000) {
+                    val n = ins.read(tmp)
+                    if (n < 0) break
+                    buf.write(tmp, 0, n)
+                }
+                buf.toByteArray()
+            }
+        } catch (_: Throwable) { null }
+        if (bytes == null || bytes.isEmpty()) return listOf(head, "  Android kept no stack for this crash")
+        var lines: List<String> = try { tombstoneLines(bytes) } catch (_: Throwable) { emptyList() }
+        if (lines.none { it.startsWith("crashing thread") }) {
+            val txt = try { textTombstoneLines(bytes) } catch (_: Throwable) { emptyList() }
+            if (txt.isNotEmpty()) lines = txt
+        }
+        if (lines.isEmpty()) return listOf(head, "  stack could not be read (" + bytes.size + " bytes, format not recognised)")
+        return listOf(head) + lines.take(70).map { "  " + Diag.mask(it.take(200)) }
     }
 
     @RequiresApi(30)
