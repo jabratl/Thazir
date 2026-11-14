@@ -271,6 +271,64 @@
       chrome.tabs.onMoved = makeEvent('tabs.onMoved', true);
       ['getAll', 'getLastFocused', 'remove'].forEach(function (m) { chrome.windows[m] = method('windows.' + m); });
     }
+    // 0.0.431 (S6): installed extensions only
+    if (GAPS) {
+      chrome.runtime.reload = function () { call('runtime.reload', []).then(null, function () { /* ignore */ }); };
+      chrome.search = { query: method('search.query') };
+      chrome.browsingData = {};
+      ['remove', 'removeCache', 'removeCookies', 'removeDownloads', 'removeFileSystems', 'removeFormData', 'removeHistory', 'removeIndexedDB', 'removeLocalStorage', 'removePasswords', 'removeServiceWorkers', 'removeWebSQL', 'removeAppcache', 'settings']
+        .forEach(function (m) { chrome.browsingData[m] = method('browsingData.' + m); });
+      var q = { QUOTA_BYTES: 102400, QUOTA_BYTES_PER_ITEM: 8192, MAX_ITEMS: 512, MAX_WRITE_OPERATIONS_PER_HOUR: 1800, MAX_WRITE_OPERATIONS_PER_MINUTE: 120 };
+      Object.keys(q).forEach(function (k) { storage.sync[k] = q[k]; });
+      storage.local.QUOTA_BYTES = 10485760;
+      // webNavigation: real main-frame events from Kotlin; the url filter of addListener(fn, {url:[...]}) is applied here (Chrome UrlFilter)
+      var wnMatch = function (conds, url) {
+        var u; try { u = new URL(url); } catch (e) { return false; }
+        if (!Array.isArray(conds) || !conds.length) return true;
+        var parts = { host: u.hostname.toLowerCase(), path: u.pathname, query: u.search.replace(/^\?/, ''), url: u.href };
+        return conds.some(function (f) {
+          f = f || {};
+          var ok = true;
+          ['host', 'path', 'query', 'url'].forEach(function (p) {
+            var v = parts[p], lc = p === 'host', e = f[p + 'Equals'], c = f[p + 'Contains'], a = f[p + 'Prefix'], z = f[p + 'Suffix'];
+            if (lc) { e = e === undefined ? e : String(e).toLowerCase(); c = c === undefined ? c : String(c).toLowerCase(); a = a === undefined ? a : String(a).toLowerCase(); z = z === undefined ? z : String(z).toLowerCase(); }
+            if (e !== undefined && v !== e) ok = false;
+            if (c !== undefined && v.indexOf(c) < 0) ok = false;
+            if (a !== undefined && v.indexOf(a) !== 0) ok = false;
+            if (z !== undefined && v.slice(-String(z).length) !== z) ok = false;
+          });
+          if (f.schemes && f.schemes.indexOf(u.protocol.replace(':', '')) < 0) ok = false;
+          if (f.ports) {
+            var port = Number(u.port || (u.protocol === 'https:' ? 443 : 80));
+            if (!f.ports.some(function (r) { return Array.isArray(r) ? port >= r[0] && port <= r[1] : port === r; })) ok = false;
+          }
+          try {
+            if (f.urlMatches !== undefined && !new RegExp(f.urlMatches).test(u.href)) ok = false;
+            if (f.originAndPathMatches !== undefined && !new RegExp(f.originAndPathMatches).test(u.origin + u.pathname)) ok = false;
+          } catch (e) { ok = false; }
+          return ok;
+        });
+      };
+      var wnEvent = function (name) {
+        var set = listeners[name] = listeners[name] || [];
+        return {
+          addListener: function (fn, filter) {
+            if (typeof fn !== 'function') return;
+            for (var i = 0; i < set.length; i++) if (set[i]._fn === fn) return;
+            var conds = filter && filter.url;
+            var w = function (d) { if (!conds || wnMatch(conds, d && d.url)) return fn.apply(null, arguments); };
+            w._fn = fn; set.push(w);
+            call('event.add', [name]).then(null, function () { /* ignore */ });
+          },
+          removeListener: function (fn) { for (var i = 0; i < set.length; i++) if (set[i]._fn === fn) { set.splice(i, 1); return; } },
+          hasListener: function (fn) { for (var i = 0; i < set.length; i++) if (set[i]._fn === fn) return true; return false; },
+          hasListeners: function () { return set.length > 0; }
+        };
+      };
+      chrome.webNavigation = { getFrame: method('webNavigation.getFrame'), getAllFrames: method('webNavigation.getAllFrames') };
+      ['onBeforeNavigate', 'onCommitted', 'onDOMContentLoaded', 'onCompleted', 'onErrorOccurred', 'onHistoryStateUpdated', 'onReferenceFragmentUpdated'].forEach(function (n) { chrome.webNavigation[n] = wnEvent('webNavigation.' + n); });
+      ['onCreatedNavigationTarget', 'onTabReplaced'].forEach(function (n) { chrome.webNavigation[n] = ev('webNavigation.' + n); });
+    }
     chrome.scripting.executeScript = wrap(function (inj) { return call('scripting.executeScript', [injection(inj)]); });
     // MV2 style chrome.tabs.executeScript(tabId, {code|file}) -> same path
     chrome.tabs.executeScript = wrap(function (tabId, d) {
@@ -362,6 +420,7 @@
       });
     }
     WN.forEach(function (n) {
+      if (GAPS) return; // 0.0.431 (S6): installed extensions get real webNavigation events (block above)
       var e = wn[n] = wn[n] || ev('webNavigation.' + n), add = e.addListener;
       e.addListener = function () { wnStart(); return add.apply(e, arguments); };
     });

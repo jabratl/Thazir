@@ -663,6 +663,7 @@ class TabManager(
         override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: android.webkit.WebResourceError?) {
             super.onReceivedError(view, request, error)
             val r = request ?: return
+            if (r.isForMainFrame) ExtApi3.failed(tab, r.url.toString(), error?.description?.toString() ?: "net::ERR_FAILED") // 0.0.431 (S6): webNavigation onErrorOccurred
             if (!tab.isExt && !tab.priv) HeaderModes.pageError(r, tab.id, tab.url, error?.description?.toString() ?: "net::ERR_FAILED") // 0.0.119 (S5): webRequest.onErrorOccurred
             if (r.isForMainFrame) Diag.w("page", "load error " + (error?.errorCode ?: 0) + " " + (error?.description ?: ""), if (tab.priv) "(private tab)" else r.url.toString()) // S83
             SocialError.show(ctx, view, r, error?.errorCode ?: 0, tab.isExt) // 0.0.263 (D5)
@@ -740,6 +741,7 @@ class TabManager(
             if (!tab.isExt && !tab.savedPage && view != null) WebNotify.inject(view) // 0.0.284
             if (!tab.isExt && !tab.savedPage && view != null && url != null && SocialMode.ensure(ctx, view, url, tab.desktop)) { /* 0.0.415: ensure() posts the switch + reload itself */ } // 0.0.224
             TabsApi.onUpdated(tab, JSONObject().put("status", "loading").put("url", tab.url)) // S6
+            ExtApi3.started(tab, tab.url) // 0.0.431 (S6): webNavigation onBeforeNavigate + onCommitted
             listener.onPageInfo(tab)
         }
 
@@ -768,11 +770,13 @@ class TabManager(
                 !ZoomTools.optedOut(ctx, Util.host(tab.url))) view.evaluateJavascript(ZoomTools.FORCE_JS, null) // A3: Force enable zoom
             SimpleHint.check(ctx, tab, this@TabManager) // A4: returns at once when the switch is OFF
             TabsApi.onUpdated(tab, JSONObject().put("status", "complete")) // S6
+            ExtApi3.finished(tab, tab.url) // 0.0.431 (S6): webNavigation onDOMContentLoaded + onCompleted
             listener.onPageInfo(tab)
         }
 
         override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
             tab.url = url ?: tab.url
+            ExtApi3.history(tab, url, isReload) // 0.0.431 (S6): webNavigation onHistoryStateUpdated / onReferenceFragmentUpdated
             if (!tab.isExt && !tab.savedPage && view != null && url != null && SocialMode.onRoute(ctx, view, url, tab.desktop)) { /* 0.0.415: ensure() posts the switch + reload itself */ } // 0.0.235 (U1)
             if (!tab.isExt && !tab.savedPage && url != null) RedditMature.inject(ctx, view, url) // 0.0.415: in-page navigation on Reddit
             if (!tab.isExt && view != null) SocialBars.readPage(ctx, view) // 0.0.424: in-page navigation (single page sites change theme-color)

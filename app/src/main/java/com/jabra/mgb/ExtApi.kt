@@ -29,16 +29,17 @@ object ExtApi {
 
     private val CONTENT_OK = Regex("^(runtime\\.(sendMessage|connect)|port\\.(post|disconnect)|storage\\.(local|sync|session)\\.[A-Za-z]+)$") // 0.0.118: storage.session only after setAccessLevel (see gate) // 0.0.111: + ports
     private val EXT_OK = Regex(
-        "^(runtime\\.(sendMessage|openOptionsPage|connect|getContexts)|port\\.(post|disconnect)|event\\.add|storage\\.(local|sync|session)\\.[A-Za-z]+" +
+        "^(runtime\\.(sendMessage|openOptionsPage|connect|getContexts|reload)|port\\.(post|disconnect)|event\\.add|storage\\.(local|sync|session)\\.[A-Za-z]+" +
             "|tabs\\.(sendMessage|connect|create|update|getCurrent|remove|get|query|reload|executeScript|duplicate|move|goBack|goForward|getZoom|setZoom|getZoomSettings|setZoomSettings|highlight|discard|captureVisibleTab)" +
-            "|windows\\.(create|get|getCurrent|update|getAll|getLastFocused|remove)|action\\.[A-Za-z]+|alarms\\.[A-Za-z]+|notifications\\.[A-Za-z]+" +
+            "|windows\\.(create|get|getCurrent|update|getAll|getLastFocused|remove)|search\\.query|browsingData\\.[A-Za-z]+|webNavigation\\.(getFrame|getAllFrames)|action\\.[A-Za-z]+|alarms\\.[A-Za-z]+|notifications\\.[A-Za-z]+" +
             "|contextMenus\\.[A-Za-z]+|scripting\\.(executeScript|insertCSS|registerContentScripts|updateContentScripts|unregisterContentScripts|getRegisteredContentScripts)|cookies\\.[A-Za-z]+|permissions\\.[A-Za-z]+|commands\\.getAll" +
             "|declarativeNetRequest\\.(updateSessionRules|updateDynamicRules|getSessionRules|getDynamicRules|getEnabledRulesets|updateEnabledRulesets|isRegexSupported|setExtensionActionOptions))$"
     )
     private val sessionOpen = HashSet<String>() // 0.0.118 (S6): extensions that called storage.session.setAccessLevel({accessLevel:"TRUSTED_AND_UNTRUSTED_CONTEXTS"}) (memory only, like the data)
     private val NEEDS = mapOf(
         "storage" to "storage", "alarms" to "alarms", "notifications" to "notifications",
-        "contextMenus" to "contextMenus", "scripting" to "scripting", "cookies" to "cookies"
+        "contextMenus" to "contextMenus", "scripting" to "scripting", "cookies" to "cookies",
+        "browsingData" to "browsingData", "search" to "search", "webNavigation" to "webNavigation" // 0.0.431 (S6)
     )
 
     private val main = Handler(Looper.getMainLooper())
@@ -678,6 +679,7 @@ object ExtApi {
 
     private fun registerHandlers() {
         ChromeBridge.on("ext.runtime.sendMessage") { c -> send(c) }
+        ExtApi3.register() // 0.0.431 (S6): webNavigation, runtime.reload, search.query, browsingData
         ExtApi2.register() // 0.0.430 (S5): tabs.duplicate / move / goBack / goForward / zoom / highlight / discard / captureVisibleTab, windows.getAll / getLastFocused / remove
         ChromeBridge.onSync("storage.session.setAccessLevel") { c -> // 0.0.118 (S6)
             val lv = c.args.optJSONObject(0)?.optString("accessLevel", "") ?: ""

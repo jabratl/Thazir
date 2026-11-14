@@ -89,6 +89,9 @@ object ClearData {
             .show()
     }
 
+    /** 0.0.431 (S6): chrome.browsingData (ExtApi3) runs the same deletion after its own confirm dialog. on = the 7 boxes of the dialog. */
+    fun apply(act: Activity, tm: TabManager?, span: Long, on: BooleanArray) = run(act, tm, span, on)
+
     private fun run(act: Activity, tm: TabManager?, span: Long, on: BooleanArray) {
         var fail = false
         fun step(f: () -> Unit) { try { f() } catch (e: Exception) { fail = true; try { Diag.w("cleardata", e.javaClass.simpleName) } catch (x: Exception) { } } }
