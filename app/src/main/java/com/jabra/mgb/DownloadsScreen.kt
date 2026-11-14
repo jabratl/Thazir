@@ -298,24 +298,30 @@ object DownloadsScreen {
                 "~" + selecting + picked.sorted().joinToString(",")
             if (s == sig) return
             sig = s
+            val fresh = box.childCount == 0 // 0.0.446: first fill of the page = in batches (no stall while the page slides in); later refreshes (progress, every second) stay at once
             box.removeAllViews()
-            if (selecting) box.addView(selBar(hist)) // S19
+            val gen = ++renderGen
+            val rows = ArrayList<() -> View>()
+            if (selecting) rows.add { selBar(hist) } // S19
             empty?.visibility = if (jobs.isEmpty() && hist.isEmpty()) View.VISIBLE else View.GONE
             empty?.text = if (query.isBlank()) "No downloads yet\nFiles you save show up here" else "No saved file matches"
             val running = jobs.filter { it.optString("state") == "run" }
             val other = jobs.filter { it.optString("state") != "run" }
-            if (running.isNotEmpty()) box.addView(section("Downloading (${running.size})"))
-            if (running.size > 1) box.addView(actionRow().apply { // D6
+            if (running.isNotEmpty()) rows.add { section("Downloading (${running.size})") }
+            if (running.size > 1) rows.add { actionRow().apply { // D6
                 if (running.any { !it.optBoolean("paused") }) addView(button("Pause all") { DlControl.pauseAll(running) })
                 if (running.any { it.optBoolean("paused") }) addView(button("Resume all", true) { DlControl.resumeAll(running) })
                 addView(button("Stop all") { DlControl.stopAll(running) })
-            })
-            for (j in running) box.addView(jobRow(j))
-            if (other.isNotEmpty()) box.addView(section("Finished"))
-            for (j in other) box.addView(jobRow(j))
-            if (hist.isNotEmpty()) box.addView(section("Saved files (${hist.size})"))
-            for (h in hist) box.addView(fileRow(h))
+            } }
+            for (j in running) rows.add { jobRow(j) }
+            if (other.isNotEmpty()) rows.add { section("Finished") }
+            for (j in other) rows.add { jobRow(j) }
+            if (hist.isNotEmpty()) rows.add { section("Saved files (${hist.size})") }
+            for (h in hist) rows.add { fileRow(h) }
+            if (fresh) BookmarksScreen.fillChunked(box, rows, { gen == renderGen && list === box }) else for (r in rows) box.addView(r()) // 0.0.446
         }
+
+        private var renderGen = 0 // 0.0.446: a newer render() stops the batches of an older one
 
         // ---------- S65: card design (surface cards, icon tile, pill buttons) ----------
 

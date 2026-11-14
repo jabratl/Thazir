@@ -36,6 +36,21 @@ object Favicons {
         } catch (e: Exception) { /* icons are optional */ }
     }
 
+    /** 0.0.446: memory cache only, never touches the disk. Safe on the UI thread (lists use it, then lookup() for the rest). */
+    fun peek(host: String): Bitmap? = if (host.isBlank()) null else mem.get(host.lowercase())
+
+    private val decodePool = java.util.concurrent.Executors.newSingleThreadExecutor()
+
+    /** 0.0.446: icon for a list row WITHOUT blocking the UI thread: the saved file is decoded on a worker thread, then done(bitmap) runs on the main thread. No saved icon = fetch() as before. */
+    fun lookup(host: String, done: (Bitmap) -> Unit) {
+        if (!::dir.isInitialized || host.isBlank()) return
+        decodePool.execute {
+            val b = try { get(host) } catch (_: Throwable) { null }
+            val h = android.os.Handler(android.os.Looper.getMainLooper())
+            if (b != null) h.post { done(b) } else h.post { fetch(host, done) }
+        }
+    }
+
     fun get(host: String): Bitmap? {
         if (!::dir.isInitialized || host.isBlank()) return null
         val k = host.lowercase()
