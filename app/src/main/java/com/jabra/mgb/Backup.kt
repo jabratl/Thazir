@@ -222,6 +222,7 @@ object Backup {
         if (want[3]) {
             val before = UiMode.mode(act)
             val accBefore = AccentTheme.id(act) // 0.0.291
+            val surfBefore = SurfaceStyle.id(act) // 0.0.423
             val all = o.optJSONObject("settings")
             if (all != null) {
                 for (name in SETTINGS) {
@@ -243,7 +244,8 @@ object Backup {
                 SiteConfig.init(act)
                 parts.add("settings")
                 AccentTheme.reload() // 0.0.291: the restored accent is read again
-                recreate = UiMode.mode(act) != before || AccentTheme.id(act) != accBefore
+                SurfaceStyle.reload() // 0.0.423
+                recreate = UiMode.mode(act) != before || AccentTheme.id(act) != accBefore || SurfaceStyle.id(act) != surfBefore
             }
         }
         BookmarksScreen.tabsRef?.syncHome()

@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 0.0.423: surface overlays, applied over Theme.MGB by SurfaceStyle.apply (MainActivity only, never the player). -->
+    <style name="ThemeOverlay.MGB.Surf.Classic" parent="">
+        <item name="mgBg">@color/mgc_bg</item>
+        <item name="mgSurface">@color/mgc_surface</item>
+        <item name="mgSurfaceVariant">@color/mgc_variant</item>
+        <item name="mgOutline">@color/mgc_outline</item>
+        <item name="colorSurface">@color/mgc_surface</item>
+        <item name="colorSurfaceVariant">@color/mgc_variant</item>
+        <item name="colorOutline">@color/mgc_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/mgc_bg</item>
+        <item name="colorSurfaceContainerLow">@color/mgc_surface</item>
+        <item name="colorSurfaceContainer">@color/mgc_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/mgc_variant</item>
+        <item name="colorSurfaceContainerHighest">@color/mgc_variant</item>
+        <item name="android:colorBackground">@color/mgc_bg</item>
+        <item name="android:windowBackground">@color/mgc_bg</item>
+        <item name="android:statusBarColor">@color/mgc_bg</item>
+        <item name="android:navigationBarColor">@color/mgc_bg</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Surf.Black" parent="">
+        <item name="mgBg">@color/mgb_bg</item>
+        <item name="mgSurface">@color/mgb_surface</item>
+        <item name="mgSurfaceVariant">@color/mgb_variant</item>
+        <item name="mgOutline">@color/mgb_outline</item>
+        <item name="colorSurface">@color/mgb_surface</item>
+        <item name="colorSurfaceVariant">@color/mgb_variant</item>
+        <item name="colorOutline">@color/mgb_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/mgb_bg</item>
+        <item name="colorSurfaceContainerLow">@color/mgb_surface</item>
+        <item name="colorSurfaceContainer">@color/mgb_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/mgb_variant</item>
+        <item name="colorSurfaceContainerHighest">@color/mgb_variant</item>
+        <item name="android:colorBackground">@color/mgb_bg</item>
+        <item name="android:windowBackground">@color/mgb_bg</item>
+        <item name="android:statusBarColor">@color/mgb_bg</item>
+        <item name="android:navigationBarColor">@color/mgb_bg</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Surf.Tint.Ocean" parent="">
+        <item name="mgBg">@color/tint_ocean_bg</item>
+        <item name="mgSurface">@color/tint_ocean_surface</item>
+        <item name="mgSurfaceVariant">@color/tint_ocean_variant</item>
+        <item name="mgOutline">@color/tint_ocean_outline</item>
+        <item name="colorSurface">@color/tint_ocean_surface</item>
+        <item name="colorSurfaceVariant">@color/tint_ocean_variant</item>
+        <item name="colorOutline">@color/tint_ocean_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/tint_ocean_bg</item>
+        <item name="colorSurfaceContainerLow">@color/tint_ocean_surface</item>
+        <item name="colorSurfaceContainer">@color/tint_ocean_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/tint_ocean_variant</item>
+        <item name="colorSurfaceContainerHighest">@color/tint_ocean_variant</item>
+        <item name="android:colorBackground">@color/tint_ocean_bg</item>
+        <item name="android:windowBackground">@color/tint_ocean_bg</item>
+        <item name="android:statusBarColor">@color/tint_ocean_bg</item>
+        <item name="android:navigationBarColor">@color/tint_ocean_bg</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Surf.Tint.Emerald" parent="">
+        <item name="mgBg">@color/tint_emerald_bg</item>
+        <item name="mgSurface">@color/tint_emerald_surface</item>
+        <item name="mgSurfaceVariant">@color/tint_emerald_variant</item>
+        <item name="mgOutline">@color/tint_emerald_outline</item>
+        <item name="colorSurface">@color/tint_emerald_surface</item>
+        <item name="colorSurfaceVariant">@color/tint_emerald_variant</item>
+        <item name="colorOutline">@color/tint_emerald_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/tint_emerald_bg</item>
+        <item name="colorSurfaceContainerLow">@color/tint_emerald_surface</item>
+        <item name="colorSurfaceContainer">@color/tint_emerald_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/tint_emerald_variant</item>
+        <item name="colorSurfaceContainerHighest">@color/tint_emerald_variant</item>
+        <item name="android:colorBackground">@color/tint_emerald_bg</item>
+        <item name="android:windowBackground">@color/tint_emerald_bg</item>
+        <item name="android:statusBarColor">@color/tint_emerald_bg</item>
+        <item name="android:navigationBarColor">@color/tint_emerald_bg</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Surf.Tint.Sunset" parent="">
+        <item name="mgBg">@color/tint_sunset_bg</item>
+        <item name="mgSurface">@color/tint_sunset_surface</item>
+        <item name="mgSurfaceVariant">@color/tint_sunset_variant</item>
+        <item name="mgOutline">@color/tint_sunset_outline</item>
+        <item name="colorSurface">@color/tint_sunset_surface</item>
+        <item name="colorSurfaceVariant">@color/tint_sunset_variant</item>
+        <item name="colorOutline">@color/tint_sunset_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/tint_sunset_bg</item>
+        <item name="colorSurfaceContainerLow">@color/tint_sunset_surface</item>
+        <item name="colorSurfaceContainer">@color/tint_sunset_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/tint_sunset_variant</item>
+        <item name="colorSurfaceContainerHighest">@color/tint_sunset_variant</item>
+        <item name="android:colorBackground">@color/tint_sunset_bg</item>
+        <item name="android:windowBackground">@color/tint_sunset_bg</item>
+        <item name="android:statusBarColor">@color/tint_sunset_bg</item>
+        <item name="android:navigationBarColor">@color/tint_sunset_bg</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Surf.Tint.Rose" parent="">
+        <item name="mgBg">@color/tint_rose_bg</item>
+        <item name="mgSurface">@color/tint_rose_surface</item>
+        <item name="mgSurfaceVariant">@color/tint_rose_variant</item>
+        <item name="mgOutline">@color/tint_rose_outline</item>
+        <item name="colorSurface">@color/tint_rose_surface</item>
+        <item name="colorSurfaceVariant">@color/tint_rose_variant</item>
+        <item name="colorOutline">@color/tint_rose_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/tint_rose_bg</item>
+        <item name="colorSurfaceContainerLow">@color/tint_rose_surface</item>
+        <item name="colorSurfaceContainer">@color/tint_rose_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/tint_rose_variant</item>
+        <item name="colorSurfaceContainerHighest">@color/tint_rose_variant</item>
+        <item name="android:colorBackground">@color/tint_rose_bg</item>
+        <item name="android:windowBackground">@color/tint_rose_bg</item>
+        <item name="android:statusBarColor">@color/tint_rose_bg</item>
+        <item name="android:navigationBarColor">@color/tint_rose_bg</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Surf.Tint.Sapphire" parent="">
+        <item name="mgBg">@color/tint_sapphire_bg</item>
+        <item name="mgSurface">@color/tint_sapphire_surface</item>
+        <item name="mgSurfaceVariant">@color/tint_sapphire_variant</item>
+        <item name="mgOutline">@color/tint_sapphire_outline</item>
+        <item name="colorSurface">@color/tint_sapphire_surface</item>
+        <item name="colorSurfaceVariant">@color/tint_sapphire_variant</item>
+        <item name="colorOutline">@color/tint_sapphire_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/tint_sapphire_bg</item>
+        <item name="colorSurfaceContainerLow">@color/tint_sapphire_surface</item>
+        <item name="colorSurfaceContainer">@color/tint_sapphire_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/tint_sapphire_variant</item>
+        <item name="colorSurfaceContainerHighest">@color/tint_sapphire_variant</item>
+        <item name="android:colorBackground">@color/tint_sapphire_bg</item>
+        <item name="android:windowBackground">@color/tint_sapphire_bg</item>
+        <item name="android:statusBarColor">@color/tint_sapphire_bg</item>
+        <item name="android:navigationBarColor">@color/tint_sapphire_bg</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Surf.Tint.Amber" parent="">
+        <item name="mgBg">@color/tint_amber_bg</item>
+        <item name="mgSurface">@color/tint_amber_surface</item>
+        <item name="mgSurfaceVariant">@color/tint_amber_variant</item>
+        <item name="mgOutline">@color/tint_amber_outline</item>
+        <item name="colorSurface">@color/tint_amber_surface</item>
+        <item name="colorSurfaceVariant">@color/tint_amber_variant</item>
+        <item name="colorOutline">@color/tint_amber_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/tint_amber_bg</item>
+        <item name="colorSurfaceContainerLow">@color/tint_amber_surface</item>
+        <item name="colorSurfaceContainer">@color/tint_amber_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/tint_amber_variant</item>
+        <item name="colorSurfaceContainerHighest">@color/tint_amber_variant</item>
+        <item name="android:colorBackground">@color/tint_amber_bg</item>
+        <item name="android:windowBackground">@color/tint_amber_bg</item>
+        <item name="android:statusBarColor">@color/tint_amber_bg</item>
+        <item name="android:navigationBarColor">@color/tint_amber_bg</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Surf.Tint.Mocha" parent="">
+        <item name="mgBg">@color/tint_mocha_bg</item>
+        <item name="mgSurface">@color/tint_mocha_surface</item>
+        <item name="mgSurfaceVariant">@color/tint_mocha_variant</item>
+        <item name="mgOutline">@color/tint_mocha_outline</item>
+        <item name="colorSurface">@color/tint_mocha_surface</item>
+        <item name="colorSurfaceVariant">@color/tint_mocha_variant</item>
+        <item name="colorOutline">@color/tint_mocha_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/tint_mocha_bg</item>
+        <item name="colorSurfaceContainerLow">@color/tint_mocha_surface</item>
+        <item name="colorSurfaceContainer">@color/tint_mocha_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/tint_mocha_variant</item>
+        <item name="colorSurfaceContainerHighest">@color/tint_mocha_variant</item>
+        <item name="android:colorBackground">@color/tint_mocha_bg</item>
+        <item name="android:windowBackground">@color/tint_mocha_bg</item>
+        <item name="android:statusBarColor">@color/tint_mocha_bg</item>
+        <item name="android:navigationBarColor">@color/tint_mocha_bg</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Surf.Tint.Slate" parent="">
+        <item name="mgBg">@color/tint_slate_bg</item>
+        <item name="mgSurface">@color/tint_slate_surface</item>
+        <item name="mgSurfaceVariant">@color/tint_slate_variant</item>
+        <item name="mgOutline">@color/tint_slate_outline</item>
+        <item name="colorSurface">@color/tint_slate_surface</item>
+        <item name="colorSurfaceVariant">@color/tint_slate_variant</item>
+        <item name="colorOutline">@color/tint_slate_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/tint_slate_bg</item>
+        <item name="colorSurfaceContainerLow">@color/tint_slate_surface</item>
+        <item name="colorSurfaceContainer">@color/tint_slate_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/tint_slate_variant</item>
+        <item name="colorSurfaceContainerHighest">@color/tint_slate_variant</item>
+        <item name="android:colorBackground">@color/tint_slate_bg</item>
+        <item name="android:windowBackground">@color/tint_slate_bg</item>
+        <item name="android:statusBarColor">@color/tint_slate_bg</item>
+        <item name="android:navigationBarColor">@color/tint_slate_bg</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Surf.Tint.Orchid" parent="">
+        <item name="mgBg">@color/tint_orchid_bg</item>
+        <item name="mgSurface">@color/tint_orchid_surface</item>
+        <item name="mgSurfaceVariant">@color/tint_orchid_variant</item>
+        <item name="mgOutline">@color/tint_orchid_outline</item>
+        <item name="colorSurface">@color/tint_orchid_surface</item>
+        <item name="colorSurfaceVariant">@color/tint_orchid_variant</item>
+        <item name="colorOutline">@color/tint_orchid_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/tint_orchid_bg</item>
+        <item name="colorSurfaceContainerLow">@color/tint_orchid_surface</item>
+        <item name="colorSurfaceContainer">@color/tint_orchid_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/tint_orchid_variant</item>
+        <item name="colorSurfaceContainerHighest">@color/tint_orchid_variant</item>
+        <item name="android:colorBackground">@color/tint_orchid_bg</item>
+        <item name="android:windowBackground">@color/tint_orchid_bg</item>
+        <item name="android:statusBarColor">@color/tint_orchid_bg</item>
+        <item name="android:navigationBarColor">@color/tint_orchid_bg</item>
+    </style>
+</resources>

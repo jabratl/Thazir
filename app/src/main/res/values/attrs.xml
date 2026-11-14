@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 0.0.423: surface tokens as theme attributes, so XML layouts / drawables follow Classic white / True black / accent tint (overlays in themes_surface.xml). Theme.MGB gives the default values. -->
+    <attr name="mgBg" format="color" />
+    <attr name="mgSurface" format="color" />
+    <attr name="mgSurfaceVariant" format="color" />
+    <attr name="mgOutline" format="color" />
+</resources>

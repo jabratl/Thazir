@@ -10,6 +10,10 @@
         <item name="colorOutline">@color/mg_outline</item>
         <item name="colorError">@color/mg_error</item>
         <!-- S29: dialogs (Theme picker etc.) used the default light container colour with light text in dark mode -->
+        <item name="mgBg">@color/mg_bg</item>
+        <item name="mgSurface">@color/mg_surface</item>
+        <item name="mgSurfaceVariant">@color/mg_surface_variant</item>
+        <item name="mgOutline">@color/mg_outline</item>
         <item name="colorSurfaceContainerLowest">@color/mg_bg</item>
         <item name="colorSurfaceContainerLow">@color/mg_surface</item>
         <item name="colorSurfaceContainer">@color/mg_surface</item>

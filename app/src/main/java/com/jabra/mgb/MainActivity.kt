@@ -59,6 +59,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         super.onCreate(savedInstanceState)
         noisyOn() // 0.0.310
         AccentTheme.apply(this) // 0.0.289: accent overlay (before the layout is inflated)
+        SurfaceStyle.apply(this) // 0.0.423: Classic white / True black / accent tint overlay
         setContentView(R.layout.activity_main)
         if (AppearancePrefs.compactBar(this)) findViewById<View>(R.id.bottom_bar)?.layoutParams?.height = Util.dp(this, 44) // A11: compact bar
         if (AppearancePrefs.barTop(this)) { // A4: bar position Top = move the pill to index 0, margins top 8 / bottom 6

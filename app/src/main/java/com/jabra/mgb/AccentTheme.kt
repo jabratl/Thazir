@@ -56,15 +56,17 @@ object AccentTheme {
         if (a.overlay != 0) act.theme.applyStyle(a.overlay, true)
     }
 
-    /** Activity.getResources() body: the wrapper for a non-violet accent, the plain Resources otherwise. */
+    /** Activity.getResources() body: the wrapper for a non-violet accent or a non-default surface style (0.0.423), the plain Resources otherwise. */
     fun res(ctx: Context, base: Resources): Resources {
         try {
             val a = current(ctx)
-            if (a.overlay == 0) return base
+            val pal = SurfaceStyle.pal(ctx, SurfaceStyle.isNight(base.configuration), a.id)
+            if (a.overlay == 0 && pal == null) return base
+            val acc = if (a.overlay == 0) 0 else a.color
             synchronized(this) {
                 val w = last
-                if (w != null && w.base === base && w.accent == a.color && w.cfg.diff(base.configuration) == 0) return w
-                val n = Wrapper(base, a.color)
+                if (w != null && w.base === base && w.accent == acc && java.util.Arrays.equals(w.pal, pal) && w.cfg.diff(base.configuration) == 0) return w
+                val n = Wrapper(base, acc, pal)
                 last = n
                 return n
             }
@@ -72,12 +74,22 @@ object AccentTheme {
     }
 
     @Suppress("DEPRECATION")
-    private class Wrapper(val base: Resources, val accent: Int) : Resources(base.assets, base.displayMetrics, base.configuration) {
+    private class Wrapper(val base: Resources, val accent: Int, val pal: IntArray?) : Resources(base.assets, base.displayMetrics, base.configuration) {
         val cfg = Configuration(base.configuration)
-        private fun map(id: Int): Int =
-            if (id == R.color.mg_primary || id == R.color.mg_toggle_on) accent
-            else if (id == R.color.mg_on_primary) R.color.acc_on
-            else id
+        private fun map(id: Int): Int {
+            if (accent != 0) {
+                if (id == R.color.mg_primary || id == R.color.mg_toggle_on) return accent
+                if (id == R.color.mg_on_primary) return R.color.acc_on
+            }
+            val p = pal ?: return id
+            return when (id) { // 0.0.423: surface style
+                R.color.mg_bg -> p[0]
+                R.color.mg_surface -> p[1]
+                R.color.mg_surface_variant -> p[2]
+                R.color.mg_outline -> p[3]
+                else -> id
+            }
+        }
         override fun getColor(id: Int, theme: Resources.Theme?): Int = super.getColor(map(id), theme)
         override fun getColorStateList(id: Int, theme: Resources.Theme?) = super.getColorStateList(map(id), theme)
         override fun getDisplayMetrics() = base.displayMetrics

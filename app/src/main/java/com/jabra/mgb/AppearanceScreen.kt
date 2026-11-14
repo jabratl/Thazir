@@ -261,6 +261,30 @@ object AppearanceScreen {
             }
             col.addView(themeCard, LinearLayout.LayoutParams(MATCH, WRAP))
 
+            col.addView(sectionLabel("Surfaces")) // 0.0.423: Soft / Classic white (light) / True black (dark)
+            val surfCard = card()
+            val sl = palette(false)
+            val sd = palette(true)
+            val ids = listOf(SurfaceStyle.SOFT, SurfaceStyle.CLASSIC, SurfaceStyle.BLACK)
+            tileChoice(surfCard, listOf("Soft", "Classic white", "True black"),
+                listOf(PhoneView(act, sl, null),
+                    PhoneView(act, Palette(0xFFF8F8FC.toInt(), 0xFFFFFFFF.toInt(), 0xFFD9DCE7.toInt(), sl.text, sl.primary), null),
+                    PhoneView(act, Palette(0xFF000000.toInt(), 0xFF0E0F14.toInt(), 0xFF2A2D3A.toInt(), sd.text, sd.primary), null)),
+                ids.indexOf(SurfaceStyle.id(act)).coerceAtLeast(0)) { i ->
+                if (ids[i] != SurfaceStyle.id(act)) {
+                    SurfaceStyle.set(act, ids[i])
+                    Util.toast(act, when (ids[i]) {
+                        SurfaceStyle.CLASSIC -> "Classic white shows in Light mode"
+                        SurfaceStyle.BLACK -> "True black shows in Dark mode"
+                        else -> "Soft: light tint follows the accent colour"
+                    })
+                    AppearanceScreen.markReopen()
+                    dismiss()
+                    UiMode.smoothRecreate(act)
+                }
+            }
+            col.addView(surfCard, LinearLayout.LayoutParams(MATCH, WRAP))
+
             col.addView(sectionLabel("Accent colour")) // 0.0.289
             val accentCard = card()
             accentPicker(accentCard)
