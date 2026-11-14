@@ -1,0 +1,7 @@
+0.0.450 (SAFE BUILD: = 0.0.446 + 0.0.449 private tab groups; the vault patch 0.0.447 / 0.0.448 is taken OUT)
+- WHY: owner report: the app crashes about 2 s after start, right after the vault fix was installed. No stack trace yet.
+- VaultStore.kt and VaultScreen.kt are back to the 0.0.446 files. The 0.0.447 (loadIndex reasons + index.tmp) and 0.0.448 (Rebuild index) code is parked in Thazir_vault_447_448_PARKED.zip, NOT lost, NOT built.
+- Kept: everything of 0.0.449 (TabSwitcher.kt, TabBookmarks.kt, GroupStrip.kt, TabManager.kt: private tab groups, + in the private view, copy links).
+- NOT tested: Gradle build (CI), device.
+- If this build opens normally: the crash came from the vault patch. If it still crashes at start: it is NOT the vault patch (0.0.446 or 0.0.449 tab code); send the "Last crash" dialog text (next start, Copy) or adb logcat -b crash -d.
+- ROLLBACK: put TabSwitcher.kt / TabBookmarks.kt / GroupStrip.kt / TabManager.kt back from 0.0.446, appVersionName 0.0.446.

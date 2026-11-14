@@ -233,125 +233,18 @@ object VaultStore {
         }
     }
 
-    /**
-     * 0.0.448: BLOCKING. Last resort when index.enc AND index.bak are gone but vault.hdr and d/ are still there.
-     * Opens the vault with the PASSPHRASE, opens every d/<id>.bin with the key, guesses page / file from the first bytes and writes a NEW index.
-     * Refuses (writes nothing) when index.enc or index.bak exists. Bookmarks / history / titles / folders lived only in the old index and cannot come back;
-     * saved pages get title + address from their .mht header, files get "Recovered file N.ext". Blobs are only read, never changed or deleted.
-     */
-    fun rebuildIndex(c: Context, pass: CharArray): Res {
-        val app = c.applicationContext
-        var k: ByteArray? = null
-        try {
-            val tree = treeUri(app) ?: return Res(false, "No vault folder chosen.")
-            if (lockoutLeftMs(app) > 0L) return Res(false, tooMany(app))
-            val h = readHeader(app)
-            k = VaultCrypto.openPass(h, pass)
-            if (k == null) { noteFail(app); return Res(false, if (lockoutLeftMs(app) > 0L) tooMany(app) else "Wrong passphrase.") }
-            val root = rootDoc(tree)
-            if (child(app, tree, root, IDX) != null || child(app, tree, root, IDX_BAK) != null)
-                return Res(false, "An index file is still in the folder, so nothing was rebuilt. Use Unlock and send the message it shows.")
-            val items = JSONArray()
-            var bad = 0; var np = 0; var nf = 0
-            val data = child(app, tree, root, DATA)
-            if (data != null && data.isDir) {
-                val kids = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getDocumentId(data.uri))
-                val found = ArrayList<Triple<String, Uri, Long>>()
-                app.contentResolver.query(kids, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_LAST_MODIFIED), null, null, null)?.use { q ->
-                    while (q.moveToNext()) {
-                        val n = q.getString(1) ?: continue
-                        if (!n.endsWith(".bin")) continue
-                        found.add(Triple(n.removeSuffix(".bin"), DocumentsContract.buildDocumentUriUsingTree(tree, q.getString(0)), q.getLong(2)))
-                    }
-                }
-                for ((id, uri, mod) in found) {
-                    var src: SafSource? = null
-                    try {
-                        src = SafSource(app, uri)
-                        val r = VaultCrypto.BlobReader(src, k)
-                        val buf = ByteArray(minOf(4096L, r.plainSize).toInt())
-                        val got = if (buf.isEmpty()) 0 else maxOf(0, r.readAt(0, buf, 0, buf.size))
-                        val head = String(buf, 0, got, Charsets.ISO_8859_1)
-                        val t = if (mod > 0L) mod else System.currentTimeMillis()
-                        val o = JSONObject().put("id", id).put("time", t).put("folder", "").put("size", r.plainSize).put("blob", id)
-                        if (head.contains("MIME-Version", true) || head.contains("multipart/related", true)) {
-                            np++
-                            fun hdr(n: String): String = Regex("(?im)^" + n + ":\\s*(.+)$").find(head)?.groupValues?.get(1)?.trim() ?: ""
-                            val sub = hdr("Subject").let { if (it.startsWith("=?")) "" else it }
-                            val url = hdr("Snapshot-Content-Location").ifEmpty { hdr("Content-Location") }
-                            o.put("type", "page").put("title", sub.ifEmpty { "Recovered page $np" }).put("url", url)
-                                .put("mime", "application/x-mimearchive").put("orig", JSONObject().put("name", "$id.mht").put("rel", "saved_pages"))
-                        } else {
-                            nf++
-                            val b = got
-                            fun at(i: Int) = if (i < b) buf[i].toInt() and 0xff else -1
-                            val (mime, ext) = when {
-                                at(0) == 0x89 && head.startsWith("\u0089PNG") -> "image/png" to "png"
-                                at(0) == 0xFF && at(1) == 0xD8 -> "image/jpeg" to "jpg"
-                                head.startsWith("GIF8") -> "image/gif" to "gif"
-                                head.startsWith("RIFF") && head.regionMatches(8, "WEBP", 0, 4) -> "image/webp" to "webp"
-                                head.startsWith("%PDF") -> "application/pdf" to "pdf"
-                                head.regionMatches(4, "ftyp", 0, 4) -> "video/mp4" to "mp4"
-                                head.startsWith("ID3") || (at(0) == 0xFF && (at(1) and 0xE0) == 0xE0) -> "audio/mpeg" to "mp3"
-                                head.startsWith("PK") -> "application/zip" to "zip"
-                                head.startsWith("Rar!") -> "application/vnd.rar" to "rar"
-                                head.startsWith("OggS") -> "audio/ogg" to "ogg"
-                                head.startsWith("\u001A\u0045\u00DF\u00A3") -> "video/x-matroska" to "mkv"
-                                else -> "application/octet-stream" to "bin"
-                            }
-                            val name = "Recovered file $nf.$ext"
-                            o.put("type", "file").put("title", name).put("url", "").put("mime", mime).put("orig", JSONObject().put("name", name).put("rel", ""))
-                        }
-                        items.put(o)
-                    } catch (e: Exception) { bad++ } finally { try { src?.close() } catch (x: Exception) { } }
-                }
-            }
-            val idx = JSONObject().put("v", INDEX_V).put("items", items).put("folders", JSONArray())
-            val text = idx.toString()
-            val iu = makeFile(app, root, IDX)
-            writeAll(app, iu, VaultCrypto.encStr(k, text).toByteArray(Charsets.UTF_8))
-            if (VaultCrypto.decStr(k, String(readAll(app, iu), Charsets.UTF_8)) != text) { del(app, iu); return Res(false, "Could not verify the new index. Nothing was changed.") }
-            synchronized(this) { dek = k; index = idx; header = h; dirty = false }
-            k = null
-            folderOk = true; leftAt = System.currentTimeMillis(); clearFails(app)
-            return Res(true, "Rebuilt: " + items.length() + " items (" + np + " pages, " + nf + " files)" + (if (bad > 0) ", " + bad + " blobs could not be read" else ""))
-        } catch (e: Exception) {
-            return Res(false, "Could not rebuild: " + (e.message ?: e.javaClass.simpleName))
-        } finally { VaultCrypto.wipe(pass); VaultCrypto.wipe(k) }
-    }
-
     private fun loadIndex(c: Context, k: ByteArray): JSONObject? {
-        lastError = "" // 0.0.447: a stale message from an earlier action must not be shown for this failure
         val tree = treeUri(c) ?: return null
         val root = rootDoc(tree)
-        val why = ArrayList<String>()
-        // 0.0.447: index.tmp is the 3rd try. flush() reads it back and checks it BEFORE the swap, so a tmp that decrypts is a complete copy.
-        for (name in arrayOf(IDX, IDX_BAK, IDX_TMP)) {
+        for (name in arrayOf(IDX, IDX_BAK)) {
             try {
-                val d = child(c, tree, root, name)
-                if (d == null) { why.add("$name missing"); continue }
-                val raw = readAll(c, d.uri)
-                if (raw.isEmpty()) { why.add("$name empty"); continue }
-                val txt = VaultCrypto.decStr(k, String(raw, Charsets.UTF_8))
-                if (txt == null) { why.add("$name cannot be decrypted, " + raw.size + " B"); continue }
-                val o = JSONObject(txt)
+                val d = child(c, tree, root, name) ?: continue
+                val o = JSONObject(VaultCrypto.decStr(k, String(readAll(c, d.uri), Charsets.UTF_8)) ?: continue)
                 if (o.optInt("v", 1) > INDEX_V) { lastError = "This vault was made by a newer Thazir. Update the app first."; return null }
                 return migrate(o)
-            } catch (e: Exception) { why.add(name + " " + e.javaClass.simpleName) }
+            } catch (e: Exception) { /* try the backup */ }
         }
-        // 0.0.447: say WHICH file failed and what the folder holds (a provider that renamed a file shows up here). Nothing is changed or deleted.
-        val seen = try { listNames(c, tree, root) } catch (e: Exception) { "?" }
-        lastError = "The vault index cannot be read (" + why.joinToString("; ") + "). Folder: " + seen
         return null
-    }
-
-    private fun listNames(c: Context, tree: Uri, parent: Uri): String {
-        val out = ArrayList<String>()
-        val kids = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getDocumentId(parent))
-        c.contentResolver.query(kids, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)?.use { q ->
-            while (q.moveToNext() && out.size < 8) out.add(q.getString(0) ?: "?")
-        }
-        return if (out.isEmpty()) "empty" else out.joinToString(", ")
     }
 
     /** Schema upgrades go here (index v1 is current). Unknown fields stay because the JSON is kept whole. */
