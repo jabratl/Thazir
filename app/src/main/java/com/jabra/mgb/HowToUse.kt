@@ -241,6 +241,7 @@ object HowToUse {
                 "An extension that asks to delete browsing data (history, cookies, cache) always shows a confirm box first. Passwords are never deleted this way.",
                 "Report center > Extension API gaps lists chrome.* functions that an extension called and Thazir does not support. The call fails with \"Not supported in Thazir\", the extension keeps running.",
                 "Settings > Extensions > tap an extension > Page width: Auto (the popup or page fits the phone and the popup is only as tall as its content), Phone width, or Desktop width (wide page scaled down). Reopen the popup to see it.",
+                "An extension that sets \"incognito\": \"not_allowed\" in its manifest does not run in private tabs. A web page that an extension lists (externally_connectable) can send it messages, never from a private tab. Settings > Extensions > tap an extension > Commands: tap one to run it.",
                 "Menu > Report center helps you collect details when something is wrong, so you can copy or share them. Its Extension compat part shows the WebView version, which modern CSS features it supports and the theme of the page you are on, so an extension that looks wrong can be explained."
             ), "",
             listOf("A page misbehaves: Menu > Report center > copy the report and send it to the developer.")

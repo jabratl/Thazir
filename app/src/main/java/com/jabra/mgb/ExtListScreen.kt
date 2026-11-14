@@ -397,6 +397,34 @@ object ExtListScreen {
                 textSize = 12f
                 setTextColor(act.getColor(R.color.mg_text_dim))
             })
+            // 0.0.433 (S8): manifest "commands": description + shortcut text; a tap runs it (_execute_action = open the popup, others = commands.onCommand)
+            if (e.enabled) {
+                val cmds = ExtManifest.commands(e)
+                if (cmds.length() > 0) {
+                    col.addView(TextView(act).apply {
+                        text = "COMMANDS"
+                        textSize = 11f
+                        letterSpacing = 0.08f
+                        setTextColor(act.getColor(R.color.mg_primary))
+                        setPadding(0, dp(16), 0, dp(4))
+                    })
+                    for (i in 0 until cmds.length()) {
+                        val c = cmds.getJSONObject(i)
+                        val nm = c.optString("name")
+                        val label = c.optString("description").ifEmpty { nm }
+                        val key = c.optString("shortcut")
+                        col.addView(TextView(act).apply {
+                            text = label + (if (key.isNotEmpty()) "  [" + key + "]" else "") + "  (tap to run)"
+                            textSize = 15f
+                            setTextColor(act.getColor(R.color.mg_text))
+                            setPadding(0, dp(8), 0, dp(8))
+                            isClickable = true
+                            isFocusable = true
+                            setOnClickListener { ExtManifest.runCommand(act, e, nm) }
+                        })
+                    }
+                }
+            }
             MaterialAlertDialogBuilder(act)
                 .setTitle(e.name)
                 .setView(ScrollView(act).apply { addView(col) })
@@ -406,10 +434,14 @@ object ExtListScreen {
                     val pop = e.popup
                     val opt = e.options
                     if (e.enabled && pop != null) setNeutralButton("Open popup") { _, _ -> openPage(e, pop) }
-                    else if (e.enabled && opt != null) setNeutralButton("Options") { _, _ -> openPage(e, opt) }
-                    if (e.enabled && pop != null && opt != null) setNegativeButton("Options") { _, _ -> openPage(e, opt) }
+                    else if (e.enabled && opt != null) setNeutralButton("Options") { _, _ -> openOptionsOf(e) }
+                    if (e.enabled && pop != null && opt != null) setNegativeButton("Options") { _, _ -> openOptionsOf(e) }
                 }
                 .show()
+        }
+
+        private fun openOptionsOf(e: ExtRegistry.Info) { // 0.0.432 (S7): options_ui.open_in_tab
+            if (!ExtManifest.openOptions(act, e)) Util.toast(act, "Could not open the options page")
         }
 
         private fun openPage(e: ExtRegistry.Info, rel: String) {

@@ -35,7 +35,7 @@ object ContentInjector {
         return d.joinToString("") { "%02x".format(it) }
     }
 
-    private class Entry(val origins: Set<String>, val script: String)
+    private class Entry(val origins: Set<String>, val script: String, val noPriv: Boolean = false) // 0.0.432 (S7): noPriv = manifest incognito "not_allowed"
 
     private var inited = false
     private var warned = false
@@ -216,6 +216,13 @@ object ContentInjector {
     private fun fixExtUrls(id: String, css: String): String =
         css.replace("chrome-extension://__MSG_@@extension_id__/", EXT_BASE + id + "/").replace("chrome-extension://$id/", EXT_BASE + id + "/")
 
+    /** 0.0.433 (S8): "__MSG_key__" -> text of the extension's _locales (anything else, or an unknown key, is returned as is). */
+    fun i18nText(id: String, dir: File, manifest: JSONObject, s: String): String {
+        if (!s.startsWith("__MSG_") || !s.endsWith("__") || s.length <= 8) return s
+        val e = messagesFor(id, dir, manifest).optJSONObject(s.substring(6, s.length - 2).lowercase()) ?: return s
+        return e.optString("m", "").ifEmpty { s }
+    }
+
     private fun buildExt(id: String, dir: File, mf: File, extra: List<JSONObject> = emptyList()): List<Entry> {
         val manifest = JSONObject(mf.readText())
         // 0.0.115 (S3): manifest content_scripts + scripts added with chrome.scripting.registerContentScripts (same build path)
@@ -259,13 +266,20 @@ object ContentInjector {
                     pre.append("}\n")
                 }
                 pre.append("if(!__m.some(function(r){return new RegExp(r).test(__u)})||__x.some(function(r){return new RegExp(r).test(__u)}))return;\n")
+                // 0.0.432 (S7): include_globs / exclude_globs (checked after matches, like Chrome); no such key = the script text is unchanged
+                val gi = ExtManifest.globs(e.optJSONArray("include_globs"))
+                val gx = ExtManifest.globs(e.optJSONArray("exclude_globs"))
+                if (gi.length() > 0 || gx.length() > 0) {
+                    pre.append("var __gi=").append(gi).append(",__gx=").append(gx).append(",__gt=function(r){return new RegExp(r).test(__u)};")
+                    pre.append("if((__gi.length&&!__gi.some(__gt))||__gx.some(__gt))return;\n")
+                }
                 if (cssSrc.isNotEmpty()) {
                     pre.append("try{var __s=document.createElement('style');__s.textContent=").append(JSONObject.quote(cssSrc.toString()))
                         .append(";(document.head||document.documentElement).appendChild(__s);}catch(_){}\n")
                 }
                 val main = e.optString("world") == "MAIN" || src.isEmpty()
                 out.add(Entry(origins, wrap(src.toString(), main, e.optString("run_at", "document_idle"),
-                    e.optBoolean("all_frames", false), cfgJson, pre.toString(), ExtTheme.idleOn)))
+                    e.optBoolean("all_frames", false), cfgJson, pre.toString(), ExtTheme.idleOn), ExtManifest.noPrivate(manifest)))
             } catch (ex: Exception) {
                 Log.e(TAG, "$id content_scripts[$i] skipped", ex)
             }
@@ -558,6 +572,7 @@ object ContentInjector {
     // 0.0.108: script handles of installed extensions per tab WebView, so install / enable / disable / remove / update
     // reach tabs that are already open (before, only tabs created afterwards saw a change)
     private val extHandles = java.util.WeakHashMap<WebView, ArrayList<ScriptHandler>>()
+    private val privWebs = java.util.WeakHashMap<WebView, Boolean>() // 0.0.432 (S7): private tab WebViews (incognito "not_allowed" skips them)
 
     private fun addScript(web: WebView, script: String, origins: Set<String>, keep: ArrayList<ScriptHandler>?) {
         val h = try {
@@ -603,16 +618,17 @@ object ContentInjector {
         return out
     }
 
-    private fun addExtScripts(ctx: Context, web: WebView) {
+    private fun addExtScripts(ctx: Context, web: WebView, priv: Boolean = false) {
         val keep = ArrayList<ScriptHandler>()
+        val list = extEntries(ctx).filter { !(priv && it.noPriv) } // 0.0.432 (S7): extensions with incognito not_allowed do not run in private tabs
         // 0.0.428 (S3): theme hint first (page world, only on origins of installed extensions' content scripts), so it runs before their scripts
         try {
             val oo = LinkedHashSet<String>()
-            for (e in extEntries(ctx)) oo.addAll(e.origins)
+            for (e in list) oo.addAll(e.origins)
             ExtTheme.script(ctx, oo)?.let { addScript(web, it, oo, keep) }
         } catch (ex: Exception) { Log.e(TAG, "theme hint failed", ex) }
         // S2: installed extensions (a failing entry is skipped, others still run)
-        for (e in extEntries(ctx)) {
+        for (e in list) {
             try { addScript(web, e.script, e.origins, keep) } catch (ex: Exception) { Log.e(TAG, "ext entry failed", ex) }
         }
         // 0.0.349: scripts the built-in grabber engine registered itself (siteNoMse.js for the "MediaSource off" sites); empty list = nothing happens
@@ -625,6 +641,8 @@ object ContentInjector {
         try { addScript(web, extPageScript(ctx), setOf(EXT_ORIGIN), keep) } catch (ex: Exception) { Log.e(TAG, "ext page script failed", ex) }
         // 0.0.427 (S2): viewport for pages of installed extensions opened as tabs (null = no installed extension)
         try { ExtFit.script(ctx)?.let { addScript(web, it, setOf(EXT_ORIGIN), keep) } } catch (ex: Exception) { Log.e(TAG, "ext fit script failed", ex) }
+        // 0.0.433 (S8): externally_connectable (a listed web page may message the extension); never in private tabs
+        try { if (!priv) ExtWeb.attach(web, keep) } catch (ex: Exception) { Log.e(TAG, "ext web failed", ex) }
         synchronized(extHandles) { extHandles[web] = keep }
     }
 
@@ -636,21 +654,22 @@ object ContentInjector {
             try {
                 val old = synchronized(extHandles) { extHandles.remove(w) } ?: continue
                 for (h in old) try { h.remove() } catch (_: Exception) { }
-                addExtScripts(ctx, w)
+                addExtScripts(ctx, w, synchronized(extHandles) { privWebs[w] == true })
             } catch (ex: Exception) { Log.e(TAG, "refresh failed", ex) }
         }
     }
 
     /** Browser tab WebView: call before the first loadUrl. */
-    fun attach(ctx: Context, web: WebView) {
+    fun attach(ctx: Context, web: WebView, priv: Boolean = false) {
         init(ctx)
         if (!supported()) return
+        if (priv) synchronized(extHandles) { privWebs[web] = true } // 0.0.432 (S7)
         try {
             ChromeBridge.install(web, setOf("*"))
             if (ytScript.isNotEmpty()) try { WebViewCompat.addDocumentStartJavaScript(web, ytScript, YT_ORIGINS) } catch (ex: Exception) { Log.e(TAG, "yt script failed", ex) }
             if (ymScript.isNotEmpty()) try { WebViewCompat.addDocumentStartJavaScript(web, ymScript, YT_ORIGINS) } catch (ex: Exception) { Log.e(TAG, "yt media script failed", ex) } // 0.0.296
             for (e in entries) WebViewCompat.addDocumentStartJavaScript(web, e.script, e.origins)
-            addExtScripts(ctx, web)
+            addExtScripts(ctx, web, priv)
         } catch (e: Exception) {
             Log.e(TAG, "attach failed", e)
         }

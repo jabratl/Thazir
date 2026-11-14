@@ -574,7 +574,7 @@ class TabManager(
         cm.setAcceptThirdPartyCookies(w, true)
         w.setOnScrollChangeListener { _, _, y, _, oy -> onScroll?.invoke(y - oy) } // S33: hide bar on scroll
         PullRefresh.attach(w, container) { w.reload() } // S45: pull down at the top = reload
-        ContentInjector.attach(ctx, w) // S5: V77 content scripts + chrome shim (before first load)
+        ContentInjector.attach(ctx, w, priv) // S5: V77 content scripts + chrome shim (before first load); 0.0.432: priv for incognito not_allowed
         Userscripts.attach(ctx, w, priv) // T7: userscripts (before first load; also for a WebView made again after suspend)
         if (!priv || PwScreen.privFill(ctx)) w.addJavascriptInterface(PasswordStore.Bridge(this), "MGBPW") // S30: save-login hook (before first load)
         if (!priv) w.addJavascriptInterface(WebVideo.Bridge(this), "MGBVID") // S45: in-page video button

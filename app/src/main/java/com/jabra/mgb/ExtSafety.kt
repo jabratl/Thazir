@@ -46,6 +46,26 @@ object ExtSafety {
         }
     }
 
+    /**
+     * 0.0.433 (S8): externally_connectable.matches that are accepted: https / http / * scheme, a real host (no "*" alone, no "<all_urls>",
+     * "*." only in front of a name with at least one more dot, "localhost" allowed), max 20. Everything else is dropped.
+     */
+    fun externalPatterns(raw: List<String>): List<String> {
+        val out = ArrayList<String>()
+        val rx = Regex("^(\\*|https?)://([^/]*)(/.*)?$")
+        for (p in raw) {
+            if (out.size >= 20) break
+            val m = rx.find(p) ?: continue
+            val h = m.groupValues[2]
+            if (h.isEmpty() || h == "*") continue
+            val bare = h.removePrefix("*.").substringBefore(':')
+            if (bare.isEmpty() || bare.contains('*') || bare.contains(' ')) continue
+            if (!bare.contains('.') && bare != "localhost") continue
+            out.add(p)
+        }
+        return out
+    }
+
     /** True when the request of an extension page may use the CORS-free proxy (url inside its host permissions). */
     fun proxyAllowed(xid: String, url: String): Boolean {
         val inf = ExtRegistry.get(xid) ?: return false

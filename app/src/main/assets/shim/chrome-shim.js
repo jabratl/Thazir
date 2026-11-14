@@ -60,8 +60,8 @@
     for (var i = 0; i < set.length; i++) { try { set[i].apply(null, args); } catch (e) { log('listener ' + name + ': ' + (e && e.stack || e)); } }
   }
 
-  function deliverMessage(args, reqId) {
-    var set = (listeners['runtime.onMessage'] || []).slice();
+  function deliverMessage(args, reqId, evName) { // 0.0.433 (S8): evName = 'runtime.onMessageExternal' for a web page message
+    var set = (listeners[evName || 'runtime.onMessage'] || []).slice();
     var done = false, asyncResp = false;
     function respond(v) {
       if (done) return;
@@ -109,11 +109,12 @@
     lastError = undefined;
     delete listeners['port.' + pid + '.onMessage']; delete listeners['port.' + pid + '.onDisconnect'];
   }
-  function incomingPort(info) {
+  function incomingPort(info, evName) { // 0.0.433 (S8): evName = 'runtime.onConnectExternal' for a web page port
+    var en = evName || 'runtime.onConnect';
     if (!info || !info.id) return;
-    if (!(listeners['runtime.onConnect'] || []).length) { call('port.disconnect', [info.id, true]).then(null, function () { /* ignore */ }); return; }
+    if (!(listeners[en] || []).length) { call('port.disconnect', [info.id, true]).then(null, function () { /* ignore */ }); return; }
     var port = makePort(info.id, info.name, info.sender);
-    fire('runtime.onConnect', [port]);
+    fire(en, [port]);
   }
 
   function onNative(ev) {
@@ -124,7 +125,9 @@
     if (m.e) {
       var a = m.p || [];
       if (m.e === 'runtime.onMessage' && m.q) { deliverMessage(a, m.q); return; }
+      if (m.e === 'runtime.onMessageExternal' && m.q) { deliverMessage(a, m.q, 'runtime.onMessageExternal'); return; } // 0.0.433 (S8)
       if (m.e === 'runtime.onConnect') { incomingPort(a[0]); return; }
+      if (m.e === 'runtime.onConnectExternal') { incomingPort(a[0], 'runtime.onConnectExternal'); return; } // 0.0.433 (S8)
       if (m.e === 'port.msg') { var pp = ports[a[0]]; if (pp && !pp._dead) fire('port.' + a[0] + '.onMessage', [a[1], pp]); return; }
       if (m.e === 'port.disc') { closePort(a[0], a[1]); return; }
       fire(m.e, a);
@@ -510,6 +513,13 @@
       (s.e || []).forEach(function (e) { if (o[e] === undefined) o[e] = ev(path + '.' + e); });
       Object.keys(s.c || {}).forEach(function (k) { if (o[k] === undefined) o[k] = s.c[k]; });
     });
+  }
+
+  // ---------- 0.0.433 (S8): web page messages (externally_connectable) ----------
+  // Installed extensions only: the two events are announced to Kotlin (a stopped worker wakes for them; the listener set is the same one the old stub used).
+  if (GAPS) {
+    runtime.onMessageExternal = makeEvent('runtime.onMessageExternal', true);
+    runtime.onConnectExternal = makeEvent('runtime.onConnectExternal', true);
   }
 
   try { send({ i: 0, a: '__hello', p: [CFG.kind] }); } catch (e) { return null; }

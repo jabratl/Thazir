@@ -37,7 +37,9 @@ object ExtRegistry {
         val options: String?,
         val background: String?,
         val enabled: Boolean,
-        val dir: File
+        val dir: File,
+        val optionsInTab: Boolean = false, // 0.0.432 (S7): options_ui.open_in_tab
+        val actionTitle: String = "" // 0.0.432 (S7): action.default_title (localized)
     )
 
     /** Result of prepare(): unpacked but not installed yet. existing != null means "update of this one". */
@@ -395,6 +397,7 @@ object ExtRegistry {
         val action = m.optJSONObject("action") ?: m.optJSONObject("browser_action") ?: m.optJSONObject("page_action")
         val popup = clean(action?.optString("default_popup", ""))
         var opt = clean(m.optJSONObject("options_ui")?.optString("page", ""))
+        val optTab = opt != null && m.optJSONObject("options_ui")?.optBoolean("open_in_tab", false) == true // 0.0.432 (S7)
         if (opt == null) opt = clean(m.optString("options_page", ""))
         val bg = m.optJSONObject("background")
         var bgFile = clean(bg?.optString("service_worker", ""))
@@ -414,7 +417,9 @@ object ExtRegistry {
             options = opt,
             background = bgFile,
             enabled = on,
-            dir = d
+            dir = d,
+            optionsInTab = optTab,
+            actionTitle = localized(d, m, action?.optString("default_title", "") ?: "").trim()
         )
     }
 

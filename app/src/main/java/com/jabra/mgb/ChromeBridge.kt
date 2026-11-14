@@ -104,7 +104,7 @@ object ChromeBridge {
     }
 
     /** Deliver runtime.onMessage to one frame; cb gets the response (null if none / timeout). */
-    fun request(ctx: Ctx, message: Any?, sender: JSONObject, extId: String = ContentInjector.EXT_ID, cb: (Any?) -> Unit) {
+    fun request(ctx: Ctx, message: Any?, sender: JSONObject, extId: String = ContentInjector.EXT_ID, event: String = "runtime.onMessage", cb: (Any?) -> Unit) { // 0.0.433 (S8): event = runtime.onMessageExternal
         runMain {
             if (extId !in ctx.ids) { cb(null); return@runMain } // S3: that extension has no shim in this frame
             val id = nextReq++
@@ -112,7 +112,7 @@ object ChromeBridge {
             replyOwner[id] = extId
             main.postDelayed({ replyOwner.remove(id); replies.remove(id)?.invoke(null) }, 30_000)
             ctx.post(
-                JSONObject().put("e", "runtime.onMessage").put("x", extId).put("q", id)
+                JSONObject().put("e", event).put("x", extId).put("q", id)
                     .put("p", JSONArray().put(message ?: JSONObject.NULL).put(sender)).toString()
             )
         }
@@ -172,7 +172,9 @@ object ChromeBridge {
             val rel = ExtRegistry.get(xid)?.options
             if (rel == null) { call.fail("This extension has no options page"); return }
             main.post {
-                if (ExtScreen.openSibling(ContentInjector.EXT_BASE + xid + "/" + rel.trimStart('/'))) call.ok(null)
+                val inTab = ExtRegistry.get(xid)?.optionsInTab == true // 0.0.432 (S7): options_ui.open_in_tab = a tab
+                if (inTab && TabsApi.manager()?.newTab(ContentInjector.EXT_BASE + xid + "/" + rel.trimStart('/'), 0, true) != null) call.ok(null)
+                else if (ExtScreen.openSibling(ContentInjector.EXT_BASE + xid + "/" + rel.trimStart('/'))) call.ok(null)
                 else call.fail("Could not open the options page")
             }
             return

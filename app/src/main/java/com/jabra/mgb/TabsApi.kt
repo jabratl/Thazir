@@ -129,13 +129,13 @@ object TabsApi {
     }
 
     /** Send to several frames; the first non-empty reply wins, null when all are empty. */
-    fun fanOut(targets: List<ChromeBridge.Ctx>, msg: Any?, sender: JSONObject, extId: String = ContentInjector.EXT_ID, done: (Any?) -> Unit) {
+    fun fanOut(targets: List<ChromeBridge.Ctx>, msg: Any?, sender: JSONObject, extId: String = ContentInjector.EXT_ID, event: String = "runtime.onMessage", done: (Any?) -> Unit) {
         if (targets.isEmpty()) { done(null); return }
         var left = targets.size
         var finished = false
         for (t in targets) {
             val held = ExtBackground.hold(t.web) // S5: a worker that has to answer is not stopped as idle
-            ChromeBridge.request(t, msg, sender, extId) { r ->
+            ChromeBridge.request(t, msg, sender, extId, event) { r ->
                 if (held) ExtBackground.release(t.web)
                 if (finished) return@request
                 left--

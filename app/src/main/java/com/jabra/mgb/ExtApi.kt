@@ -382,7 +382,7 @@ object ExtApi {
         val t = if (tabId > 0) actTabs[xid]?.get(tabId) else null
         val popup = t?.popup ?: g?.popup ?: info?.popup
         ActionView(t?.text ?: g?.text ?: "", t?.color ?: g?.color ?: DEF_BADGE, t?.textColor ?: g?.textColor,
-            t?.title ?: g?.title ?: (info?.name ?: ""), popup?.ifEmpty { null }, t?.enabled ?: g?.enabled ?: true)
+            t?.title ?: g?.title ?: (info?.actionTitle?.ifEmpty { null } ?: info?.name ?: ""), popup?.ifEmpty { null }, t?.enabled ?: g?.enabled ?: true)
     }
 
     private fun colorOf(v: Any?): Int? = try {
@@ -506,6 +506,7 @@ object ExtApi {
 
     /** ChromeBridge: a frame went away. */
     fun ctxGone(ctx: ChromeBridge.Ctx) = portUi {
+        ExtWeb.ctxGone(ctx) // 0.0.433 (S8)
         for (p in ports.values.toList()) {
             if (p.from === ctx) portClose(p, null, ctx)
             else if (p.targets.any { it === ctx }) portTargetGone(p, ctx, null)
@@ -679,6 +680,7 @@ object ExtApi {
 
     private fun registerHandlers() {
         ChromeBridge.on("ext.runtime.sendMessage") { c -> send(c) }
+        ExtWeb.register() // 0.0.433 (S8): commands.getAll
         ExtApi3.register() // 0.0.431 (S6): webNavigation, runtime.reload, search.query, browsingData
         ExtApi2.register() // 0.0.430 (S5): tabs.duplicate / move / goBack / goForward / zoom / highlight / discard / captureVisibleTab, windows.getAll / getLastFocused / remove
         ChromeBridge.onSync("storage.session.setAccessLevel") { c -> // 0.0.118 (S6)
@@ -768,6 +770,7 @@ object ExtApi {
             }
         } }
         ChromeBridge.on("ext.port.post") { c -> portUi {
+            if (ExtWeb.fromExt(c, false)) { c.ok(null); return@portUi } // 0.0.433 (S8): port of a web page (externally_connectable)
             val p = ports[c.args.optString(0)]
             if (p != null && p.xid == c.extId) {
                 val m: Any = c.args.opt(1) ?: JSONObject.NULL
@@ -778,6 +781,7 @@ object ExtApi {
             c.ok(null)
         } }
         ChromeBridge.on("ext.port.disconnect") { c -> portUi {
+            if (ExtWeb.fromExt(c, true)) { c.ok(null); return@portUi } // 0.0.433 (S8)
             val p = ports[c.args.optString(0)]
             if (p != null && p.xid == c.extId) {
                 if (c.ctx === p.from) portClose(p, null, c.ctx)

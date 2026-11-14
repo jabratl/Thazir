@@ -212,7 +212,7 @@ object ExtTray {
             if (!sent) {
                 val opt = e.options
                 if (opt == null) { EngineHost.addLog("ext button: " + e.name + " has no popup and no action.onClicked listener"); Util.toast(act, e.name + " has no popup") }
-                else if (!ExtScreen.openExtPage(act, e.id, opt)) Util.toast(act, "Could not open " + e.name)
+                else if (!ExtManifest.openOptions(act, e)) Util.toast(act, "Could not open " + e.name) // 0.0.432 (S7)
             }
         }
     }
