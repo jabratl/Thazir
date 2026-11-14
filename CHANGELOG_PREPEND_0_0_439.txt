@@ -1,0 +1,9 @@
+0.0.439 (UI: clearer sub groups in Settings cards, Browser card first)
+- Why: sub groups (LOOK AND FEEL, BROWSING, PAGE AND SCREEN, SITES AND MEDIA, TABS) were tiny "▸ TITLE" text lines; it was not clear they are tappable and all looked closed.
+- What: SettingsScreen.category(): the fold header is now a soft tinted rounded row (48 dp) with the group name, the number of settings in it and a chevron that turns. Opening / closing glides (ChangeBounds + Fade, 220 ms), Reduce motion = instant. TalkBack reads "Title, N settings" + Expanded / Collapsed.
+- Nothing hidden or moved: same rows in the same groups, first group still open, search still lists every match, Reset to default unchanged.
+- Applies to every card that folds (more than 14 rows), Browser included. Cards with plain labels (Privacy) unchanged.
+- NOT tested: Gradle build (CI), device. Kotlin only checked for brace / paren balance.
+- DEVICE TEST: 1) Settings > Browser: 5 tinted group rows with counts. 2) Tap each: opens smoothly, rows inside are the same as before. 3) Search "dark": rows show, no folding. 4) Reduce motion ON: no animation.
+- Rollback: restore the old fold block in SettingsScreen.category().
+- Files: app/build.gradle.kts, SettingsScreen.kt, CHANGELOG_PREPEND_0_0_439.txt, HANDOFF_Thazir_EXT_PLAN_0.0.439.txt

@@ -591,19 +591,61 @@ object SettingsScreen {
                     is Sub -> {
                         prevRow = false
                         if (fold) {
-                            val t = item.title.uppercase()
+                            // 0.0.439: group header = tinted row with row count + chevron (was a tiny "▸ TITLE" text); smooth open / close
+                            var n = 0
+                            for (j in idx + 1 until list.size) { if (list[j] is Sub) break; if (list[j] is Row) n++ }
                             val b = LinearLayout(act).apply {
                                 orientation = LinearLayout.VERTICAL
                                 visibility = if (firstSub) View.VISIBLE else View.GONE
                             }
-                            val lbl = subLabel(item.title)
-                            lbl.text = (if (firstSub) "\u25BE " else "\u25B8 ") + t
-                            lbl.setOnClickListener {
-                                val open = b.visibility != View.VISIBLE
-                                b.visibility = if (open) View.VISIBLE else View.GONE
-                                lbl.text = (if (open) "\u25BE " else "\u25B8 ") + t
+                            val gTint = TabPrefs.tint(key, nightR)
+                            val arrow = ImageView(act).apply {
+                                setImageResource(R.drawable.ic_chevron)
+                                setColorFilter(act.getColor(R.color.mg_text_dim))
+                                rotation = if (firstSub) 90f else 0f
                             }
-                            content.addView(lbl, LinearLayout.LayoutParams(MATCH, WRAP))
+                            val gh = LinearLayout(act).apply {
+                                orientation = LinearLayout.HORIZONTAL
+                                gravity = Gravity.CENTER_VERTICAL
+                                minimumHeight = dp(48)
+                                setPadding(dp(14), dp(6), dp(12), dp(6))
+                                background = round(ColorUtils.setAlphaComponent(gTint, 0x1F), 14)
+                                isClickable = true
+                                isFocusable = true
+                                contentDescription = item.title + ", " + n + " settings"
+                                val out2 = TypedValue()
+                                if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, out2, true)) foreground = act.getDrawable(out2.resourceId)
+                                addView(TextView(act).apply {
+                                    text = item.title
+                                    textSize = 14f
+                                    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                                    setTextColor(act.getColor(R.color.mg_text))
+                                }, LinearLayout.LayoutParams(0, WRAP, 1f))
+                                addView(TextView(act).apply {
+                                    text = n.toString()
+                                    textSize = 12f
+                                    setTextColor(act.getColor(R.color.mg_text_dim))
+                                }, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginEnd = dp(8) })
+                                addView(arrow, LinearLayout.LayoutParams(dp(20), dp(20)))
+                            }
+                            gh.setOnClickListener {
+                                val open = b.visibility != View.VISIBLE
+                                val calm2 = TabPrefs.reduce(act)
+                                if (!calm2) try {
+                                    val ease = android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)
+                                    TransitionManager.beginDelayedTransition(content, TransitionSet().apply {
+                                        ordering = TransitionSet.ORDERING_TOGETHER
+                                        addTransition(ChangeBounds().apply { duration = 220; interpolator = ease })
+                                        addTransition(Fade().apply { duration = 160; interpolator = ease })
+                                    })
+                                } catch (_: Exception) { }
+                                b.visibility = if (open) View.VISIBLE else View.GONE
+                                arrow.animate().cancel()
+                                if (calm2) arrow.rotation = if (open) 90f else 0f else arrow.animate().rotation(if (open) 90f else 0f).setDuration(200).start()
+                                androidx.core.view.ViewCompat.setStateDescription(gh, if (open) "Expanded" else "Collapsed")
+                            }
+                            androidx.core.view.ViewCompat.setStateDescription(gh, if (firstSub) "Expanded" else "Collapsed")
+                            content.addView(gh, LinearLayout.LayoutParams(MATCH, WRAP).apply { marginStart = dp(8); marginEnd = dp(8); topMargin = dp(if (firstSub) 4 else 8); bottomMargin = dp(2) })
                             content.addView(b, LinearLayout.LayoutParams(MATCH, WRAP))
                             box = b
                             firstSub = false
