@@ -103,7 +103,7 @@ object ContentInjector {
             "if(c)Object.defineProperty(window,'chrome',{value:c,configurable:true,writable:true});}catch(e){}})();"
     }
 
-    private fun wrap(src: String, main: Boolean, runAt: String, allFrames: Boolean, cfgJson: String, pre: String = ""): String {
+    private fun wrap(src: String, main: Boolean, runAt: String, allFrames: Boolean, cfgJson: String, pre: String = "", idle: Boolean = false): String {
         val sb = StringBuilder("(function(){try{\n")
         if (!allFrames) sb.append("if(window.top!==window)return;\n")
         // S6: never run page scripts inside extension pages that are open as tabs
@@ -119,7 +119,9 @@ object ContentInjector {
         when (runAt) {
             "document_start" -> sb.append("__run();\n")
             "document_end" -> sb.append("if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',__run,{once:true});else __run();\n")
-            else -> sb.append("var __go=function(){setTimeout(__run,0)};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',__go,{once:true});else __go();\n")
+            else -> if (idle) { // 0.0.428 (S3): Chrome idle = after load (or 1.5 s), installed extensions only, ExtTheme switch
+                sb.append("var __g=function(){if(__g.d)return;__g.d=1;setTimeout(__run,0)};if(document.readyState==='complete')__g();else{window.addEventListener('load',__g,{once:true});setTimeout(__g,1500)}\n")
+            } else sb.append("var __go=function(){setTimeout(__run,0)};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',__go,{once:true});else __go();\n")
         }
         return sb.append("}catch(e){}})();").toString()
     }
@@ -263,7 +265,7 @@ object ContentInjector {
                 }
                 val main = e.optString("world") == "MAIN" || src.isEmpty()
                 out.add(Entry(origins, wrap(src.toString(), main, e.optString("run_at", "document_idle"),
-                    e.optBoolean("all_frames", false), cfgJson, pre.toString())))
+                    e.optBoolean("all_frames", false), cfgJson, pre.toString(), ExtTheme.idleOn)))
             } catch (ex: Exception) {
                 Log.e(TAG, "$id content_scripts[$i] skipped", ex)
             }
@@ -276,6 +278,7 @@ object ContentInjector {
         val out = ArrayList<Entry>()
         val live = HashSet<String>()
         val all = try { ExtRegistry.enabled() } catch (e: Exception) { Log.e(TAG, "registry", e); return out }
+        ExtTheme.sync(ctx) // 0.0.428 (S3)
         for (info in all) {
             val id = info.id
             try {
@@ -284,7 +287,7 @@ object ContentInjector {
                 val mf = File(dir, "manifest.json")
                 if (!mf.isFile) continue
                 live.add(id)
-                val sig = "${info.version}:${mf.lastModified()}:${mf.length()}:${dir.lastModified()}:r${regVer[id] ?: 0}"
+                val sig = "${info.version}:${mf.lastModified()}:${mf.length()}:${dir.lastModified()}:r${regVer[id] ?: 0}:t${ExtTheme.sig(ctx)}" // 0.0.428: + theme idle rule
                 val c = extCache[id]
                 if (c != null && c.sig == sig) { out.addAll(c.entries); continue }
                 val built = buildExt(id, dir, mf, regOf(ctx, id).values.map { regToCs(it) })
@@ -602,6 +605,12 @@ object ContentInjector {
 
     private fun addExtScripts(ctx: Context, web: WebView) {
         val keep = ArrayList<ScriptHandler>()
+        // 0.0.428 (S3): theme hint first (page world, only on origins of installed extensions' content scripts), so it runs before their scripts
+        try {
+            val oo = LinkedHashSet<String>()
+            for (e in extEntries(ctx)) oo.addAll(e.origins)
+            ExtTheme.script(ctx, oo)?.let { addScript(web, it, oo, keep) }
+        } catch (ex: Exception) { Log.e(TAG, "theme hint failed", ex) }
         // S2: installed extensions (a failing entry is skipped, others still run)
         for (e in extEntries(ctx)) {
             try { addScript(web, e.script, e.origins, keep) } catch (ex: Exception) { Log.e(TAG, "ext entry failed", ex) }

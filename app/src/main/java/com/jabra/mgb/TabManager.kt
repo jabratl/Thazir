@@ -271,6 +271,7 @@ class TabManager(
 
     /** S20: Dark pages switch changed (takes effect on the next page load). */
     fun applyDarkPages() {
+        try { ContentInjector.refresh(ctx) } catch (_: Throwable) { } // 0.0.428 (S3): theme hint of extensions follows Dark pages (next page load)
         for (t in tabs) if (t.isExt) UiMode.applyExt(ctx, t.web, t.url) else SiteDark.apply(ctx, t.web, t.url) // 0.0.421 / 0.0.424: each tab = its site rule, else the switch
     }
 

@@ -104,6 +104,7 @@ object DiagMore {
         chk("Ask before download", up.getBoolean(DownloadAsk.KEY, false), false)
         chk("Download sub-folders", DownloadFolder.subfolders(ctx), false)
         chk("Extensions with own page width", ExtFit.changedCount(ctx), 0) // 0.0.427
+        chk("Match page theme", ExtTheme.label(ExtTheme.mode(ctx)), "Auto") // 0.0.428
         return if (ch.isEmpty()) listOf("Changed from default: nothing ($n settings checked)") else listOf("Changed from default ($n settings checked):") + ch
     }
 

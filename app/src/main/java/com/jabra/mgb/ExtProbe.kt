@@ -122,6 +122,7 @@ object ExtProbe {
             val url = tab?.url
             thazir.add("Thazir: app dark " + yn(UiMode.appDark(ctx)) + ", Dark pages " + yn(UiMode.darkPages(ctx)) +
                 (if (url != null && url.startsWith("http")) ", this page darkened " + yn(SiteDark.effective(ctx, url)) else ""))
+            thazir.add("Match page theme: " + ExtTheme.label(ExtTheme.mode(ctx)))
             val forced = ExtRegistry.all().filter { ExtDark.mode(ctx, it.id) != ExtDark.AUTO }
             if (forced.isNotEmpty()) thazir.add("Extensions with own Dark mode: " + forced.joinToString(", ") { Diag.mask(it.name.take(24)) + "=" + (if (ExtDark.mode(ctx, it.id) == ExtDark.FORCE) "always" else "never") })
         } catch (_: Throwable) { thazir.add("Thazir side: not measured") }
