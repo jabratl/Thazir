@@ -107,6 +107,7 @@ object DiagMore {
         chk("Match page theme", ExtTheme.label(ExtTheme.mode(ctx)), "Auto") // 0.0.428
         chk("Extension CSS compatibility", ExtCssCompat.label(ExtCssCompat.mode(ctx)), "Auto") // 0.0.434
         chk("Extensions with own Dark mode", try { ExtRegistry.all().count { ExtDark.mode(ctx, it.id) != ExtDark.AUTO } } catch (_: Throwable) { 0 }, 0) // 0.0.437 (S12)
+        chk("Extensions allowed in private", ExtPriv.changedCount(ctx), 0) // 0.0.438
         return if (ch.isEmpty()) listOf("Changed from default: nothing ($n settings checked)") else listOf("Changed from default ($n settings checked):") + ch
     }
 

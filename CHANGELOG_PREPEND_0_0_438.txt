@@ -1,0 +1,11 @@
+0.0.438 (FIX: "Allow in private" switch per extension + private tabs hidden from extensions)
+- Why: chrome.tabs.get / query still showed PRIVATE tabs to installed extensions, and there was no per-extension "Allow in private" switch (known leftover of S4+S5 / S7+S8).
+- What: new ExtPriv.kt, pref ext_priv (mgb_ui). Default OFF (like Chrome / Kiwi). Off = the extension has no content scripts in private tabs AND cannot see them: tabs.get / getCurrent / query / sendMessage / connect / update / remove / reload, scripting.executeScript / insertCSS, tabs.onCreated / onUpdated / onActivated / onRemoved, action.onClicked tab argument. tab.incognito is now true for a private tab.
+- UI: Settings > Extensions > tap an extension > ALLOW IN PRIVATE row (tap; turning On asks first). Manifest incognito "not_allowed" still wins (row shows Off, blocked). Compatibility block has one more line. Reset card that holds ext_theme also clears ext_priv. "Changed from default" + How to use updated. Removing an extension forgets its switch.
+- CHANGED BEHAVIOUR: extensions that ran in private tabs before now DO NOT until the owner turns the switch On. Built-in Media Grabber unchanged.
+- COULD BREAK: an extension used in private tabs stops there until allowed. Open private tabs get the change when the page loads again (ContentInjector.refresh is called).
+- NOT tested: Gradle build (CI), device. Kotlin checked for brace / paren balance only.
+- DEVICE TEST: 1) Install ChatGPT Exporter, open a PRIVATE tab on chatgpt.com: extension does not appear. 2) Settings > Extensions > extension > Allow in private > Allow, reload the private tab: it appears. 3) Turn Off, reload: gone. 4) Media Grabber in a private tab: same as before.
+- Rollback: delete ExtPriv.kt and the lines marked 0.0.438 (ContentInjector addExtScripts + Entry id, TabsApi vis() / query / tabJson incognito, ExtApi tabsEvent / actionClicked, ExtListScreen row, SettingsScreen RESET + reset hook, DiagMore, HowToUse).
+- Files: app/build.gradle.kts, ExtPriv.kt (new), ContentInjector.kt, TabsApi.kt, ExtApi.kt, ExtListScreen.kt, SettingsScreen.kt, DiagMore.kt, HowToUse.kt, CHANGELOG_PREPEND_0_0_438.txt, HANDOFF_Thazir_EXT_PLAN_0.0.438.txt
+

@@ -328,6 +328,7 @@ object ExtListScreen {
                     ChromeBridge.removeExtData(act, e.id) // S3: wipe its storage
                     ExtDark.forget(act, e.id) // 0.0.424
                     ExtFit.forget(act, e.id) // 0.0.427
+                    ExtPriv.forget(act, e.id) // 0.0.438
                     ExtApi.sync(act) // S5: worker, alarms, menus of the removed extension
                     refill()
                 }
@@ -397,6 +398,38 @@ object ExtListScreen {
                 textSize = 12f
                 setTextColor(act.getColor(R.color.mg_text_dim))
             })
+            // 0.0.438: ALLOW IN PRIVATE row (tap = on / off; off = no scripts in private tabs and no private tab through chrome.tabs)
+            col.addView(TextView(act).apply {
+                text = "ALLOW IN PRIVATE"
+                textSize = 11f
+                letterSpacing = 0.08f
+                setTextColor(act.getColor(R.color.mg_primary))
+                setPadding(0, dp(16), 0, dp(4))
+            })
+            col.addView(TextView(act).apply {
+                textSize = 15f
+                setTextColor(act.getColor(R.color.mg_text))
+                setPadding(0, dp(8), 0, dp(8))
+                isClickable = true
+                isFocusable = true
+                val blocked = ExtPriv.manifestBlocks(act, e.id)
+                fun upd() { text = if (blocked) "Off (the extension does not allow private tabs)" else if (ExtPriv.userAllows(act, e.id)) "On  (tap to change)" else "Off  (tap to change)" }
+                upd()
+                setOnClickListener {
+                    if (blocked) { Util.toast(act, "This extension does not allow private tabs"); return@setOnClickListener }
+                    if (ExtPriv.userAllows(act, e.id)) { ExtPriv.set(act, e.id, false); upd(); ContentInjector.refresh(act) }
+                    else MaterialAlertDialogBuilder(act)
+                        .setMessage("Let " + e.name + " run in private tabs? It can then see the pages you open there.")
+                        .setPositiveButton("Allow") { _, _ -> ExtPriv.set(act, e.id, true); upd(); ContentInjector.refresh(act) }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                }
+            })
+            col.addView(TextView(act).apply {
+                text = "Off (default): the extension does not run in private tabs and cannot see them. Open private tabs get the change when the page loads again."
+                textSize = 12f
+                setTextColor(act.getColor(R.color.mg_text_dim))
+            })
             // 0.0.433 (S8): manifest "commands": description + shortcut text; a tap runs it (_execute_action = open the popup, others = commands.onCommand)
             if (e.enabled) {
                 val cmds = ExtManifest.commands(e)
@@ -436,7 +469,7 @@ object ExtListScreen {
                 })
                 val wvm = ExtProbe.webViewMajor()
                 val head = StringBuilder("Dark mode: " + ExtDark.label(ExtDark.mode(act, e.id)) + "\nPage width: " + ExtFit.label(ExtFit.mode(act, e.id)) +
-                    "\nMatch page theme: " + ExtTheme.label(ExtTheme.mode(act)) + " (all extensions)\nCSS compatibility: " + ExtCssCompat.label(ExtCssCompat.mode(act)) + " (all extensions)")
+                    "\nAllow in private: " + (if (ExtPriv.manifestBlocks(act, e.id)) "Off (manifest)" else if (ExtPriv.userAllows(act, e.id)) "On" else "Off") + "\nMatch page theme: " + ExtTheme.label(ExtTheme.mode(act)) + " (all extensions)\nCSS compatibility: " + ExtCssCompat.label(ExtCssCompat.mode(act)) + " (all extensions)")
                 if (wvm in 1..119) head.append("\n\nAndroid System WebView is old (version " + wvm + "). This extension may look wrong. Update Android System WebView in Play Store.")
                 col.addView(TextView(act).apply {
                     text = head.toString()

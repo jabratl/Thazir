@@ -35,7 +35,7 @@ object ContentInjector {
         return d.joinToString("") { "%02x".format(it) }
     }
 
-    private class Entry(val origins: Set<String>, val script: String, val noPriv: Boolean = false) // 0.0.432 (S7): noPriv = manifest incognito "not_allowed"
+    private class Entry(val origins: Set<String>, val script: String, val noPriv: Boolean = false, val id: String = "") // 0.0.432 (S7): noPriv = manifest incognito "not_allowed"
 
     private var inited = false
     private var warned = false
@@ -279,7 +279,7 @@ object ContentInjector {
                 }
                 val main = e.optString("world") == "MAIN" || src.isEmpty()
                 out.add(Entry(origins, wrap(src.toString(), main, e.optString("run_at", "document_idle"),
-                    e.optBoolean("all_frames", false), cfgJson, pre.toString(), ExtTheme.idleOn), ExtManifest.noPrivate(manifest)))
+                    e.optBoolean("all_frames", false), cfgJson, pre.toString(), ExtTheme.idleOn), ExtManifest.noPrivate(manifest), id))
             } catch (ex: Exception) {
                 Log.e(TAG, "$id content_scripts[$i] skipped", ex)
             }
@@ -620,7 +620,8 @@ object ContentInjector {
 
     private fun addExtScripts(ctx: Context, web: WebView, priv: Boolean = false) {
         val keep = ArrayList<ScriptHandler>()
-        val list = extEntries(ctx).filter { !(priv && it.noPriv) } // 0.0.432 (S7): extensions with incognito not_allowed do not run in private tabs
+        ExtPriv.bind(ctx)
+        val list = extEntries(ctx).filter { !(priv && (it.noPriv || !ExtPriv.allowed(ctx, it.id))) } // 0.0.432 (S7): extensions with incognito not_allowed do not run in private tabs
         // 0.0.428 (S3): theme hint first (page world, only on origins of installed extensions' content scripts), so it runs before their scripts
         try {
             val oo = LinkedHashSet<String>()

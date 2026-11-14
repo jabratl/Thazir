@@ -341,6 +341,7 @@ object ExtApi {
     fun tabsEvent(event: String, tab: TabManager.Tab?, args: List<Any?>) {
         for (info in ExtRegistry.enabled()) {
             val xid = info.id
+            if (tab != null && !ExtPriv.sees(xid, tab)) continue // 0.0.438: no private tab events without "Allow in private"
             val see = tab == null || canSee(info, tab.url)
             val a = JSONArray()
             for (x in args) a.put(if (x is JSONObject && !see) scrub(x) else (x ?: JSONObject.NULL))
@@ -423,7 +424,7 @@ object ExtApi {
     /** ExtTray: the button was tapped and the extension has no popup. true = action.onClicked was sent (a stopped worker is started first). */
     fun actionClicked(xid: String, tab: TabManager.Tab?): Boolean {
         if (!hasClickListener(xid)) return false
-        val a = JSONArray().put(if (tab != null) tabFor(xid, TabsApi.tabJson(tab)) else JSONObject.NULL)
+        val a = JSONArray().put(if (tab != null && ExtPriv.sees(xid, tab)) tabFor(xid, TabsApi.tabJson(tab)) else JSONObject.NULL)
         emitExt(xid, "action.onClicked", a, true)
         return true
     }
