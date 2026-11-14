@@ -237,7 +237,8 @@ object HowToUse {
                 "Open the 3-dot menu and tap the extensions icon to open the Extensions tray.",
                 "Settings > Extensions: add, turn on or off and remove them.",
                 "Settings > Extensions > tap an extension > Dark mode: Auto (follows the app), Always dark (also darkens a light popup) or Never dark (keeps its own colours). Reopen the popup to see it.",
-                "Menu > Report center helps you collect details when something is wrong, so you can copy or share them."
+                "Settings > Extensions > tap an extension > Page width: Auto (the popup or page fits the phone and the popup is only as tall as its content), Phone width, or Desktop width (wide page scaled down). Reopen the popup to see it.",
+                "Menu > Report center helps you collect details when something is wrong, so you can copy or share them. Its Extension compat part shows the WebView version, which modern CSS features it supports and the theme of the page you are on, so an extension that looks wrong can be explained."
             ), "",
             listOf("A page misbehaves: Menu > Report center > copy the report and send it to the developer.")
             , true)

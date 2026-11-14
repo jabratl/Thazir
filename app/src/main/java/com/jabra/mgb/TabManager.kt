@@ -748,6 +748,7 @@ class TabManager(
             tab.popup = false // 0.0.106: the pop-up passed the check
             if (!tab.isExt && !tab.savedPage && view != null) WebNotify.inject(view) // 0.0.284
             if (tab.isExt) ExtDark.onLoaded(ctx, view, url ?: tab.url) // 0.0.424: extension on Always dark
+            if (tab.isExt) ExtFit.onLoaded(ctx, view, url ?: tab.url, null) // 0.0.427 (S2): installed extension page in a tab fits the phone
             if (!tab.isExt && view != null) SocialBars.readPage(ctx, view) // 0.0.424: page theme-color for the phone bars (switch OFF = returns at once)
             if (tab.desktop && !tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // S14
             if (tab.extWide && tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // 0.0.109

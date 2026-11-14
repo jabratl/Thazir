@@ -25,6 +25,7 @@ object DiagRules {
         var freeBytes = -1L
         var ramLow = false
         var wvMajor = 0                 // 0 = unknown
+        var cssMissing: List<String> = emptyList() // 0.0.426 (S1): CSS features this WebView lacks (ExtProbe), empty = all there or not measured
         var tabCrashed = false
         var pageIsWeb = false
         var pageLoading = false
@@ -92,6 +93,8 @@ object DiagRules {
         // 7-8 tab / WebView
         if (x.tabCrashed) out.add(f("tab-crash", B, "A tab crashed or was killed by the system in the last 5 minutes.", "Reload the page. If it repeats, close other tabs (low memory) or update WebView.", "reload", "Reload page"))
         if (x.wvMajor in 1..99) out.add(f("webview-old", W, "Android System WebView is old (version ${x.wvMajor}).", "Update Android System WebView (and Chrome) in Play Store. Old versions break many players.", "webview", "Open Play Store"))
+
+        if (x.cssMissing.isNotEmpty()) out.add(f("ext-css-missing", W, "This WebView lacks CSS features some extensions use: ${x.cssMissing.joinToString(", ")}.", "Update Android System WebView (and Chrome) in Play Store. Extension popups and panels may look wrong until then.", "webview", "Open Play Store")) // 0.0.426 (S1)
 
         // 9-13 page errors
         val http = x.pageErrors.mapNotNull { Regex("^http (\\d{3})").find(it)?.groupValues?.get(1)?.toIntOrNull() }

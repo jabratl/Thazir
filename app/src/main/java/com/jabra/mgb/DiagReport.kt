@@ -61,7 +61,11 @@ object DiagReport {
             val sizes0 = safe(listOf("not readable")) { DataSizes.lines(ctx) }
             val sizes = safe(sizes0) { val t = DiagMore.trendLines(ctx); if (t.isEmpty() || sizes0.isEmpty()) sizes0 else sizes0.take(1) + t + sizes0.drop(1) } // 0.0.402: size trend under the total
             val ex = safe(DiagExtra.empty()) { DiagExtra.collect(ctx) } // 0.0.397: last crash + OS exit reasons (worker thread)
-            android.os.Handler(android.os.Looper.getMainLooper()).post { dataSizeLines = sizes; extra = ex; buildNow(ctx, tabs, tabId, cb) }
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                dataSizeLines = sizes; extra = ex
+                val t0 = safe(null) { if (tabId >= 0) tabs?.byId(tabId) else tabs?.active } // 0.0.426 (S1): measure CSS support + page theme first, then build
+                ExtProbe.ensure(ctx, t0) { buildNow(ctx, tabs, tabId, cb) }
+            }
         }.also { it.isDaemon = true }.start()
     }
 
@@ -110,6 +114,7 @@ object DiagReport {
         val wvMajor = safe(0) { wv.substringAfterLast(' ').substringBefore('.').toInt() }
         secs.add(Section("webview", "Browser", "WebView", if (wvMajor in 1..99) WARN else INFO, listOf(
             wv, if (wvMajor in 1..99) "WebView is old (version $wvMajor): update Android System WebView / Chrome" else "WebView version looks fine")))
+        secs.add(safe(Section("extcompat", "Browser", "Extension compat", INFO, listOf("not readable"))) { ExtProbe.section() }) // 0.0.426 (S1)
         secs.add(Section("device", "Device", "Device", INFO, listOf(
             Build.MANUFACTURER + " " + Build.MODEL, "Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")",
             "ABI " + (Build.SUPPORTED_ABIS.firstOrNull() ?: "?"))))
@@ -252,7 +257,7 @@ object DiagReport {
         val x = DiagRules.Facts()
         val TEN_MIN = 10 * 60 * 1000L
         x.online = online; x.hasNetwork = hasNet; x.vpn = vpnOn
-        x.freeBytes = free; x.ramLow = ramLow; x.wvMajor = wvMajor; x.tabCrashed = crashed
+        x.freeBytes = free; x.ramLow = ramLow; x.wvMajor = wvMajor; x.tabCrashed = crashed; x.cssMissing = safe(emptyList()) { ExtProbe.cssMissing() } // 0.0.426 (S1)
         x.pageIsWeb = tab != null && !tab.priv && !tab.isExt && !tab.home && tab.url.startsWith("http")
         x.pageLoading = tab?.loading == true
         val pageEv = Diag.recent(30, "page", false).filter { it.ts >= now - TEN_MIN }

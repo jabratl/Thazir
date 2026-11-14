@@ -327,6 +327,7 @@ object ExtListScreen {
                     if (!ExtRegistry.remove(e.id)) Util.toast(act, "Could not remove all files")
                     ChromeBridge.removeExtData(act, e.id) // S3: wipe its storage
                     ExtDark.forget(act, e.id) // 0.0.424
+                    ExtFit.forget(act, e.id) // 0.0.427
                     ExtApi.sync(act) // S5: worker, alarms, menus of the removed extension
                     refill()
                 }
@@ -366,6 +367,33 @@ object ExtListScreen {
             col.addView(dk)
             col.addView(TextView(act).apply {
                 text = "Auto follows the app theme. Always dark also darkens a light popup. Never dark keeps the extension's own colours. Close and reopen the popup to see it."
+                textSize = 12f
+                setTextColor(act.getColor(R.color.mg_text_dim))
+            })
+            // 0.0.427 (S2): Page width row (tap = Auto > Phone width > Desktop width, ExtFit)
+            col.addView(TextView(act).apply {
+                text = "PAGE WIDTH"
+                textSize = 11f
+                letterSpacing = 0.08f
+                setTextColor(act.getColor(R.color.mg_primary))
+                setPadding(0, dp(16), 0, dp(4))
+            })
+            col.addView(TextView(act).apply {
+                textSize = 15f
+                setTextColor(act.getColor(R.color.mg_text))
+                setPadding(0, dp(8), 0, dp(8))
+                isClickable = true
+                isFocusable = true
+                fun upd() { text = ExtFit.label(ExtFit.mode(act, e.id)) + "  (tap to change)" }
+                upd()
+                setOnClickListener {
+                    ExtFit.cycle(act, e.id)
+                    upd()
+                    ContentInjector.refresh(act) // open extension tabs: reload to see it
+                }
+            })
+            col.addView(TextView(act).apply {
+                text = "Auto fits a popup or page to the phone. Phone width always uses the phone width. Desktop width shows the wide page scaled down. Close and reopen the popup to see it."
                 textSize = 12f
                 setTextColor(act.getColor(R.color.mg_text_dim))
             })

@@ -103,6 +103,7 @@ object DiagMore {
         chk("Smart tail", up.getBoolean("dp_tail", false), false)
         chk("Ask before download", up.getBoolean(DownloadAsk.KEY, false), false)
         chk("Download sub-folders", DownloadFolder.subfolders(ctx), false)
+        chk("Extensions with own page width", ExtFit.changedCount(ctx), 0) // 0.0.427
         return if (ch.isEmpty()) listOf("Changed from default: nothing ($n settings checked)") else listOf("Changed from default ($n settings checked):") + ch
     }
 

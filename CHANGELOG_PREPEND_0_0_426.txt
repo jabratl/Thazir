@@ -1,0 +1,10 @@
+0.0.426 (S1 BUILD: Extension compat probe, measures only)
+- Why: Thazir shows some extensions differently than Quetta (tiny popup, white cards). Before changing anything we need facts: WebView version, which modern CSS features it has, and what theme a page tells an extension.
+- How: new ExtProbe.kt. Only when the Report center is built: a throw-away WebView asks CSS.supports for color-mix, oklch, nesting, @layer, @property, :has, dvh, inset, backdrop-filter, container-type (kept for the rest of the process, WebView destroyed at once, 2.5 s time limit). The current web tab is asked for html class, data-theme, prefers-color-scheme, color-scheme, body colours, readyState (1.5 s limit; private tabs, extension tabs and non-web pages are never read). Thazir side: app dark, Dark pages, this page darkened, extensions on Always / Never dark.
+- Report center: new section "Extension compat" (WARN when WebView is older than 120 or a feature is missing). New rule "ext-css-missing" (fix: Open Play Store, same fix id as webview).
+- Changed files: ExtProbe.kt (new), DiagReport.kt, DiagRules.kt, HowToUse.kt, app/build.gradle.kts.
+- CHANGED BEHAVIOUR: none outside the Report center (it waits up to about 4 s longer in the worst case, normally under 1 s).
+- COULD BREAK: Report center build on a phone where a temporary WebView cannot be created (caught, section says "not measured").
+- NOT tested: Gradle build (CI), device.
+- DEVICE TEST: 1) Menu > Report center on chatgpt.com in a dark app. 2) Open the "Extension compat" part. 3) Copy the report and send it: it holds WebView version, CSS yes / NO list and "Page theme" line (html class, prefers-dark). 4) Repeat on a light page with Dark pages OFF and ON.
+- Rollback: delete ExtProbe.kt and revert the 3 hook lines in DiagReport.kt / DiagRules.kt.

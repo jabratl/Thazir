@@ -152,6 +152,7 @@ object ExtScreen {
 
             // the popup is a narrow page: keep it centered on tablets / wide screens
             val popupOf = extIdOf(startUrl)?.let { ExtRegistry.get(it)?.popup?.trimStart('/') }
+            val isInstPopup = popupOf != null && page == extIdOf(startUrl) + "/" + popupOf // 0.0.427 (S2): popup of an installed extension
             if (page == "popup.html" || (popupOf != null && page == extIdOf(startUrl) + "/" + popupOf)) {
                 val lp = container.layoutParams as FrameLayout.LayoutParams
                 lp.width = minOf(act.resources.displayMetrics.widthPixels, Util.dp(act, 480))
@@ -177,8 +178,9 @@ object ExtScreen {
 
             val w = WebView(act)
             web = w
+            val fitOn = extIdOf(startUrl) != null && ExtFit.attach(act, w) // 0.0.427 (S2): viewport script for installed extension pages (false = old wide popup)
             w.settings.apply {
-                if (popupOf != null && page == extIdOf(startUrl) + "/" + popupOf) { // S15: a popup made for a wide Chrome popup is scaled to fit instead of cut at the right
+                if ((popupOf != null && page == extIdOf(startUrl) + "/" + popupOf) || fitOn) { // S15: a popup made for a wide Chrome popup is scaled to fit instead of cut at the right
                     useWideViewPort = true
                     loadWithOverviewMode = true
                 }
@@ -215,6 +217,7 @@ object ExtScreen {
                     fileChooserParams: FileChooserParams?
                 ): Boolean = BrowserExtras.chooseFile(filePathCallback, fileChooserParams)
             }
+            val hFit: ((Int) -> Unit)? = if (isInstPopup) this::fitHeight else null // 0.0.427 (S2)
             w.webViewClient = object : WebViewClient() {
                 override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                     super.onPageStarted(view, url, favicon)
@@ -224,6 +227,7 @@ object ExtScreen {
                 override fun onPageFinished(view: WebView, url: String?) {
                     super.onPageFinished(view, url)
                     ExtDark.onLoaded(act, view, url ?: curUrl ?: startUrl) // 0.0.424: extension on Always dark
+                    ExtFit.onLoaded(act, view, url ?: curUrl ?: startUrl, hFit) // 0.0.427 (S2): page width + popup height
                 }
 
                 override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
@@ -269,6 +273,22 @@ object ExtScreen {
             ContentInjector.attachExt(act, w) // window.chrome + bridge (before the first load)
             container.addView(w, FrameLayout.LayoutParams(MATCH, MATCH))
             w.loadUrl(startUrl)
+        }
+
+        /** 0.0.427 (S2): the popup window wraps to its content: 40 % to 80 % of the screen, never under 240 dp. */
+        private fun fitHeight(contentPx: Int) {
+            try {
+                val wnd = window ?: return
+                val w = web ?: return
+                val total = wnd.decorView.height
+                if (total <= 0 || w.height <= 0) return
+                val dm = act.resources.displayMetrics
+                val minH = maxOf((dm.heightPixels * 0.4f).toInt(), Util.dp(act, 240))
+                val maxH = (dm.heightPixels * 0.8f).toInt()
+                val want = (total - w.height + contentPx).coerceIn(minOf(minH, maxH), maxH)
+                if (kotlin.math.abs(want - total) < Util.dp(act, 8)) return
+                wnd.setLayout(minOf(dm.widthPixels, Util.dp(act, 480)), want)
+            } catch (_: Exception) { }
         }
 
         fun tuck() {

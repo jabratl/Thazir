@@ -614,6 +614,8 @@ object ContentInjector {
         } catch (ex: Exception) { Log.e(TAG, "builtin reg failed", ex) }
         // S6: extension pages opened as tabs (tabs.create) get window.chrome too
         try { addScript(web, extPageScript(ctx), setOf(EXT_ORIGIN), keep) } catch (ex: Exception) { Log.e(TAG, "ext page script failed", ex) }
+        // 0.0.427 (S2): viewport for pages of installed extensions opened as tabs (null = no installed extension)
+        try { ExtFit.script(ctx)?.let { addScript(web, it, setOf(EXT_ORIGIN), keep) } } catch (ex: Exception) { Log.e(TAG, "ext fit script failed", ex) }
         synchronized(extHandles) { extHandles[web] = keep }
     }
 
