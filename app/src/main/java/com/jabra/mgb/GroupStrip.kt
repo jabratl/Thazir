@@ -83,7 +83,7 @@ object GroupStrip {
     fun refresh() {
         val m = tm ?: return
         val cur = m.active
-        val info = if (cur != null && !cur.priv) TabSwitcher.groupInfoOf(cur.id) else null
+        val info = if (cur != null) TabSwitcher.groupInfoOf(cur.id) else null // 0.0.449: private groups too
         hasInfo = info != null && cur != null
         sync()
         if (info == null || cur == null) { sig = ""; return }
@@ -136,7 +136,7 @@ object GroupStrip {
         val m = tm ?: return
         val cur = m.active ?: return
         if (TabSwitcher.groupInfoOf(cur.id) == null) return
-        val t = m.newTab(TabManager.HOME_PAGE) ?: return
+        val t = m.newTab(TabManager.HOME_PAGE, 0, true, cur.priv) ?: return // 0.0.449: + in a private group = private tab
         TabSwitcher.joinGroupOf(t.id, cur.id) // 0.0.364: the new chip slides in (build() sees a new id)
         sig = ""; refresh()
     }

@@ -311,6 +311,7 @@ object TabSwitcher {
         private val CARD_H = 196
         private val HEAD_H = 36
         private var mode = if (tm.active?.priv == true) 1 else 0 // 0 tabs, 1 private, 2 groups
+        private var privG = tm.active?.priv == true // 0.0.449: the Groups page shows private groups when it was reached from the private view
         private var backMode = 0 // S43: where the back arrow of an open group goes
         private var openGroup: String? = null
         private var selecting = false
@@ -448,8 +449,8 @@ object TabSwitcher {
             val all = tm.allTabs()
             val g = openGroup
             val base = when {
-                mode == 1 -> all.filter { it.priv }
-                mode == 2 && g != null -> (groups[g] ?: emptySet<Int>()).mapNotNull { id -> all.firstOrNull { !it.priv && it.id == id } } // S77: group order
+                mode == 1 -> if (query.isBlank()) all.filter { it.priv && groupOf(it) == null } else all.filter { it.priv } // 0.0.449: private groups sit on top, like the normal view
+                mode == 2 && g != null -> (groups[g] ?: emptySet<Int>()).mapNotNull { id -> all.firstOrNull { it.id == id } } // S77: group order (0.0.449: private groups too)
                 mode == 2 -> emptyList()
                 query.isNotBlank() -> all.filter { !it.priv } // searching: flat list, groups included
                 else -> all.filter { !it.priv && groupOf(it) == null }
@@ -567,7 +568,7 @@ object TabSwitcher {
             return row
         }
 
-        private fun go(m: Int) { mode = m; openGroup = null; query = ""; searching = false; animateNext = true; endSelect(false); render() }
+        private fun go(m: Int) { if (m == 0) privG = false else if (m == 1) privG = true; mode = m; openGroup = null; query = ""; searching = false; animateNext = true; endSelect(false); render() }
 
         // ---- popup menu (replaces the plain list dialogs)
 
@@ -674,7 +675,7 @@ object TabSwitcher {
                 scaleType = ImageView.ScaleType.CENTER
                 background = round(tonal(), 20)
                 contentDescription = "New tab"
-                setOnClickListener { it.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK); newTab(mode == 1) }
+                setOnClickListener { it.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK); newTab(gp()) } // 0.0.449: + in the private view / a private group opens a private tab
                 press(this)
             }, FrameLayout.LayoutParams(dp(56), dp(40), Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(12) })
             val seg = LinearLayout(act).apply {
@@ -685,7 +686,7 @@ object TabSwitcher {
             }
             seg.addView(segItem(all.count { !it.priv }.toString(), R.drawable.ic_list, mode == 0) { go(0) }, LinearLayout.LayoutParams(WRAP, dp(40)))
             seg.addView(segItem(all.count { it.priv }.toString(), R.drawable.ic_lock, mode == 1) { go(1) }, LinearLayout.LayoutParams(WRAP, dp(40)))
-            seg.addView(segItem(groups.size.toString(), R.drawable.ic_folder, mode == 2) { go(2) }, LinearLayout.LayoutParams(WRAP, dp(40)))
+            seg.addView(segItem(groups.keys.count { kindOf(it) == gp() }.toString(), R.drawable.ic_folder, mode == 2) { go(2) }, LinearLayout.LayoutParams(WRAP, dp(40)))
             top.addView(seg, FrameLayout.LayoutParams(WRAP, dp(48), Gravity.CENTER))
             top.addView(icon(R.drawable.ic_more, "Menu") { menu(it) }, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.END or Gravity.CENTER_VERTICAL).apply { marginEnd = dp(8) })
         }
@@ -694,7 +695,7 @@ object TabSwitcher {
             bar.removeAllViews()
             if (selecting) {
                 bar.addView(View(act), LinearLayout.LayoutParams(0, 1, 1f))
-                if (mode == 0 || (mode == 2 && openGroup == null)) bar.addView(labelBtn(R.drawable.ic_folder, "Group") { askGroup(picked.toSet()) }, LinearLayout.LayoutParams(dp(80), dp(52)))
+                if (mode == 0 || mode == 1 || (mode == 2 && openGroup == null)) bar.addView(labelBtn(R.drawable.ic_folder, "Group") { askGroup(picked.toSet()) }, LinearLayout.LayoutParams(dp(80), dp(52)))
                 if (mode == 2) bar.addView(labelBtn(R.drawable.ic_folder, "Ungroup") { ungroup() }, LinearLayout.LayoutParams(dp(80), dp(52)))
                 bar.addView(labelBtn(R.drawable.ic_trash, "Close") { closePicked() }, LinearLayout.LayoutParams(dp(80), dp(52)))
                 bar.addView(View(act), LinearLayout.LayoutParams(0, 1, 1f))
@@ -783,9 +784,16 @@ object TabSwitcher {
             popFrom = null
         }
 
+        /** 0.0.449: a group holds only private tabs or only normal tabs. */
+        private fun kindOf(name: String): Boolean = (groups[name] ?: emptySet<Int>()).any { tm.byId(it)?.priv == true }
+
+        /** 0.0.449: true = the screen now shows the private side (private tabs + private groups). */
+        private fun gp(): Boolean = when (mode) { 1 -> true; 2 -> openGroup?.let { kindOf(it) } ?: privG; else -> false }
+
         private fun groupNames(): List<String> {
             val q = query.trim().lowercase()
-            return groups.keys.filter { q.isEmpty() || it.lowercase().contains(q) }
+            val pv = gp()
+            return groups.keys.filter { kindOf(it) == pv && (q.isEmpty() || it.lowercase().contains(q)) }
         }
 
         private fun renderList() {
@@ -806,7 +814,7 @@ object TabSwitcher {
             }
             val cards = ArrayList<View>()
             val listV = TabPrefs.listView(act) // 0.0.281
-            if (mode == 0 && query.isBlank() && !selecting) groupNames().forEach { n -> val v = if (listV) groupRow(n) else groupCard(n); v.tag = "g:" + n; cards.add(v); targets.add(v to n) } // groups sit in the tab grid first
+            if ((mode == 0 || mode == 1) && query.isBlank() && !selecting) groupNames().forEach { n -> val v = if (listV) groupRow(n) else groupCard(n); v.tag = "g:" + n; cards.add(v); targets.add(v to n) } // groups sit in the tab grid first
             val olderOn = mode == 0 && query.isBlank() && !selecting // STEP E: "Older" = not opened for 7 days
             val older = if (olderOn) shown.filter { tm.isOld(it) } else emptyList()
             val oldCards = ArrayList<View>()
@@ -981,7 +989,7 @@ object TabSwitcher {
         private fun openGroupView(name: String, from: View? = null) {
             popFrom = from?.let { val l = IntArray(2); it.getLocationOnScreen(l); intArrayOf(l[0] + it.width / 2, l[1] + it.height / 2) } // S77
             panelAnim = true
-            backMode = if (mode == 2) 2 else 0
+            backMode = if (mode == 2) 2 else mode // 0.0.449: opened from the private view = back to the private view
             mode = 2
             openGroup = name
             query = ""
@@ -1021,27 +1029,28 @@ object TabSwitcher {
             val before = tm.active?.id // 0.0.363 (P2): the new tab goes right after the active tab of the group
             val t = tm.newTab(TabManager.HOME_PAGE, 0, true, p)
             val g = openGroup
-            if (t != null && !p && mode == 2 && g != null) addAfter(g, t.id, before)
+            if (t != null && mode == 2 && g != null && kindOf(g) == p) addAfter(g, t.id, before) // 0.0.449: private groups too
             dismiss()
         }
 
         private fun menu(anchor: View) {
             val items = ArrayList<MI>()
             val onList = !(mode == 2 && openGroup == null)
-            items.add(MI("New tab", R.drawable.ic_add) { newTab(false) })
+            if (!gp()) items.add(MI("New tab", R.drawable.ic_add) { newTab(false) })
             items.add(MI("New private tab", R.drawable.ic_lock) { newTab(true) })
-            if (mode != 1) items.add(MI("New tab group", R.drawable.ic_folder) { newGroup() }) // S75
+            items.add(MI(if (gp()) "New private tab group" else "New tab group", R.drawable.ic_folder) { newGroup() }) // S75 (0.0.449: private too)
             if (onList) items.add(MI("Select tabs", R.drawable.ic_check) { startSelect(null) })
-            if (mode != 1 && onList) items.add(MI("Bookmark all tabs", R.drawable.ic_bookmark_border) { TabBookmarks.dialog(act, tm) }) // S40
-            if (mode != 1 && onList) items.add(MI("Share all tabs", R.drawable.ic_share) { TabBookmarks.shareAll(act, tm) }) // S41
-            if (mode != 1 && onList) { // T1: copy the links / open links from the clipboard
+            if (!gp() && onList) items.add(MI("Bookmark all tabs", R.drawable.ic_bookmark_border) { TabBookmarks.dialog(act, tm) }) // S40
+            if (!gp() && onList) items.add(MI("Share all tabs", R.drawable.ic_share) { TabBookmarks.shareAll(act, tm) }) // S41
+            if (onList) { // T1: copy the links / open links from the clipboard (0.0.449: also for private tabs, copy only, nothing is saved)
                 val grp = if (mode == 2) openGroup else null
+                val pv = gp()
                 items.add(MI(if (grp != null) "Copy group links" else "Copy all tab links", R.drawable.ic_copy) {
-                    TabBookmarks.copyLinks(act, if (grp != null) (groups[grp] ?: emptySet<Int>()).mapNotNull { tm.byId(it) } else tm.allTabs())
+                    TabBookmarks.copyLinks(act, if (grp != null) (groups[grp] ?: emptySet<Int>()).mapNotNull { tm.byId(it) } else tm.allTabs().filter { it.priv == pv }, pv)
                 })
             }
             if (onList) items.add(MI("Open links from clipboard", R.drawable.ic_paste) { // T1
-                TabBookmarks.fromClipboard(act, tm, mode == 1, if (mode == 2) openGroup else null, mode != 1 && openGroup == null) { render() }
+                TabBookmarks.fromClipboard(act, tm, gp(), if (mode == 2) openGroup else null, !gp() && openGroup == null) { render() }
             })
             if (onList) items.add(MI("Reload all tabs", R.drawable.ic_reload) { reloadAll() }) // 0.0.378
             if (onList) dupTabs().let { d -> if (d.isNotEmpty()) items.add(MI("Close duplicates (" + d.size + ")", R.drawable.ic_close) { doCloseList(d) }) } // 0.0.287: Undo comes from doCloseList
@@ -1081,11 +1090,11 @@ object TabSwitcher {
             val items = ArrayList<MI>()
             items.add(MI(if (picked.size == shown.size && shown.isNotEmpty()) "Deselect all" else "Select all", R.drawable.ic_check) { toggleAll() })
             items.add(MI("Close tabs", R.drawable.ic_close) { closePicked() })
-            if (mode != 1) items.add(MI("Add to group", R.drawable.ic_folder) { askGroup(picked.toSet()) })
+            items.add(MI("Add to group", R.drawable.ic_folder) { askGroup(picked.toSet()) }) // 0.0.449: private tabs too
             if (mode == 2) items.add(MI("Ungroup tabs", R.drawable.ic_folder) { ungroup() })
-            if (mode != 1) items.add(MI("Add Favorite", R.drawable.ic_bookmark_border) { addFav(sel) })
-            if (mode != 1) items.add(MI("Share tabs", R.drawable.ic_share) { shareTabs(sel) })
-            if (mode != 1) items.add(MI("Copy links", R.drawable.ic_copy) { TabBookmarks.copyLinks(act, sel) }) // T1
+            if (!gp()) items.add(MI("Add Favorite", R.drawable.ic_bookmark_border) { addFav(sel) })
+            if (!gp()) items.add(MI("Share tabs", R.drawable.ic_share) { shareTabs(sel) })
+            items.add(MI("Copy links", R.drawable.ic_copy) { TabBookmarks.copyLinks(act, sel, gp()) }) // T1 (0.0.449: private tabs too)
             items.add(MI(if (sel.size == 1) "Clone tab" else "Clone tabs", R.drawable.ic_copy) { // T1
                 var n = 0
                 for (x in sel) { if (x.isExt) continue; if (tm.cloneTab(x, false) == null) break; n++ }
@@ -1099,8 +1108,8 @@ object TabSwitcher {
         private fun tabMenu(anchor: View, t: TabManager.Tab) {
             val items = ArrayList<MI>()
             items.add(MI("Select tab", R.drawable.ic_check) { startSelect(t.id) })
-            if (!t.priv) items.add(MI(if (groupOf(t) != null) "Move to group" else "Add to group", R.drawable.ic_folder) { askGroup(setOf(t.id)) })
-            if (!t.priv && groupOf(t) != null) items.add(MI("Remove from group", R.drawable.ic_close) { pullOut(t.id) }) // 0.0.362 (Undo comes from pullOut)
+            items.add(MI(if (groupOf(t) != null) "Move to group" else "Add to group", R.drawable.ic_folder) { askGroup(setOf(t.id)) })
+            if (groupOf(t) != null) items.add(MI("Remove from group", R.drawable.ic_close) { pullOut(t.id) }) // 0.0.362 (Undo comes from pullOut)
             if (!t.isExt) items.add(MI("Clone tab", R.drawable.ic_copy) { // T1
                 if (tm.cloneTab(t, false) != null) { Util.toast(act, "Tab cloned"); render() }
             })
@@ -1220,10 +1229,12 @@ object TabSwitcher {
 
         private fun askGroup(ids: Set<Int>) {
             if (ids.isEmpty()) { Util.toast(act, "Tick some tabs first"); return }
-            val names = groups.keys.toList()
+            val pv = ids.any { tm.byId(it)?.priv == true } // 0.0.449: private tabs only join private groups, normal tabs normal groups
+            val names = groups.keys.filter { kindOf(it) == pv }
             val newGroup = {
                 groupDialog("New tab group", "Group " + (groups.size + 1), nextColor(), "Save") { n, col ->
                     val name = n.ifBlank { "Group " + (groups.size + 1) }
+                    if (groups.containsKey(name) && kindOf(name) != pv) { Util.toast(act, "A group with this name exists"); return@groupDialog }
                     if (!groups.containsKey(name)) colors[name] = col
                     addTo(name, ids)
                 }
@@ -1740,7 +1751,7 @@ object TabSwitcher {
                 val name = n.ifBlank { "Group " + (groups.size + 1) }
                 if (groups.containsKey(name)) { Util.toast(act, "A group with this name exists"); return@groupDialog }
                 colors[name] = col
-                val t = tm.newTab(TabManager.HOME_PAGE, 0, true, false)
+                val t = tm.newTab(TabManager.HOME_PAGE, 0, true, gp()) // 0.0.449: private view = private tab + private group
                 if (t != null) groups[name] = LinkedHashSet<Int>().apply { add(t.id) }
                 dismiss()
             }
