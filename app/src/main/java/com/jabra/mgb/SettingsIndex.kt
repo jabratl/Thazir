@@ -17,6 +17,23 @@ object SettingsIndex {
         "Grabber temporary data" to "Grabber temporary files"
     )
 
+    /** 0.0.444: text of the small "?" button on a row (key = row label). Two or three plain lines. */
+    val HELP: Map<String, String> = mapOf(
+        "App downloader" to "Used for normal files: a tab link, a blob or a Grabber file. Set the parts, a speed limit, the queue and resume. Streams (HLS / DASH) use Stream downloads instead.",
+        "Download engine" to "Used for streams (HLS / DASH): speed, retries, limits and live recording. Normal files use File downloads instead.",
+        "Download rules" to "Checked before a download starts: Wi-Fi only, battery and storage. Change it only if downloads do not start when you expect.",
+        "Hosts and filters" to "Extra ad block lists and rules for the Ad blocker. You can leave this alone unless you add your own list.",
+        "V82 Grabber (backup)" to "Switches to the original Media Grabber instead of the native downloader. Use it only when the native downloader is under maintenance.",
+        "Ask before download" to "Shows a sheet with the file name, size and folder before a download from a page. You can rename the file there.",
+        "Preferred video format" to "Picks MP4 or WebM when a stream offers both. It only picks, it does not convert.",
+        "Leftover download files" to "Unfinished parts of removed or failed downloads. Tap the row to delete them and free space.",
+        "Grabber temporary data" to "Stream pieces kept by the browser. Over 1 GB is cleared when the app starts.",
+        "CSS compatibility" to "Fixes new CSS on an old Android System WebView so extension pages look right. Auto turns it on only when needed.",
+        "Match page theme" to "Lets an extension that reads the page theme see dark when the page is shown dark. Auto is right for most people. Reload the page after changing it.",
+        "Compatibility self-test" to "Adds a temporary test extension, checks which chrome.* functions work, then removes it.",
+        "Smarter login detection" to "Finds login forms on more sites. Reload the page to apply it."
+    )
+
     fun name(label: String): String = DISPLAY[label] ?: label
 
     val ROWS: List<Triple<String, String, String>> = listOf(

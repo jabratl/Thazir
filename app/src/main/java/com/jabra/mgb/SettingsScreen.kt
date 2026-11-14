@@ -461,6 +461,27 @@ object SettingsScreen {
             "Sub-folders in the chosen folder" to "OFF = all files in one folder"
         )
 
+        private fun lev(a: String, b: String): Int {
+            if (Math.abs(a.length - b.length) > 2) return 9
+            var prev = IntArray(b.length + 1) { it }
+            for (i in 1..a.length) {
+                val cur = IntArray(b.length + 1)
+                cur[0] = i
+                for (j in 1..b.length) cur[j] = minOf(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (if (a[i - 1] == b[j - 1]) 0 else 1))
+                prev = cur
+            }
+            return prev[b.length]
+        }
+
+        /** 0.0.444: search match that also forgives one wrong / missing letter per word (dwnload = download). Exact text match still wins first. */
+        private fun hitQ(q: String, hay: String): Boolean {
+            if (hay.contains(q, true)) return true
+            val toks = q.lowercase().split(' ').filter { it.isNotEmpty() }
+            if (toks.isEmpty()) return false
+            val words = hay.lowercase().split(Regex("[^a-z0-9]+")).filter { it.length >= 3 }
+            return toks.all { t -> hay.contains(t, true) || (t.length >= 4 && words.any { w -> lev(t, w) <= 1 || (w.length > t.length && lev(t, w.substring(0, t.length)) <= 1) }) }
+        }
+
         private fun hintOf(r: Row): String { // Step B; 0.0.442: + what OFF does
             val base = r.hint.ifEmpty { HINTS[r.label] ?: "" }
             val off = OFFTXT[r.label]
@@ -542,6 +563,18 @@ object SettingsScreen {
                 setTextColor(act.getColor(R.color.mg_text_dim))
             })
             line.addView(labelBox, LinearLayout.LayoutParams(0, WRAP, 1f))
+            SettingsIndex.HELP[r.label]?.let { txt -> // 0.0.444: small "?" help button
+                line.addView(ImageView(act).apply {
+                    setImageResource(R.drawable.ic_info)
+                    setColorFilter(act.getColor(R.color.mg_text_dim))
+                    alpha = 0.85f
+                    setPadding(dp(10), dp(10), dp(10), dp(10))
+                    contentDescription = "Help: " + SettingsIndex.name(r.label)
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener { MaterialAlertDialogBuilder(act).setTitle(SettingsIndex.name(r.label)).setMessage(txt).setPositiveButton("OK", null).show() }
+                }, LinearLayout.LayoutParams(dp(40), dp(40)).apply { marginStart = dp(4) })
+            }
             if (r.label in RESTART) line.addView(ImageView(act).apply { // Step C: restart needed
                 setImageResource(R.drawable.ic_reload)
                 setColorFilter(act.getColor(R.color.mg_text_dim))
@@ -597,13 +630,13 @@ object SettingsScreen {
             val link = !searching && !sub && BIG.containsKey(key) // Step A: big category = one row that opens a page
             if (link) return // 0.0.312: the hub card (Downloads and player) draws these links
             var shown = dd(items) // 0.0.312
-            if (searching && !title.contains(q, true)) {
+            if (searching && !hitQ(q, title)) {
                 val out = ArrayList<Any>()
                 var pend: Sub? = null
                 for (item in items) {
                     when (item) {
                         is Sub -> pend = item
-                        is Row -> if (item.label.contains(q, true) || SettingsIndex.name(item.label).contains(q, true) || hintOf(item).contains(q, true) || (KW[item.label]?.contains(q, true) == true)) { // S21f: search keywords
+                        is Row -> if (hitQ(q, item.label + " " + SettingsIndex.name(item.label) + " " + hintOf(item) + " " + (KW[item.label] ?: ""))) { // S21f: search keywords
                             pend?.let { out.add(it) }
                             pend = null
                             out.add(item)
@@ -1099,6 +1132,36 @@ object SettingsScreen {
             return row
         }
 
+        /** 0.0.444: slim row "Changed from default": tap = the main settings that differ + the cards that hold saved choices. */
+        private fun changedRow(prefs: android.content.SharedPreferences): View {
+            val titles = mapOf("general" to "Browser", "downloads" to "Downloads", "grabber" to "Grabber and buttons", "player" to "Player",
+                "privacy" to "Privacy and security", "data" to "Data and backup", "extensions" to "Extensions")
+            return TextView(act).apply {
+                text = "Changed from default"
+                textSize = 14f
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(44)
+                setPadding(dp(16), dp(8), dp(16), dp(8))
+                setTextColor(act.getColor(R.color.mg_primary))
+                background = round(ColorUtils.setAlphaComponent(act.getColor(R.color.mg_primary), 0x1A), 14)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    val msg = StringBuilder()
+                    try {
+                        val l = DiagMore.changed(act)
+                        msg.append(l.joinToString("\n"))
+                    } catch (_: Throwable) { msg.append("Could not read the list.") }
+                    try {
+                        val cards = RESET.entries.mapNotNull { (k, keys) -> val n = keys.count { prefs.contains(it) }; if (n > 0 && titles.containsKey(k)) titles[k] + " (" + n + ")" else null }
+                        if (cards.isNotEmpty()) msg.append("\n\nCards with saved choices (a saved choice can equal the default):\n  ").append(cards.joinToString(", "))
+                    } catch (_: Throwable) { }
+                    msg.append("\n\nThe first list checks the main settings only. Use Reset to default inside a card to put that card back.")
+                    MaterialAlertDialogBuilder(act).setTitle("Changed from default").setMessage(msg.toString()).setPositiveButton("OK", null).show()
+                }
+            }
+        }
+
         private fun fill() {
             val col = body ?: return
             val keepY = if (forceY >= 0) forceY else (sv?.scrollY ?: 0)
@@ -1113,6 +1176,7 @@ object SettingsScreen {
                 col.addView(Orbit.block(act) { fill() }, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(8) }) // 0.0.311: Your Orbit (Passport + Smart switches)
                 val rec = recentRow(prefs) // Step A
                 col.addView(quickRow(prefs), LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = if (rec != null) dp(12) else 0 }) // S21f
+                col.addView(changedRow(prefs), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10); bottomMargin = if (rec != null) dp(10) else dp(2) }) // 0.0.444
                 rec?.let { col.addView(it, LinearLayout.LayoutParams(MATCH, WRAP)) } // 0.0.312: Backup card is gone (Passport > Back up now and Data and backup have it)
             }
             category("general", R.drawable.ic_settings, "Browser", "Look, search, tabs, pages", listOf( // 0.0.312: General + Tabs merged
