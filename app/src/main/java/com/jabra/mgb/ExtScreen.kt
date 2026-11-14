@@ -221,6 +221,11 @@ object ExtScreen {
                     if (!url.isNullOrEmpty()) curUrl = url
                 }
 
+                override fun onPageFinished(view: WebView, url: String?) {
+                    super.onPageFinished(view, url)
+                    ExtDark.onLoaded(act, view, url ?: curUrl ?: startUrl) // 0.0.424: extension on Always dark
+                }
+
                 override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
                     super.doUpdateVisitedHistory(view, url, isReload)
                     if (!url.isNullOrEmpty()) curUrl = url
@@ -260,7 +265,7 @@ object ExtScreen {
                     return true // anything else is ignored
                 }
             }
-            UiMode.applyExt(act, w) // 0.0.421: dark app = dark popup, app-coloured backdrop (no white flash)
+            UiMode.applyExt(act, w, startUrl) // 0.0.421 / 0.0.424: per-extension dark choice: dark app = dark popup, app-coloured backdrop (no white flash)
             ContentInjector.attachExt(act, w) // window.chrome + bridge (before the first load)
             container.addView(w, FrameLayout.LayoutParams(MATCH, MATCH))
             w.loadUrl(startUrl)

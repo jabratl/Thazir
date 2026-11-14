@@ -37,6 +37,7 @@ object SiteSettings {
         var zoom = 100
         var dl = -1
         var flags = 0
+        var dk = 0 // 0.0.424: SiteDark choice (0 = same as app)
     }
 
     private fun norm(h: String) = h.lowercase().removePrefix("www.")
@@ -61,6 +62,7 @@ object SiteSettings {
             val it = o.keys()
             while (it.hasNext()) { val k = it.next(); val v = o.optInt(k, -1); if (v >= 0) site(k).dl = v }
         } catch (_: Exception) { }
+        for (h in SiteDark.hosts(c)) site(h).dk = SiteDark.mode(c, h) // 0.0.424: dark page exceptions are listed too
         return m.values.sortedBy { it.key }
     }
 
@@ -78,6 +80,7 @@ object SiteSettings {
         if ((s.flags and SiteConfig.DESKTOP) != 0) p.add("Desktop")
         if (s.zoomRaw != null) p.add("Text " + s.zoom + "%")
         if (s.dl >= 0) p.add(DlMode.siteLabel(c, s.key))
+        if (s.dk != 0) p.add(if (s.dk == SiteDark.DARK) "Dark page" else "Original colours")
         return p.joinToString(" · ")
     }
 
@@ -135,7 +138,7 @@ object SiteSettings {
             val shown = all.filter { q.isEmpty() || it.key.contains(q) }
             if (shown.isEmpty()) {
                 list.addView(TextView(act).apply {
-                    text = if (all.isEmpty()) "No site has a saved setting yet. Permissions, JavaScript off, desktop site, text size and button mode you set for a site are listed here."
+                    text = if (all.isEmpty()) "No site has a saved setting yet. Permissions, JavaScript off, desktop site, text size, button mode and dark page you set for a site are listed here."
                     else "No site matches."
                     textSize = 14f
                     setTextColor(act.getColor(R.color.mg_text_dim))
@@ -240,6 +243,17 @@ object SiteSettings {
             setOnClickListener { ZoomTools.setOptOut(act, fzKey, !ZoomTools.optedOut(act, fzKey)); upd() }
         }
         col.addView(fzTv)
+        // 0.0.424: dark page for this site (SiteDark)
+        col.addView(label("Dark page"))
+        val dkTv = TextView(act).apply {
+            textSize = 15f
+            setTextColor(act.getColor(R.color.mg_text))
+            setPadding(0, dp(6), 0, dp(6))
+            text = SiteDark.label(SiteDark.mode(act, key)) + (if (UiMode.appDark(act)) "" else " (needs a dark app theme)")
+            isClickable = true
+            setOnClickListener { SiteDark.cycle(act, key); text = SiteDark.label(SiteDark.mode(act, key)) + (if (UiMode.appDark(act)) "" else " (needs a dark app theme)") }
+        }
+        col.addView(dkTv)
         // button mode (DlMode)
         col.addView(label("Download buttons"))
         val dlTv = TextView(act).apply {
@@ -278,12 +292,13 @@ object SiteSettings {
             .setView(sv)
             .setPositiveButton("Done", null)
             .setNeutralButton("Reset this site") { _, _ ->
-                MaterialAlertDialogBuilder(act).setMessage("Forget every saved setting for $key (permissions, switches, text size, button mode)?")
+                MaterialAlertDialogBuilder(act).setMessage("Forget every saved setting for $key (permissions, switches, text size, button mode, dark page)?")
                     .setPositiveButton("Reset") { _, _ ->
                         for (b in bits) if ((SiteConfig.flags(key) and b) != 0) SiteConfig.toggle(key, b)
                         s.zoomRaw?.let { TextZoom.reset(act, it) } // A2: back to the default zoom
                         TextZoom.reset(act, key)
                         DlMode.setSite(act, key, -1)
+                        SiteDark.set(act, key, SiteDark.SAME) // 0.0.424
                         for ((raw, what) in s.perms) SitePerms.set(act, raw, what, null)
                         Util.toast(act, "Reset. Reload the page")
                         closed()

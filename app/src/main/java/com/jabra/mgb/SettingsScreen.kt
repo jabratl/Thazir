@@ -89,7 +89,7 @@ object SettingsScreen {
         private var flashLabel: String? = null // Step B: row that was just toggled
         /** Step C: the ONLY mgb_ui keys each card's "Reset to default" may remove. Nothing else is ever touched. */
         private val RESET = mapOf(
-            "general" to listOf("night", "accent", "surf", "dark_pages", "engine", "tr_lang", "hide_bar", "pull_refresh", "rotate_browser",
+            "general" to listOf("night", "accent", "surf", "dark_pages", "dark_sites", "page_tc", "engine", "tr_lang", "hide_bar", "pull_refresh", "rotate_browser",
                 "ap_bar_pos", "ap_home_action", "ap_full_url", "ap_swipe_fs", "ap_swipe_tabs", "ap_swipe_side", "ap_swipe_nav", "ap_wp_dim", "ap_undo_toast", "url_suggest", "ap_start_page", "ap_bar_compact", "ap_nav_back", "ap_nav_fwd", "ap_nav_hide", "ap_zoom_def", "ap_force_zoom", "ap_touchpad", "ap_simple_hint", "sm_on", "sm_sep", "sm_int", "sm_full", "sm_bars", "sm_back", "sm_splash", "sm_cs", "sm_kb", "sm_big", "sm_links", "sm_win", "sm_dfix", "sm_pre", "sm_keep", "sm_dyn", "sm_touch", "sm_fbshare", "sm_clean", "sm_lock", "sm_lockd", "sm_err", "sm_focus", "sm_ext", "sm_pip", "sm_dock", "sm_save2", "sm_mute", "sm_tl", "sm_t_day", "sm_t_sec") + MediaPrefs.KEYS + Orbit.KEYS + SiteMute.KEY + SocialProfiles.all.map { "sm_s_" + it.id } + SocialProfiles.all.map { "sm_x_" + it.id } + SocialProfiles.all.map { "sm_ua_" + it.id } + SocialBlur.keys + SocialBadge.keys + SocialNsfw.keys + SocialDark.keys + SocialSlot.keys + listOf("swipe_close", "close_confirm", "reduce_motion", "tab_suspend_min"), // A9, A11, A1, A2: + Appearance keys; 0.0.312: + Tabs keys (Tabs card merged into Browser)
             "downloads" to listOf("auto_diag", "dr_wifi", "dr_metered", "dr_batt", "dr_store", "li_on", "dp_on", "dp_n", "dp_min_mb", "dl_limit_kbps", "dl_max_jobs", "dl_auto_resume", "dp_tail"), // D1, D2: download rules
             "grabber" to listOf("web_play", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),
@@ -700,6 +700,7 @@ object SettingsScreen {
                         UiMode.apply(act)
                         AccentTheme.reload(); SurfaceStyle.reload() // 0.0.423: the cached choice was stale after the reset (accent stayed until restart)
                         BookmarksScreen.tabsRef?.applyDarkPages()
+                        SocialBars.refresh(act, BookmarksScreen.tabsRef?.active) // 0.0.424: page colour switch is OFF again = original bars
                     }
                     Util.toast(act, "$title reset to default")
                     if (key == "general" && (themeBefore != 0 || barBefore != "bottom" || lookBefore != AccentTheme.id(act) + "|" + SurfaceStyle.id(act))) { dismiss(); UiMode.smoothRecreate(act) } else fill() // 0.0.422

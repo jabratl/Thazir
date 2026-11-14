@@ -326,6 +326,7 @@ object ExtListScreen {
                 .setPositiveButton("Remove") { _, _ ->
                     if (!ExtRegistry.remove(e.id)) Util.toast(act, "Could not remove all files")
                     ChromeBridge.removeExtData(act, e.id) // S3: wipe its storage
+                    ExtDark.forget(act, e.id) // 0.0.424
                     ExtApi.sync(act) // S5: worker, alarms, menus of the removed extension
                     refill()
                 }
@@ -334,9 +335,43 @@ object ExtListScreen {
         }
 
         private fun details(e: ExtRegistry.Info) {
+            // 0.0.424: message + a visible "Dark mode" row (tap = Auto > Always dark > Never dark, ExtDark)
+            val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(8), dp(24), 0) }
+            col.addView(TextView(act).apply {
+                text = "Version " + e.version + " (manifest v" + e.manifestVersion + ")\n\n" + permText(e)
+                textSize = 14f
+                setTextColor(act.getColor(R.color.mg_text))
+            })
+            col.addView(TextView(act).apply {
+                text = "DARK MODE"
+                textSize = 11f
+                letterSpacing = 0.08f
+                setTextColor(act.getColor(R.color.mg_primary))
+                setPadding(0, dp(16), 0, dp(4))
+            })
+            val dk = TextView(act).apply {
+                textSize = 15f
+                setTextColor(act.getColor(R.color.mg_text))
+                setPadding(0, dp(8), 0, dp(8))
+                isClickable = true
+                isFocusable = true
+                fun upd() { text = ExtDark.label(ExtDark.mode(act, e.id)) + "  (tap to change)" }
+                upd()
+                setOnClickListener {
+                    ExtDark.cycle(act, e.id)
+                    upd()
+                    BookmarksScreen.tabsRef?.applyDarkPages() // open extension tabs follow at once (reload for Always dark)
+                }
+            }
+            col.addView(dk)
+            col.addView(TextView(act).apply {
+                text = "Auto follows the app theme. Always dark also darkens a light popup. Never dark keeps the extension's own colours. Close and reopen the popup to see it."
+                textSize = 12f
+                setTextColor(act.getColor(R.color.mg_text_dim))
+            })
             MaterialAlertDialogBuilder(act)
                 .setTitle(e.name)
-                .setMessage("Version " + e.version + " (manifest v" + e.manifestVersion + ")\n\n" + permText(e))
+                .setView(ScrollView(act).apply { addView(col) })
                 .setPositiveButton("Close", null)
                 .apply {
                     // S4: popup / options page of the extension, opened in an extension window over this screen

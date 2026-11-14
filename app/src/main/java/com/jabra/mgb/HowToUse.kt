@@ -112,6 +112,8 @@ object HowToUse {
             listOf(
                 "Menu > Settings. Tap a card to open it. Use the search box at the top to jump to a setting.",
                 "Menu > Settings > Appearance changes theme, address bar and home page.",
+                "Appearance > Page colour on phone bars (OFF by default): the status bar (navigation bar when the address bar is at the top) takes the colour the site asks for, like Chrome. Home, extension pages and saved pages keep the app colours.",
+                "Dark pages exception: tap the lock in the address bar > Dark page = Same as app / Dark / Original for that site only (needs a dark app theme; the page reloads on close). Appearance > Dark page exceptions lists every site.",
                 "Reduce motion (Tabs and motion) turns animations off.",
                 "Each card has Reset to default. It only resets the settings of that card."
             ), "",
@@ -233,6 +235,7 @@ object HowToUse {
             listOf(
                 "Open the 3-dot menu and tap the extensions icon to open the Extensions tray.",
                 "Settings > Extensions: add, turn on or off and remove them.",
+                "Settings > Extensions > tap an extension > Dark mode: Auto (follows the app), Always dark (also darkens a light popup) or Never dark (keeps its own colours). Reopen the popup to see it.",
                 "Menu > Report center helps you collect details when something is wrong, so you can copy or share them."
             ), "",
             listOf("A page misbehaves: Menu > Report center > copy the report and send it to the developer.")

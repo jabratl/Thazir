@@ -27,6 +27,15 @@ object SocialDark {
     fun siteLabel(v: Int): String = when (v) { ON -> "Dark"; OFF -> "Original"; else -> "Same as app setting" }
     fun siteOverrides(c: Context): Int = SocialProfiles.all.count { siteMode(c, it.id) != SAME }
 
+    /** 0.0.424: the choice of the social site this address belongs to (ON / OFF), SAME when none is set, Social sites is OFF for it, or it is no social site. Used by SiteDark.effective(). */
+    fun own(c: Context, url: String?): Int {
+        try {
+            if (url == null || siteOverrides(c) == 0 || !SocialMode.on(c)) return SAME
+            val p = SocialProfiles.of(url) ?: return SAME
+            return if (SocialProfiles.siteOn(c, p.id)) siteMode(c, p.id) else SAME
+        } catch (_: Throwable) { return SAME }
+    }
+
     /** Called from TabManager.onPageStarted (not for extension pages). Fail-safe: any error leaves the page as it is. */
     fun apply(c: Context, view: WebView, url: String?) {
         try {

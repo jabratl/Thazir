@@ -79,10 +79,13 @@ object UiMode {
      * Now: dark app = algorithmic darkening ON (pages that declare color-scheme / prefers-color-scheme keep their own style,
      * pages without any style are darkened) and the backdrop is the app background, so there is no white flash while the page loads.
      * Light app = darkening OFF, backdrop = app background (soft tint, not white). Old WebView without dark support in a dark app: white backdrop (as before).
+     * 0.0.424: url = the page address; an installed extension can be Always dark / Never dark (ExtDark), Auto = everything above.
      */
     @Suppress("DEPRECATION")
-    fun applyExt(ctx: Context, w: WebView) {
-        val dark = appDark(ctx)
+    fun applyExt(ctx: Context, w: WebView, url: String? = null) {
+        val m = ExtDark.modeOfUrl(ctx, url) // 0.0.424: per-extension choice (Auto for built-in pages and when no url is given)
+        val appDk = appDark(ctx)
+        val dark = m == ExtDark.AUTO && appDk // WebView darkening only in Auto; Always dark uses a CSS filter (ExtDark.onLoaded), Never dark = off
         var ok = false
         try {
             if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
@@ -96,7 +99,13 @@ object UiMode {
                 ok = true
             }
         } catch (e: Exception) { /* old WebView: page stays as it is */ }
-        try { w.setBackgroundColor(if (dark && !ok) Color.WHITE else ctx.getColor(R.color.mg_bg)) } catch (e: Exception) { }
+        try {
+            w.setBackgroundColor(when (m) {
+                ExtDark.FORCE -> 0xFF0B0D13.toInt() // dark backdrop (same as the dark mg_bg) so the page does not flash white before the filter is added
+                ExtDark.ORIGINAL -> if (appDk) Color.WHITE else ctx.getColor(R.color.mg_bg)
+                else -> if (dark && !ok) Color.WHITE else ctx.getColor(R.color.mg_bg)
+            })
+        } catch (e: Exception) { }
     }
 
     /** 0.0.421: Activity.recreate() with a short cross-fade (theme / accent change), instead of a hard flash. Skipped with Reduce motion. */

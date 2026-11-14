@@ -132,6 +132,31 @@ object SiteSheet {
                 }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)))
                 col.addView(line, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
             }
+            run { // 0.0.424: Dark page for this site (Same as app / Dark / Original) = SiteDark, applied when the page reloads on close
+                val dv = SiteDark.mode(act, host)
+                val line = LinearLayout(act).apply {
+                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                    background = round(c(R.color.mg_surface), 16, 1, c(R.color.mg_outline))
+                    minimumHeight = dp(56); setPadding(dp(12), dp(6), dp(8), dp(6))
+                }
+                line.addView(ImageView(act).apply {
+                    setImageResource(R.drawable.ic_theme); setColorFilter(c(R.color.mg_primary)); scaleType = ImageView.ScaleType.CENTER
+                    background = round(tint(R.color.mg_primary, 0.14f), 20)
+                }, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(12) })
+                val mid = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+                mid.addView(tv("Dark page", 15f, c(R.color.mg_text), true))
+                mid.addView(tv(if (UiMode.appDark(act)) "Only for this site" else "Needs a dark app theme", 11f, c(R.color.mg_text_dim)))
+                line.addView(mid, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                val tone = if (dv == SiteDark.SAME) R.color.mg_text_dim else R.color.mg_primary
+                val word = when (dv) { SiteDark.DARK -> "Dark"; SiteDark.ORIGINAL -> "Original"; else -> "Same as app" }
+                line.addView(tv(word, 12f, c(tone), true).apply {
+                    gravity = Gravity.CENTER; background = round(tint(tone, 0.16f), 16)
+                    setPadding(dp(12), 0, dp(12), 0); minimumHeight = dp(36)
+                    contentDescription = "Dark page for this site: $word. Tap to change"
+                    setOnClickListener { SiteDark.cycle(act, host); changed = true; render() }
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)))
+                col.addView(line, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
+            }
             col.addView(tv("Tap a chip to switch: Ask first, Allowed, Blocked. The page reloads once when you close this sheet.", 11f, c(R.color.mg_text_dim)).apply { setPadding(dp(4), dp(10), dp(4), dp(10)) })
             col.addView(tv("All site permissions", 14f, c(R.color.mg_primary), true).apply {
                 gravity = Gravity.CENTER; minimumHeight = dp(48)

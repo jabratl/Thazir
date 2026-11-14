@@ -177,7 +177,7 @@ class TabManager(
             fresh.settings.useWideViewPort = true
             fresh.settings.loadWithOverviewMode = true
         }
-        if (t.isExt) UiMode.applyExt(ctx, fresh) else UiMode.applyPage(fresh, UiMode.darkPages(ctx)) // 0.0.421
+        if (t.isExt) UiMode.applyExt(ctx, fresh, t.url) else UiMode.applyPage(fresh, SiteDark.effective(ctx, t.url)) // 0.0.421 / 0.0.424: per site + per extension
         (old.parent as? ViewGroup)?.removeView(old)
         old.stopLoading()
         ChromeBridge.unbind(old)
@@ -236,7 +236,7 @@ class TabManager(
             fresh.settings.useWideViewPort = true
             fresh.settings.loadWithOverviewMode = true
         }
-        if (t.isExt) UiMode.applyExt(ctx, fresh) else UiMode.applyPage(fresh, UiMode.darkPages(ctx)) // 0.0.421
+        if (t.isExt) UiMode.applyExt(ctx, fresh, t.url) else UiMode.applyPage(fresh, SiteDark.effective(ctx, t.url)) // 0.0.421 / 0.0.424: per site + per extension
         bgViews.remove(t)
         freeDead(dead)
         t.web = fresh
@@ -271,8 +271,7 @@ class TabManager(
 
     /** S20: Dark pages switch changed (takes effect on the next page load). */
     fun applyDarkPages() {
-        val on = UiMode.darkPages(ctx)
-        for (t in tabs) if (t.isExt) UiMode.applyExt(ctx, t.web) else UiMode.applyPage(t.web, on) // 0.0.421
+        for (t in tabs) if (t.isExt) UiMode.applyExt(ctx, t.web, t.url) else SiteDark.apply(ctx, t.web, t.url) // 0.0.421 / 0.0.424: each tab = its site rule, else the switch
     }
 
     // ---------- tabs ----------
@@ -304,7 +303,7 @@ class TabManager(
             web.settings.useWideViewPort = true
             web.settings.loadWithOverviewMode = true
         }
-        if (tab.isExt) UiMode.applyExt(ctx, web) else UiMode.applyPage(web, UiMode.darkPages(ctx)) // S20 / 0.0.421
+        if (tab.isExt) UiMode.applyExt(ctx, web, tab.url) else UiMode.applyPage(web, SiteDark.effective(ctx, tab.url)) // S20 / 0.0.421 / 0.0.424
         if (url == HOME_PAGE) tab.home = true // S13: speed dial, nothing to load
         TabsApi.onCreated(tab) // S6
         if (select) switchTo(tab)
@@ -726,6 +725,7 @@ class TabManager(
                 val z = TextZoom.get(ctx, Util.host(url ?: ""))
                 if (view.settings.textZoom != z) view.settings.textZoom = z
                 SocialDark.apply(ctx, view, url) // 0.0.275 (C8): dark page per social site (no site set = returns at once)
+                SiteDark.apply(ctx, view, url) // 0.0.424: dark exception per site (social choice > site rule > Dark pages switch); always sets the flag
             }
             if (!tab.isExt && !tab.savedPage && view != null) { // S29: per-site switches (T3: not for a saved page, JS stays off)
                 val jsOff = SiteConfig.has(url, SiteConfig.JS_OFF)
@@ -745,6 +745,8 @@ class TabManager(
             tab.progress = 100
             tab.popup = false // 0.0.106: the pop-up passed the check
             if (!tab.isExt && !tab.savedPage && view != null) WebNotify.inject(view) // 0.0.284
+            if (tab.isExt) ExtDark.onLoaded(ctx, view, url ?: tab.url) // 0.0.424: extension on Always dark
+            if (!tab.isExt && view != null) SocialBars.readPage(ctx, view) // 0.0.424: page theme-color for the phone bars (switch OFF = returns at once)
             if (tab.desktop && !tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // S14
             if (tab.extWide && tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // 0.0.109
             if (!tab.isExt && view != null) EngineHost.noteUa(url ?: tab.url, view.settings.userAgentString) // 0.0.110: extension requests to this site use this user agent
@@ -769,6 +771,7 @@ class TabManager(
             tab.url = url ?: tab.url
             if (!tab.isExt && !tab.savedPage && view != null && url != null && SocialMode.onRoute(ctx, view, url, tab.desktop)) { /* 0.0.415: ensure() posts the switch + reload itself */ } // 0.0.235 (U1)
             if (!tab.isExt && !tab.savedPage && url != null) RedditMature.inject(ctx, view, url) // 0.0.415: in-page navigation on Reddit
+            if (!tab.isExt && view != null) SocialBars.readPage(ctx, view) // 0.0.424: in-page navigation (single page sites change theme-color)
             listener.onPageInfo(tab)
         }
     }
