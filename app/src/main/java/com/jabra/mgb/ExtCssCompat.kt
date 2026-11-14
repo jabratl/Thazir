@@ -26,6 +26,13 @@ object ExtCssCompat {
         sp(c).edit().apply { if (v == OFF || v == ON) putInt(KEY, v) else remove(KEY) }.apply()
     }
 
+    /** Tap order: Auto -> On -> Off -> Auto. Returns the new value. */
+    fun cycle(c: Context): Int {
+        val n = when (mode(c)) { AUTO -> ON; ON -> OFF; else -> AUTO }
+        set(c, n)
+        return n
+    }
+
     fun label(v: Int): String = when (v) { ON -> "On"; OFF -> "Off"; else -> "Auto" }
 
     private fun webMajor(): Int {

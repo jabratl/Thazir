@@ -40,12 +40,13 @@ object ExtProbe {
 
     private const val THEME_JS = "(function(){try{var d=document.documentElement,b=document.body,cs=b?getComputedStyle(b):null;" +
         "return JSON.stringify({cls:String(d.className||'').slice(0,80),th:d.getAttribute('data-theme')||'',mq:matchMedia('(prefers-color-scheme: dark)').matches," +
-        "bg:cs?cs.backgroundColor:'',fg:cs?cs.color:'',rs:document.readyState,sch:getComputedStyle(d).colorScheme||''})}catch(e){return JSON.stringify({err:String(e).slice(0,60)})}})()"
+        "bg:cs?cs.backgroundColor:'',fg:cs?cs.color:'',cc:window.__mgbCssStats?window.__mgbCssStats.n+' rewrites, '+window.__mgbCssStats.ms+' ms':'',rs:document.readyState,sch:getComputedStyle(d).colorScheme||''})}catch(e){return JSON.stringify({err:String(e).slice(0,60)})}})()"
 
     @Volatile private var css: Map<String, Boolean>? = null
     @Volatile private var snapLines: List<String> = listOf("Page theme: not measured")
 
     private val main = Handler(Looper.getMainLooper())
+    @Volatile private var appCtx: Context? = null // 0.0.435 (S10): for the CSS compat line
 
     // ------------------------------------------------------------------ facts for the report
 
@@ -65,6 +66,7 @@ object ExtProbe {
      * tab = the tab whose page theme is read (null / private / extension / not a web page = skipped).
      */
     fun ensure(ctx: Context, tab: TabManager.Tab?, cb: () -> Unit) {
+        appCtx = ctx.applicationContext
         var done = false
         fun fin() { if (!done) { done = true; try { cb() } catch (_: Throwable) { } } }
         val afterCss = {
@@ -149,7 +151,7 @@ object ExtProbe {
                     if (o.has("err")) fin("Page theme: not readable") else
                         fin("Page theme (current tab): html class \"" + Diag.mask(o.optString("cls")) + "\", data-theme \"" + Diag.mask(o.optString("th")) +
                             "\", prefers-dark " + o.optBoolean("mq") + ", color-scheme \"" + o.optString("sch") + "\", body " + o.optString("bg") + " / " + o.optString("fg") +
-                            ", " + o.optString("rs"))
+                            ", " + o.optString("rs") + (if (o.optString("cc").isNotEmpty()) ", CSS compat on this page: " + o.optString("cc") else ""))
                 } catch (_: Throwable) { fin("Page theme: not readable") }
             }
         } catch (_: Throwable) { fin("Page theme: not measured") }
@@ -172,6 +174,7 @@ object ExtProbe {
             lines.add("  " + FEATURES.joinToString(" ") { it + "=" + (if (c[it] == true) "yes" else "NO") })
         }
         lines.addAll(snapLines)
+        try { appCtx?.let { lines.add("CSS compat: " + ExtCssCompat.state(it)) } } catch (_: Throwable) { } // 0.0.435 (S10)
         val warn = major in 1..119 || miss.isNotEmpty()
         if (major in 1..119) lines.add("WebView is older than 120: extensions with modern CSS may look wrong")
         return DiagReport.Section("extcompat", "Browser", "Extension compat", if (warn) DiagReport.WARN else DiagReport.INFO, lines)

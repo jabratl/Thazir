@@ -260,6 +260,7 @@ object DiagReport {
         x.online = online; x.hasNetwork = hasNet; x.vpn = vpnOn
         x.freeBytes = free; x.ramLow = ramLow; x.wvMajor = wvMajor; x.tabCrashed = crashed; x.cssMissing = safe(emptyList()) { ExtProbe.cssMissing() } // 0.0.426 (S1)
         x.extGaps = safe(emptyList()) { ExtGaps.top(3) } // 0.0.429 (S4)
+        x.cssCompatOff = safe(false) { ExtCssCompat.mode(ctx) == ExtCssCompat.OFF } // 0.0.435 (S10)
         x.pageIsWeb = tab != null && !tab.priv && !tab.isExt && !tab.home && tab.url.startsWith("http")
         x.pageLoading = tab?.loading == true
         val pageEv = Diag.recent(30, "page", false).filter { it.ts >= now - TEN_MIN }

@@ -27,6 +27,7 @@ object DiagRules {
         var wvMajor = 0                 // 0 = unknown
         var cssMissing: List<String> = emptyList() // 0.0.426 (S1): CSS features this WebView lacks (ExtProbe), empty = all there or not measured
         var extGaps: List<String> = emptyList() // 0.0.429 (S4): most called chrome.* calls that Thazir does not support ("Name: api (n)"), empty = none
+        var cssCompatOff = false // 0.0.435 (S10): ext_css switch is Off
         var tabCrashed = false
         var pageIsWeb = false
         var pageLoading = false
@@ -97,6 +98,7 @@ object DiagRules {
 
         if (x.cssMissing.isNotEmpty()) out.add(f("ext-css-missing", W, "This WebView lacks CSS features some extensions use: ${x.cssMissing.joinToString(", ")}.", "Update Android System WebView (and Chrome) in Play Store. Extension popups and panels may look wrong until then.", "webview", "Open Play Store")) // 0.0.426 (S1)
 
+        if (x.wvMajor in 1..119 && x.cssCompatOff) out.add(f("ext-css-off", W, "CSS compatibility is Off while the WebView is old (version ${x.wvMajor}).", "Settings > Extensions > CSS compatibility: set Auto, then reload the page. Extension panels with new CSS may look broken until then.")) // 0.0.435 (S10)
         if (x.extGaps.isNotEmpty()) out.add(f("ext-gaps", I, "Extensions called chrome.* functions that Thazir does not support: ${x.extGaps.joinToString("; ")}.", "Those extension features may not work. The extension keeps running. See Report center > Extension API gaps and send it to the Thazir owner.")) // 0.0.429 (S4)
 
         // 9-13 page errors

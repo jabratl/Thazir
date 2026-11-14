@@ -1349,6 +1349,11 @@ object SettingsScreen {
                     Util.toast(act, "Reload the page")
                     fill()
                 },
+                Row(R.drawable.ic_folder, "CSS compatibility", ExtCssCompat.label(ExtCssCompat.mode(act)), "Fixes new CSS on an old WebView (" + ExtProbe.webView().substringAfterLast(' ') + "), reload page") { // 0.0.435 (S10)
+                    ExtCssCompat.cycle(act); ContentInjector.refresh(act)
+                    Util.toast(act, "Reload the page")
+                    fill()
+                },
                 Sub("Userscripts"), // 0.0.323
                 Row(R.drawable.ic_code, "Userscripts", "${Userscripts.count(act)} scripts", "Your own scripts on pages") { UserscriptsScreen.open(act) { fill() } }, // T7
                 Row(R.drawable.ic_code, "Run userscripts", if (Userscripts.masterOn(act)) "ON" else "OFF") { // T7
