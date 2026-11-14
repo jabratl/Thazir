@@ -259,6 +259,7 @@ object ExtScreen {
                     return true // anything else is ignored
                 }
             }
+            UiMode.applyExt(act, w) // 0.0.421: dark app = dark popup, app-coloured backdrop (no white flash)
             ContentInjector.attachExt(act, w) // window.chrome + bridge (before the first load)
             container.addView(w, FrameLayout.LayoutParams(MATCH, MATCH))
             w.loadUrl(startUrl)

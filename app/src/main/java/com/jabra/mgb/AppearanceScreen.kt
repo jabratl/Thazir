@@ -250,7 +250,7 @@ object AppearanceScreen {
                 if (UiMode.setMode(act, i)) {
                     AppearanceScreen.markReopen()
                     dismiss()
-                    act.recreate()
+                    UiMode.smoothRecreate(act) // 0.0.421
                 }
             }
             toggleRow(themeCard, R.drawable.ic_theme, "Dark pages", "Darken websites that have no dark style (reload the page)",
@@ -674,7 +674,7 @@ object AppearanceScreen {
                             AccentTheme.set(act, a.id)
                             AppearanceScreen.markReopen()
                             dismiss()
-                            act.recreate()
+                            UiMode.smoothRecreate(act) // 0.0.421
                         }
                     }
                     pressFx(this)

@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Thazir design tokens: LIGHT. Keep resource names stable across the native UI. -->
-    <color name="mg_bg">#F8F8FC</color>
-    <color name="mg_surface">#FFFFFF</color>
-    <color name="mg_surface_variant">#F0F1F7</color>
+    <!-- Thazir design tokens: LIGHT (0.0.421: soft cool blue-grey instead of plain white, like Chrome / Edge light; cards are a tinted off-white, never #FFFFFF). Keep resource names stable across the native UI. -->
+    <color name="mg_bg">#E9EDF6</color>
+    <color name="mg_surface">#F8FAFE</color>
+    <color name="mg_surface_variant">#DCE2EF</color>
 
     <!-- Violet is the primary brand accent; white text remains high-contrast on it. -->
     <color name="mg_primary">#5947C7</color>
     <color name="mg_on_primary">#FFFFFF</color>
 
-    <color name="mg_text">#191A24</color>
-    <color name="mg_text_dim">#626477</color>
-    <color name="mg_outline">#D9DCE7</color>
+    <color name="mg_text">#151823</color>
+    <color name="mg_text_dim">#4F586F</color>
+    <color name="mg_outline">#C5CCDF</color>
 
     <!-- Semantic states intentionally stay distinct from the brand accent. -->
     <color name="mg_error">#D93025</color>

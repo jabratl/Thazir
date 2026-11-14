@@ -2,6 +2,8 @@ package com.jabra.mgb
 
 import android.app.Activity
 import android.content.Context
+import android.content.res.Configuration
+import android.graphics.Color
 import android.webkit.WebView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.webkit.WebSettingsCompat
@@ -45,7 +47,7 @@ object UiMode {
                 if (which != cur) {
                     sp(act).edit().putInt("night", which).apply()
                     apply(act)
-                    act.recreate()
+                    smoothRecreate(act)
                 }
             }
             .setNegativeButton("Cancel", null)
@@ -65,6 +67,43 @@ object UiMode {
 
     fun setDarkPages(ctx: Context, on: Boolean) {
         sp(ctx).edit().putBoolean("dark_pages", on).apply()
+    }
+
+    /** 0.0.421: true when the app is dark right now (Activity configuration, so System mode is honoured too). */
+    fun appDark(ctx: Context): Boolean =
+        (ctx.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+    /**
+     * 0.0.421: extension pages (popup window, options, extension tab). Before, they never got dark mode: the WebView reported
+     * prefers-color-scheme = light and had a white backdrop, so in a dark app every popup / page opened FULL WHITE.
+     * Now: dark app = algorithmic darkening ON (pages that declare color-scheme / prefers-color-scheme keep their own style,
+     * pages without any style are darkened) and the backdrop is the app background, so there is no white flash while the page loads.
+     * Light app = darkening OFF, backdrop = app background (soft tint, not white). Old WebView without dark support in a dark app: white backdrop (as before).
+     */
+    @Suppress("DEPRECATION")
+    fun applyExt(ctx: Context, w: WebView) {
+        val dark = appDark(ctx)
+        var ok = false
+        try {
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+                WebSettingsCompat.setAlgorithmicDarkeningAllowed(w.settings, dark)
+                ok = true
+            } else if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+                WebSettingsCompat.setForceDark(w.settings, if (dark) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF)
+                if (dark && WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK_STRATEGY)) {
+                    WebSettingsCompat.setForceDarkStrategy(w.settings, WebSettingsCompat.DARK_STRATEGY_PREFER_WEB_THEME_OVER_USER_AGENT_DARKENING)
+                }
+                ok = true
+            }
+        } catch (e: Exception) { /* old WebView: page stays as it is */ }
+        try { w.setBackgroundColor(if (dark && !ok) Color.WHITE else ctx.getColor(R.color.mg_bg)) } catch (e: Exception) { }
+    }
+
+    /** 0.0.421: Activity.recreate() with a short cross-fade (theme / accent change), instead of a hard flash. Skipped with Reduce motion. */
+    @Suppress("DEPRECATION")
+    fun smoothRecreate(act: Activity) {
+        act.recreate()
+        try { if (!TabPrefs.reduce(act)) act.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out) } catch (e: Exception) { }
     }
 
     /** allowed = user switch on and not an extension page. Takes effect on the next page load. */

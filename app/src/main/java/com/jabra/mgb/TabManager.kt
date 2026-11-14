@@ -177,7 +177,7 @@ class TabManager(
             fresh.settings.useWideViewPort = true
             fresh.settings.loadWithOverviewMode = true
         }
-        UiMode.applyPage(fresh, UiMode.darkPages(ctx))
+        if (t.isExt) UiMode.applyExt(ctx, fresh) else UiMode.applyPage(fresh, UiMode.darkPages(ctx)) // 0.0.421
         (old.parent as? ViewGroup)?.removeView(old)
         old.stopLoading()
         ChromeBridge.unbind(old)
@@ -236,7 +236,7 @@ class TabManager(
             fresh.settings.useWideViewPort = true
             fresh.settings.loadWithOverviewMode = true
         }
-        UiMode.applyPage(fresh, UiMode.darkPages(ctx) && !t.isExt)
+        if (t.isExt) UiMode.applyExt(ctx, fresh) else UiMode.applyPage(fresh, UiMode.darkPages(ctx)) // 0.0.421
         bgViews.remove(t)
         freeDead(dead)
         t.web = fresh
@@ -272,7 +272,7 @@ class TabManager(
     /** S20: Dark pages switch changed (takes effect on the next page load). */
     fun applyDarkPages() {
         val on = UiMode.darkPages(ctx)
-        for (t in tabs) UiMode.applyPage(t.web, on && !t.isExt)
+        for (t in tabs) if (t.isExt) UiMode.applyExt(ctx, t.web) else UiMode.applyPage(t.web, on) // 0.0.421
     }
 
     // ---------- tabs ----------
@@ -304,7 +304,7 @@ class TabManager(
             web.settings.useWideViewPort = true
             web.settings.loadWithOverviewMode = true
         }
-        UiMode.applyPage(web, UiMode.darkPages(ctx) && !tab.isExt) // S20
+        if (tab.isExt) UiMode.applyExt(ctx, web) else UiMode.applyPage(web, UiMode.darkPages(ctx)) // S20 / 0.0.421
         if (url == HOME_PAGE) tab.home = true // S13: speed dial, nothing to load
         TabsApi.onCreated(tab) // S6
         if (select) switchTo(tab)
