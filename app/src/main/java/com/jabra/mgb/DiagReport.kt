@@ -116,6 +116,7 @@ object DiagReport {
             wv, if (wvMajor in 1..99) "WebView is old (version $wvMajor): update Android System WebView / Chrome" else "WebView version looks fine")))
         secs.add(safe(Section("extcompat", "Browser", "Extension compat", INFO, listOf("not readable"))) { ExtProbe.section() }) // 0.0.426 (S1)
         secs.add(safe(Section("extgaps", "Browser", "Extension API gaps", INFO, listOf("not readable"))) { ExtGaps.section() }) // 0.0.429 (S4)
+        secs.add(safe(Section("extselftest", "Browser", "Extension self-test", INFO, listOf("not readable"))) { ExtSelfTest.section() }) // 0.0.436 (S11)
         secs.add(Section("device", "Device", "Device", INFO, listOf(
             Build.MANUFACTURER + " " + Build.MODEL, "Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")",
             "ABI " + (Build.SUPPORTED_ABIS.firstOrNull() ?: "?"))))

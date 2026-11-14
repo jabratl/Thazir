@@ -57,6 +57,13 @@ object ExtGaps {
         }
     }
 
+    /** 0.0.436 (S11): drop the rows of one extension (the temporary self-test extension). */
+    fun forget(extId: String) {
+        synchronized(list) {
+            if (list.removeAll { it.ext == extId } && !saving) { saving = true; main.postDelayed({ save() }, 1000) }
+        }
+    }
+
     private fun save() {
         val snap = synchronized(list) {
             saving = false

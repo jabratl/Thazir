@@ -143,6 +143,44 @@ object ExtRegistry {
         }
     }
 
+    /** 0.0.436 (S11): installs an extension that ships inside the APK (assets/<dir>), same checks and commit as a picked file. */
+    fun installAsset(ctx: Context, dir: String, cb: (Result<Info>) -> Unit) {
+        init(ctx)
+        val app = ctx.applicationContext
+        io.execute {
+            val r: Result<Info> = try {
+                val stage = File(root, ".stage_" + System.nanoTime())
+                val unz = File(stage, "x")
+                try {
+                    unz.mkdirs()
+                    copyAssetDir(app, dir, unz)
+                    val base = findBase(unz) ?: throw Exception("manifest.json not found")
+                    val man = readManifest(base)
+                    val id = idFromText("name:" + man.optString("name"))
+                    val info = parse(id, base, man, false)
+                    ExtSafety.blockReason(info)?.let { throw Exception(it) }
+                    Result.success(commitSync(Staged(info, get(id), stage, base)))
+                } catch (e: Throwable) {
+                    stage.deleteRecursively()
+                    throw e
+                }
+            } catch (e: Throwable) {
+                Result.failure(Exception(e.message ?: "install failed"))
+            }
+            main.post { cb(r) }
+        }
+    }
+
+    private fun copyAssetDir(app: Context, path: String, out: File) {
+        val names = app.assets.list(path) ?: emptyArray()
+        if (names.isEmpty()) {
+            app.assets.open(path).use { i -> out.outputStream().use { o -> i.copyTo(o) } }
+        } else {
+            out.mkdirs()
+            for (n in names) copyAssetDir(app, "$path/$n", File(out, n))
+        }
+    }
+
     fun discard(st: Staged) {
         io.execute { st.stageRoot.deleteRecursively() }
     }

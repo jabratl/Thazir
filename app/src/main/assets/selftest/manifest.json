@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Thazir Self-Test (temporary)",
+  "version": "1.0.0",
+  "description": "Temporary compatibility test. Added and removed by Thazir itself.",
+  "permissions": ["storage", "alarms", "notifications", "contextMenus", "tabs", "cookies", "downloads", "declarativeNetRequest", "scripting", "webNavigation"],
+  "host_permissions": ["https://example.com/*"],
+  "background": { "service_worker": "background.js" }
+}

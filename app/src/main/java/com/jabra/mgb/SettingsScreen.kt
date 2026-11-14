@@ -1354,6 +1354,9 @@ object SettingsScreen {
                     Util.toast(act, "Reload the page")
                     fill()
                 },
+                Row(R.drawable.ic_folder, "Compatibility self-test", ExtSelfTest.summary(), "Adds a temporary test extension, checks chrome.* support, removes it") { // 0.0.436 (S11)
+                    ExtSelfTest.start(act) { fill() }
+                },
                 Sub("Userscripts"), // 0.0.323
                 Row(R.drawable.ic_code, "Userscripts", "${Userscripts.count(act)} scripts", "Your own scripts on pages") { UserscriptsScreen.open(act) { fill() } }, // T7
                 Row(R.drawable.ic_code, "Run userscripts", if (Userscripts.masterOn(act)) "ON" else "OFF") { // T7
