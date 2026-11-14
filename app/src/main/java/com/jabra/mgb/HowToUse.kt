@@ -170,6 +170,7 @@ object HowToUse {
                 "Subtitles and file names: choose subtitle languages and the format, for example en and SRT. Subtitles now keep their real name (Title.en.srt, no .txt added). The row Fix old subtitle names renames old Title.en.srt.txt files, and the player also finds those old files next to a video.",
                 "Convert .ts to .mp4 turns streaming pieces into a normal video file when a download finishes.",
                 "Download folder lets you pick a folder (for example on an SD card). Sub-folders keeps files in sub-folders instead of one long list.",
+                "Ask before download (OFF by default): a download that starts from a page or from Download link / Download image first shows a sheet with the file name (tap it to rename; the extension is kept), the size, the folder (tap to change) and Cancel / Download. Nothing is saved until you press Download. Links the page creates inside itself (blob) start at once.",
                 "Download engine (Settings > Grabber and buttons > Engine) sets how many downloads run at a time, retries, speed limits and live recording."
             ), "Changes apply to new downloads. Files already saved are not changed.",
             listOf(

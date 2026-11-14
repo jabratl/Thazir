@@ -101,6 +101,7 @@ object DiagMore {
         chk("Downloads at the same time", up.getInt("dl_max_jobs", 3), 3)
         chk("Auto-resume", up.getBoolean("dl_auto_resume", false), false)
         chk("Smart tail", up.getBoolean("dp_tail", false), false)
+        chk("Ask before download", up.getBoolean(DownloadAsk.KEY, false), false)
         chk("Download sub-folders", DownloadFolder.subfolders(ctx), false)
         return if (ch.isEmpty()) listOf("Changed from default: nothing ($n settings checked)") else listOf("Changed from default ($n settings checked):") + ch
     }

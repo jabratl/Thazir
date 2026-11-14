@@ -580,7 +580,9 @@ class TabManager(
         w.addJavascriptInterface(SocialApp.Bridge(this, w), "MGBSOC") // 0.0.305: share sheet / keep screen on / haptic tick (social pages only call it)
         if (!priv) w.addJavascriptInterface(WebNotify.Bridge(this, w), "MGBNOT") // 0.0.284: website notifications
         // S14: plain download links (and blob:/data: links) in a tab go to the native downloader
-        w.setDownloadListener { url, ua, disp, mime, _ ->
+        w.setDownloadListener { url, ua, disp, mime, len ->
+            // 0.0.425: Settings > Downloads > Ask before download (OFF by default): sheet with file name / folder first. false = start now (old way)
+            if (DownloadAsk.intercept(ctx, url, ua, disp, mime, len, w.url, w, "Cannot download this link")) return@setDownloadListener
             try {
                 val item = DownloadsApi.startPlain(url, ua, disp, mime, w.url, w)
                 if (item == null) Util.toast(ctx, "Cannot download this link")
@@ -936,6 +938,8 @@ class TabManager(
     }
 
     private fun downloadImage(tab: Tab, url: String) {
+        // 0.0.425: Ask before download (OFF by default): same sheet for the long-press image download
+        if (DownloadAsk.intercept(ctx, url, tab.web.settings.userAgentString, "", "application/octet-stream", -1L, tab.url, tab.web, "Cannot download this image")) return
         try {
             val item = DownloadsApi.startPlain(url, tab.web.settings.userAgentString, "", "application/octet-stream", tab.url, tab.web)
             if (item == null) Util.toast(ctx, "Cannot download this image")

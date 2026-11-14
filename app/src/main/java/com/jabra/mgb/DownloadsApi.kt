@@ -63,6 +63,7 @@ class DlItem(val id: Int, val url: String) {
     @Volatile var call: okhttp3.Call? = null
     @Volatile var pn = 0                             // 0.0.372 (N4): parts for THIS download. 0 = Auto (global dp_n), 1 = single connection, 2..16 = that many
     @Volatile var plain = false                      // 0.0.325: started by a tab link / blob (DownloadListener); listed in the Downloads queue
+    @Volatile var userName = false                   // 0.0.425: the person typed this name (Ask before download): betterThanBin / NameSniff must not change it
 }
 
 /**
@@ -165,7 +166,7 @@ object DownloadsApi {
         .put("received", i.received).put("total", i.total).put("fileSize", i.fileSize)
         .put("start", i.start).put("end", i.end).put("validator", i.validator)
         .put("conflict", i.conflict).put("headers", i.headers).put("method", i.method)
-        .put("body", i.body ?: JSONObject.NULL).put("plain", i.plain).put("pn", i.pn)
+        .put("body", i.body ?: JSONObject.NULL).put("plain", i.plain).put("pn", i.pn).put("userName", i.userName)
 
     private fun fromStore(o: JSONObject): DlItem {
         val i = DlItem(o.getInt("id"), o.getString("url"))
@@ -178,6 +179,7 @@ object DownloadsApi {
         i.method = o.optString("method", "GET"); i.body = if (o.isNull("body")) null else o.optString("body")
         i.plain = o.optBoolean("plain")
         i.pn = o.optInt("pn", 0) // 0.0.372: missing in old saved data = Auto
+        i.userName = o.optBoolean("userName", false) // 0.0.425: missing in old saved data = false = old naming
         return i
     }
 
@@ -262,11 +264,18 @@ object DownloadsApi {
         return g
     }
 
-    fun startPlain(url: String, userAgent: String?, disposition: String?, mime: String?, referer: String?, src: WebView?): DlItem? {
+    /** 0.0.425: the file name startPlain would give (no folder part, can be empty). Used by the Ask before download sheet. Never throws. */
+    fun suggestName(url: String, disposition: String?, mime: String?): String =
+        try { cleanRel(plainName(url, disposition, mime)).substringAfterLast('/') } catch (e: Exception) { "" }
+
+    /** nameOverride (0.0.425) = a name the person typed in the Ask before download sheet; null = the old automatic name. */
+    fun startPlain(url: String, userAgent: String?, disposition: String?, mime: String?, referer: String?, src: WebView?, nameOverride: String? = null): DlItem? {
         if (!listOf("http://", "https://", "data:", "blob:").any { url.startsWith(it, true) }) return null
         val item = newItem(url)
         item.plain = true // 0.0.325: shows in Downloads > Downloading (EngineApi.jobs)
-        item.rel = cleanRel(plainName(url, disposition, mime))
+        val chosen = if (nameOverride.isNullOrBlank()) "" else cleanRel(nameOverride).substringAfterLast('/')
+        item.userName = chosen.isNotEmpty()
+        item.rel = if (chosen.isNotEmpty()) chosen else cleanRel(plainName(url, disposition, mime))
         if (!mime.isNullOrBlank()) item.mime = mime
         val http = url.startsWith("http", true)
         val h = JSONArray()

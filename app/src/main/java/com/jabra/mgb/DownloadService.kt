@@ -296,7 +296,7 @@ object Downloader {
                     if (vld.isNotEmpty() && !vld.startsWith("W/")) validator = vld
                     if (mime.isEmpty() && ct.isNotEmpty() && ct != "application/octet-stream") mime = ct
                     canResume = rangeOk
-                    if (rel.isEmpty()) rel = nameFromResponse(finalUrl, cd, ct) else rel = betterThanBin(rel, finalUrl, cd, ct) // 0.0.381
+                    if (rel.isEmpty()) rel = nameFromResponse(finalUrl, cd, ct) else if (!userName) rel = betterThanBin(rel, finalUrl, cd, ct) // 0.0.381; 0.0.425: a typed name stays
                 }
                 var got = startAt
                 FileOutputStream(part, append).use { out ->
@@ -461,7 +461,7 @@ object Downloader {
     private fun publish(item: DlItem, part: File): Pub {
         val rel0 = item.rel.ifEmpty { "download" }
         // 0.0.404: no real extension (".bin" ...) but the file content is a known type (apk, zip, pdf ...) = use the right extension
-        val rel = NameSniff.fix(rel0, part)
+        val rel = if (item.userName) rel0 else NameSniff.fix(rel0, part) // 0.0.425: a name the person typed is never changed
         if (rel != rel0) {
             val fixedName = rel
             val fixedMime = safeMime(fixedName.substringAfterLast('/'), "")
