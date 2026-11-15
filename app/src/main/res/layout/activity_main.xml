@@ -125,6 +125,7 @@
             android:background="@drawable/bg_url_field"
             android:drawablePadding="6dp"
             android:ellipsize="end"
+            android:gravity="center"
             android:hint="Search or type URL"
             android:importantForAutofill="no"
             android:imeOptions="actionGo"

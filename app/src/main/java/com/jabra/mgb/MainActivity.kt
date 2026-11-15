@@ -285,7 +285,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             setColor(fill); cornerRadius = Util.dp(this@MainActivity, 20).toFloat(); if (w > 0) setStroke(Util.dp(this@MainActivity, w), stroke)
         }
         val inset = Util.dp(this, 2)
-        val rest = shape(alphaOf(ink, 0x33), if (priv) 2 else 0, androidx.core.graphics.ColorUtils.blendARGB(ink, plum, 0.35f))
+        val rest = if (priv) shape(alphaOf(plum, 0x55), 2, androidx.core.graphics.ColorUtils.blendARGB(ink, plum, 0.35f)) else shape(android.graphics.Color.TRANSPARENT, 0, 0) // 0.0.462: no boundary on a normal tab
         val focus = shape(getColor(R.color.mg_surface), 2, if (priv) plum else ink)
         val sl = android.graphics.drawable.StateListDrawable()
         sl.addState(intArrayOf(android.R.attr.state_focused), android.graphics.drawable.InsetDrawable(focus, 0, inset, 0, inset))
@@ -305,6 +305,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         urlBgPriv = false
         urlBar.setBackgroundResource(R.drawable.bg_url_field)
         if (hub) { urlBgPriv = wasPriv; urlBar.background = hubFieldBg(wasPriv) } else tintUrlBar(wasPriv)
+        fixUrlPad() // 0.0.462: setting a background resets the padding to 0 (text rubbed the left edge)
         urlBar.setTextColor(if (hub) csl(ink, getColor(R.color.mg_text)) else android.content.res.ColorStateList.valueOf(getColor(R.color.mg_text)))
         urlBar.setHintTextColor(if (hub) csl(alphaOf(ink, 0xD9), getColor(R.color.mg_text_dim)) else android.content.res.ColorStateList.valueOf(getColor(R.color.mg_text_dim)))
         for (v in listOf(btnHub, btnHome, findViewById<ImageView>(R.id.btn_menu))) if (hub) v.setColorFilter(ink) else v.clearColorFilter()
@@ -604,6 +605,18 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     /** 0.0.287: private tab = address field in a plum tone (violet + rose mixed from theme tokens), so it is never taken for a normal tab. */
     private fun tintUrlBar(priv: Boolean) {
         if (priv == urlBgPriv) return
+        tintUrlBarInner(priv)
+        fixUrlPad() // 0.0.462
+    }
+
+    /** 0.0.462: a new background drawable resets the view padding to the drawable's (0 at the sides): put the field padding back and centre the text unless typing. */
+    private fun fixUrlPad() {
+        val shieldOn = findViewById<View>(R.id.btn_shield)?.visibility == View.VISIBLE && !urlBar.hasFocus()
+        urlBar.setPaddingRelative(Util.dp(this, 18), urlBar.paddingTop, Util.dp(this, if (shieldOn) 40 else 16), urlBar.paddingBottom)
+        urlBar.gravity = if (urlBar.hasFocus()) (android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START) else android.view.Gravity.CENTER
+    }
+
+    private fun tintUrlBarInner(priv: Boolean) {
         if (hubStyle()) { urlBgPriv = priv; urlBar.background = hubFieldBg(priv); return } // 0.0.459: Hub bar = ink capsule, private = plum ring
         if (urlBgNormal == null) urlBgNormal = urlBar.background?.constantState
         urlBgPriv = priv
@@ -659,6 +672,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         } else if (!show) btnShield.visibility = View.GONE
         btnShield.setColorFilter(if (hubStyle()) (if (st == 2) alphaOf(barInk(), 0x8C) else barInk()) else getColor(if (st == 2) R.color.mg_text_dim else R.color.mg_primary)) // 0.0.459: ink on the Hub bar (off = dim)
         urlBar.setPaddingRelative(urlBar.paddingStart, urlBar.paddingTop, Util.dp(this, if (show) 40 else 16), urlBar.paddingBottom) // 0.0.335: shield sits inside the field, keep the text clear of it
+        urlBar.gravity = if (urlBar.hasFocus()) (android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START) else android.view.Gravity.CENTER // 0.0.462: centred when resting, left while typing
         // S69: engine badge on the home page and while typing (where the shield is not shown)
         val eng = (tabs.active?.home == true || urlBar.hasFocus()) && !navTight() // A1: no badge when both arrows squeeze the bar
         btnEngine.visibility = if (eng) View.VISIBLE else View.GONE

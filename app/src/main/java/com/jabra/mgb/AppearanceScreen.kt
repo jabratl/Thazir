@@ -573,6 +573,7 @@ object AppearanceScreen {
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 setTextColor(act.getColor(R.color.mg_text))
                 setPadding(dp(6), 0, dp(6), 0)
+                gravity = Gravity.CENTER // 0.0.462: centred like the real bar
             }
             prevUrl = url
             bar.addView(url, LinearLayout.LayoutParams(0, WRAP, 1f))
