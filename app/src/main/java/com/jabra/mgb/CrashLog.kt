@@ -30,11 +30,13 @@ object CrashLog {
                 e.printStackTrace(PrintWriter(sw))
                 file.writeText("MGB ${BuildConfig.VERSION_NAME} thread=${t.name}\n" + sw.toString().take(6000))
             } catch (_: Throwable) { }
+            CrashReport.notifyCrash(ctx, e) // 0.0.455: notification (tap = the report), never throws
             prev?.uncaughtException(t, e)
         }
     }
 
     fun showLast(act: Activity) {
+        if (CrashReport.on(act)) return // 0.0.455: CrashReport shows it first (before the tabs load); switch OFF = this old dialog
         val file = File(act.applicationContext.filesDir, F)
         if (!file.exists()) return
         val text = try { file.readText() } catch (e: Exception) { "" }

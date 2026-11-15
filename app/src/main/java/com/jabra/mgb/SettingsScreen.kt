@@ -1259,6 +1259,10 @@ object SettingsScreen {
                     AutoDiag.setOn(act, !AutoDiag.on(act))
                     fill()
                 },
+                Row(R.drawable.ic_info, "Crash report popup", if (CrashReport.on(act)) "ON" else "OFF", "After a crash the next start shows the reason with a Copy button (and a notification if allowed)") { // 0.0.455
+                    CrashReport.setOn(act, !CrashReport.on(act))
+                    fill()
+                },
                 Sub("Quality and files"),
                 Row(R.drawable.ic_download, "Download quality", DetectedPanel.maxQLabel(), "Used when you press Download or Download all") { DetectedPanel.maxQDialog(act) { fill() } },
                 Row(R.drawable.ic_download, "Preferred video format", QualityPrefs.containerLabel(), "MP4 or WebM when a stream offers both. Picks, does not convert") { QualityPrefs.containerDialog(act) { fill() } },

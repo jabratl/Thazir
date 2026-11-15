@@ -202,6 +202,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         onBackPressedDispatcher.addCallback(this, backCb)
 
         CrashGuard.begin(this) // 0.0.451: native crash loop guard (see CrashGuard.kt)
+        CrashReport.showIfNeeded(this) // 0.0.455: report of the last crash BEFORE the tabs load
         if (siteWin) SiteWindow.start(this, tabs, intent, savedInstanceState == null) // 0.0.247 (A7): only this site, no session restore
         else if (!tabs.restoreSession()) tabs.newTab(TabManager.HOME_PAGE) // S13
         else if (AppearancePrefs.startPage(this) && !CrashGuard.safe) tabs.newTab(TabManager.HOME_PAGE) // A8: restored tabs + a fresh home tab selected

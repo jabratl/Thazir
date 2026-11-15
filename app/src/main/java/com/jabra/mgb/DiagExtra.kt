@@ -57,7 +57,7 @@ object DiagExtra {
 
     // ------------------------------------------------------------------ 1. last crash
 
-    private fun fmtTime(ts: Long): String = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date(ts))
+    internal fun fmtTime(ts: Long): String = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date(ts))
 
     private fun ago(ms: Long): String {
         val m = maxOf(0L, ms) / 60000L
@@ -323,7 +323,7 @@ object DiagExtra {
 
     /** The stack of the newest native crash (signal 11 ...) of the MAIN process. Read only, capped at 2 MB, never throws. */
     @RequiresApi(30)
-    private fun nativeCrashLines(ctx: Context, list: List<ApplicationExitInfo>): List<String> {
+    internal fun nativeCrashLines(ctx: Context, list: List<ApplicationExitInfo>): List<String> {
         val e = list.firstOrNull { it.reason == ApplicationExitInfo.REASON_CRASH_NATIVE && it.processName == ctx.packageName }
             ?: return emptyList()
         val head = "Native crash stack (newest main process crash, " + fmtTime(e.timestamp) + "):"
@@ -350,7 +350,7 @@ object DiagExtra {
     }
 
     @RequiresApi(30)
-    private fun reasonName(r: Int): String = when (r) {
+    internal fun reasonName(r: Int): String = when (r) {
         ApplicationExitInfo.REASON_ANR -> "ANR (app did not respond)"
         ApplicationExitInfo.REASON_CRASH -> "CRASH"
         ApplicationExitInfo.REASON_CRASH_NATIVE -> "CRASH_NATIVE"
@@ -371,7 +371,7 @@ object DiagExtra {
         else -> "REASON_$r"
     }
 
-    private fun importanceName(i: Int): String = when {
+    internal fun importanceName(i: Int): String = when {
         i <= 100 -> "foreground"
         i <= 130 -> "foreground service"
         i <= 200 -> "visible"
