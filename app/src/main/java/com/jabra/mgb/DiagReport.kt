@@ -254,6 +254,7 @@ object DiagReport {
             if (errs.isEmpty()) listOf("No errors logged") else errs.flatMap { listOf(fmtEvent(it)) + crashFrames(it) }))
 
         secs.add(safe(Section("sites", "Browser", "Errors by site", INFO, listOf("not readable"))) { DiagMore.bySite(now) }) // 0.0.402
+        secs.add(safe(Section("guard", "Browser", "Crash guard", INFO, listOf("not readable"))) { CrashGuard.section() }) // 0.0.470
 
         // ---- verdict (S86: rule engine, DiagRules.kt)
         val x = DiagRules.Facts()

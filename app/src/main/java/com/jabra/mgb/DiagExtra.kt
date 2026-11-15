@@ -288,9 +288,12 @@ object DiagExtra {
             val sig = pbFields(b, f.s, f.e)
             val name = sig.firstOrNull { it.num == 2 }?.let { str(it) } ?: ""
             val code = sig.firstOrNull { it.num == 4 }?.let { str(it) } ?: ""
-            out.add("signal: $name $code".trim())
+            val hasAddr = sig.firstOrNull { it.num == 8 }?.v == 1L
+            val addr = sig.firstOrNull { it.num == 9 }?.v // 0.0.470: signal_info.fault_address
+            out.add(("signal: $name $code" + (if (hasAddr && addr != null) " fault addr 0x" + java.lang.Long.toHexString(addr) else "")).trim())
         }
         top.firstOrNull { it.num == 14 }?.let { out.add("abort message: " + str(it).take(300)) }
+        top.firstOrNull { it.num == 20 }?.let { out.add("process uptime: " + it.v + " s") } // 0.0.470: tombstone.process_uptime
         for (c in top.filter { it.num == 15 }) {
             pbFields(b, c.s, c.e).firstOrNull { it.num == 1 }?.let { out.add("cause: " + str(it).take(300)) }
         }
@@ -302,13 +305,22 @@ object DiagExtra {
             if (id != tid) continue
             out.add("crashing thread: " + (tf.firstOrNull { it.num == 2 }?.let { str(it) } ?: "?") + " (tid " + id + ")")
             var n = 0
+            val seenBid = HashSet<String>()
             for (fr in tf.filter { it.num == 4 }) {
                 if (n >= 40) break
                 val ff = pbFields(b, fr.s, fr.e)
+                // 0.0.470: BacktraceFrame (tombstone.proto): 1 rel_pc, 2 pc, 3 sp, 4 function_name, 5 function_offset (number), 6 file_name, 7 file_map_offset, 8 build_id.
+                // Before, field 5 was read as the file name (it is a number), so every frame lost its library name.
                 val fn = ff.firstOrNull { it.num == 4 }?.let { str(it) } ?: ""
-                val file = ff.firstOrNull { it.num == 5 }?.let { str(it) } ?: ""
+                val fo = ff.firstOrNull { it.num == 5 }?.v ?: 0L
+                val file = ff.firstOrNull { it.num == 6 && it.e > it.s }?.let { str(it) } ?: ""
+                val bid = ff.firstOrNull { it.num == 8 && it.e > it.s }?.let { str(it) } ?: ""
                 val off = ff.firstOrNull { it.num == 1 }?.v ?: 0L
-                out.add("  #" + n + " " + file.substringAfterLast('/') + " +0x" + java.lang.Long.toHexString(off) + (if (fn.isNotEmpty()) " " + fn else ""))
+                val lib = file.substringAfterLast('/')
+                val sb = StringBuilder("  #").append(n).append(' ').append(lib).append(" +0x").append(java.lang.Long.toHexString(off))
+                if (fn.isNotEmpty()) { sb.append(' ').append(fn); if (fo != 0L) sb.append("+0x").append(java.lang.Long.toHexString(fo)) }
+                if (bid.isNotEmpty() && seenBid.add(lib + bid)) sb.append("  [build-id ").append(bid.take(40)).append(']') // once per library
+                out.add(sb.toString())
                 n++
             }
         }

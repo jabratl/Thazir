@@ -208,6 +208,15 @@ class TabManager(
     private val crashLog = HashMap<Int, ArrayList<Long>>()
     @Volatile private var lastPopupAt = 0L // 0.0.468: onCreateWindow rate limit
 
+    /** 0.0.470: one line of app state, saved by CrashGuard at every page start of a normal tab, so the Report center can show it after a native crash. */
+    private fun crashState(tab: Tab): String = try {
+        val am = ctx.getSystemService(android.content.Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+        val mi = android.app.ActivityManager.MemoryInfo()
+        am?.getMemoryInfo(mi)
+        "tabs=" + tabs.size + " popups=" + tabs.count { it.popup } + " thisIsPopup=" + tab.popup + " adblock=" + (if (AdBlock.enabled) "on" else "off") +
+            " desktop=" + (if (tab.desktop) "on" else "off") + " exts=" + ExtRegistry.all().count() + " freeRam=" + (mi.availMem / 1048576L) + "MB" + (if (mi.lowMemory) " LOW" else "")
+    } catch (_: Throwable) { "" }
+
     private fun freeDead(dead: WebView) {
         try { (dead.parent as? ViewGroup)?.removeView(dead) } catch (_: Throwable) { }
         try { dead.stopLoading() } catch (_: Throwable) { }
@@ -730,7 +739,7 @@ class TabManager(
             if (view != null && !view.canGoForward() && url != tab.url) tab.homeFwd = false // 0.0.130: a new page cuts the Home entry ahead
             tab.url = url ?: tab.url
             tab.progress = 0
-            if (!tab.priv && !tab.isExt && url != null && url.startsWith("http")) { Diag.i("page", "start", Util.host(url)); CrashGuard.note(Util.host(url)) } // 0.0.468: CrashGuard remembers the host (disk) so a native crash marks it risky
+            if (!tab.priv && !tab.isExt && url != null && url.startsWith("http")) { Diag.keep("I", "page", "start", Util.host(url)); CrashGuard.note(Util.host(url), crashState(tab)) } // 0.0.468: CrashGuard remembers the host (disk) so a native crash marks it risky
             // // 0.0.465: breadcrumb (host only, never in a private tab) so a native crash report shows the last site
             if (tab.home) { // S13
                 val kept = tab.keepUrl // 0.0.130: same page loading under Home keeps Home; another address leaves it
@@ -833,7 +842,7 @@ class TabManager(
                 else -> null
             }
             if (why != null) {
-                Diag.i("popup", "refused ($why)", if (tab.priv) "(private tab)" else opener)
+                Diag.keep("I", "popup", "refused ($why)", if (tab.priv) "(private tab)" else opener)
                 return false
             }
             lastPopupAt = now
@@ -842,7 +851,7 @@ class TabManager(
             t.popup = true; t.openerUrl = tab.url // 0.0.106
             transport.webView = t.web
             resultMsg.sendToTarget()
-            Diag.i("popup", "opened", if (tab.priv) "(private tab)" else opener)
+            Diag.keep("I", "popup", "opened", if (tab.priv) "(private tab)" else opener)
             return true
         }
 

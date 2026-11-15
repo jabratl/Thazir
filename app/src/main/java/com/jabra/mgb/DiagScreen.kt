@@ -462,6 +462,17 @@ object DiagScreen {
                 setOnClickListener { DiagMore.setRedact(act, !DiagMore.redactOn(act)); show() }
             }
             col.addView(tog, LinearLayout.LayoutParams(MATCH, WRAP))
+            // 0.0.470: sites the app marked "crash-risky" after a native crash (pop-ups refused there): one tap forgets them
+            if (CrashGuard.riskyHosts().isNotEmpty()) {
+                val rk = TextView(act).apply {
+                    text = "Crash-risky sites: " + CrashGuard.riskyHosts().size + " (tap to clear)"
+                    setTextColor(act.getColor(R.color.mg_text_dim))
+                    setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12f)
+                    setPadding(dp(4), dp(10), dp(4), dp(4))
+                    setOnClickListener { CrashGuard.clearRisky(); text = "Crash-risky sites cleared"; isClickable = false; Util.toast(act, "Cleared") }
+                }
+                col.addView(rk, LinearLayout.LayoutParams(MATCH, WRAP))
+            }
             return col
         }
 

@@ -22,6 +22,8 @@ object CrashGuard {
     // page scripts of the app are not injected while it loads (see isRisky). The page itself still opens and works.
     private const val K_RUN = "run"
     private const val K_LAST = "last"
+    private const val K_CTX = "ctx"      // 0.0.470: one line about the app state when that page started (tabs, pop-ups, RAM ...)
+    private const val K_LT = "lt"        // 0.0.470: time of that page start
     private const val K_BAD = "bad"
     private const val MAX_BAD = 40
     @Volatile private var sp: SharedPreferences? = null
@@ -41,11 +43,12 @@ object CrashGuard {
                     set.remove(h); set.add(h) // newest last
                     while (set.size > MAX_BAD) set.remove(set.first())
                     ed.putStringSet(K_BAD, HashSet(set))
+                    ed.putString("lc_host", h).putString("lc_ctx", p.getString(K_CTX, "") ?: "").putLong("lc_time", p.getLong(K_LT, 0L)) // shown in Report center > Crash guard
                     try { Diag.w("guard", "crash while loading", h) } catch (_: Throwable) { }
                 }
             }
             bad = set
-            ed.remove(K_LAST).putBoolean(K_RUN, true).commit()
+            ed.remove(K_LAST).remove(K_CTX).remove(K_LT).putBoolean(K_RUN, true).commit()
             lastNoted = ""
         } catch (_: Throwable) { }
     }
@@ -53,19 +56,19 @@ object CrashGuard {
     fun end(ctx: Context) {
         try {
             lastNoted = ""
-            ctx.applicationContext.getSharedPreferences(P, Context.MODE_PRIVATE).edit().putBoolean(K_RUN, false).remove(K_LAST).commit()
+            ctx.applicationContext.getSharedPreferences(P, Context.MODE_PRIVATE).edit().putBoolean(K_RUN, false).remove(K_LAST).remove(K_CTX).remove(K_LT).commit()
         } catch (_: Throwable) { }
     }
 
     private fun norm(host: String?): String = (host ?: "").trim().lowercase().removePrefix("www.")
 
-    /** A page of a NORMAL tab starts loading (never call it for a private tab: the host would be written to disk). Written only when the host changes. */
-    fun note(host: String?) {
+    /** A page of a NORMAL tab starts loading (never call it for a private tab: the host would be written to disk). Written only when the host changes. [state] = one line of app state. */
+    fun note(host: String?, state: String = "") {
         try {
             val h = norm(host)
             if (h.isEmpty() || h == lastNoted) return
             lastNoted = h
-            sp?.edit()?.putString(K_LAST, h)?.commit()
+            sp?.edit()?.putString(K_LAST, h)?.putString(K_CTX, state.take(300))?.putLong(K_LT, System.currentTimeMillis())?.commit()
         } catch (_: Throwable) { }
     }
 
@@ -83,5 +86,22 @@ object CrashGuard {
     /** Forget the suspects (so a fixed WebView / page gets the normal behaviour again). */
     fun clearRisky() {
         try { bad = emptySet(); sp?.edit()?.remove(K_BAD)?.commit() } catch (_: Throwable) { }
+    }
+
+    /** 0.0.470: Report center section "Crash guard". */
+    fun section(): DiagReport.Section {
+        val lines = ArrayList<String>()
+        val p = sp
+        val h = p?.getString("lc_host", "") ?: ""
+        if (h.isEmpty()) lines.add("No crash while a page was loading is recorded")
+        else {
+            val t = p?.getLong("lc_time", 0L) ?: 0L
+            lines.add("Last crash while loading: $h" + (if (t > 0L) " (" + DiagExtra.fmtTime(t) + ")" else ""))
+            val c = p?.getString("lc_ctx", "") ?: ""
+            if (c.isNotEmpty()) lines.add("App state then: $c")
+        }
+        val b = bad
+        lines.add("Risky sites (pop-ups refused, no early scripts): " + (if (b.isEmpty()) "none" else b.joinToString(", ")))
+        return DiagReport.Section("guard", "Browser", "Crash guard", if (b.isNotEmpty()) DiagReport.WARN else DiagReport.INFO, lines)
     }
 }

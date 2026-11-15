@@ -73,6 +73,17 @@ object Diag {
 
     // ---------------------------------------------------------------- logging
 
+    private val keepPending = AtomicBoolean(false)
+
+    /** 0.0.470: like [log] but written to disk within 150 ms (not 1.5 s): for events right before a possible NATIVE crash (page start, pop-up), which would otherwise be lost. Coalesced. */
+    fun keep(level: String, tag: String, msg: String, extra: String? = null) {
+        log(level, tag, msg, extra)
+        if (file == null) return
+        if (keepPending.compareAndSet(false, true)) {
+            try { io.schedule({ keepPending.set(false); flushNow() }, 150, TimeUnit.MILLISECONDS) } catch (_: Throwable) { keepPending.set(false) }
+        }
+    }
+
     fun e(tag: String, msg: String, extra: String? = null) = log("E", tag, msg, extra)
     fun w(tag: String, msg: String, extra: String? = null) = log("W", tag, msg, extra)
     fun i(tag: String, msg: String, extra: String? = null) = log("I", tag, msg, extra)
