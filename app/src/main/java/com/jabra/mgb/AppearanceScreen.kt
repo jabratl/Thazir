@@ -518,7 +518,10 @@ object AppearanceScreen {
             prevHome?.visibility = if (AppearancePrefs.hubOn(act)) View.GONE else View.VISIBLE
             prevBar?.let { b -> // 0.0.459: Hub ON = the preview bar is accent-filled like the real bar
                 val hub = AppearancePrefs.hubOn(act)
-                val ink = act.getColor(if (hub) R.color.mg_on_primary else R.color.mg_text)
+                val fill = act.getColor(R.color.mg_primary)
+                val on = act.getColor(R.color.mg_on_primary)
+                fun cr(fg: Int) = androidx.core.graphics.ColorUtils.calculateContrast(fg or (0xFF shl 24), fill or (0xFF shl 24)) // 0.0.460: same contrast rule as the real bar (MainActivity.barInk)
+                val ink = if (!hub) act.getColor(R.color.mg_text) else if (cr(on) >= 3.0) on else if (cr(android.graphics.Color.WHITE) >= cr(android.graphics.Color.BLACK)) android.graphics.Color.WHITE else android.graphics.Color.BLACK
                 b.background = if (hub) round(act.getColor(R.color.mg_primary), 26) else round(act.getColor(R.color.mg_bg), 26, 1f, act.getColor(R.color.mg_outline))
                 val vg = b as? LinearLayout
                 if (vg != null) for (i in 0 until vg.childCount) when (val v = vg.getChildAt(i)) {

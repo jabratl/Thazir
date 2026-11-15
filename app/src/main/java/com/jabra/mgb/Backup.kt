@@ -246,6 +246,7 @@ object Backup {
                 AccentTheme.reload() // 0.0.291: the restored accent is read again
                 SurfaceStyle.reload() // 0.0.423
                 recreate = UiMode.mode(act) != before || AccentTheme.id(act) != accBefore || SurfaceStyle.id(act) != surfBefore
+                if (!recreate) try { AppearanceScreen.onChange?.invoke() } catch (_: Exception) { } // 0.0.460: restored Hub button / tiles / bar look show at once
             }
         }
         BookmarksScreen.tabsRef?.syncHome()
