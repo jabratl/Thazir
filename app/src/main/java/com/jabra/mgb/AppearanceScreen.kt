@@ -491,13 +491,13 @@ object AppearanceScreen {
                 updatePreview()
             }
             val up = AppearancePrefs.barTop(act) // A6: directions follow the bar position
-            toggleRow(behCard, R.drawable.ic_hub, "Hub button", "3x3 button at the left of the bar: home, new tab, private tab, back, forward, reload, search engine, Privacy Guard and bookmarks. Hold it = your Home button action",
+            toggleRow(behCard, R.drawable.ic_hub, "Hub button", "One 3x3 button at the left of the bar opens a small grid of shortcuts. Anything already on the bar (arrows, +) is left out of the grid, so nothing appears twice. Hold it = your Home button action",
                 { AppearancePrefs.hubOn(act) }) { on -> AppearancePrefs.setHubOn(act, on); AppearanceScreen.onChange?.invoke(); updatePreview() } // 0.0.456
             navRow(behCard, R.drawable.ic_reload, "Reset Hub tiles", if (HubSheet.isCustom(act)) "Custom" else "Default") { // 0.0.458: tiles are edited by holding one in the Hub
                 HubSheet.reset(act)
                 android.widget.Toast.makeText(act, "Hub tiles are back to default", android.widget.Toast.LENGTH_SHORT).show()
             }
-            toggleRow(behCard, R.drawable.ic_add, "New tab button", "Show a + next to the address bar: tap = new tab, hold = new private tab. With the Hub button it stays hidden until you turn it on (New tab is in the Hub)",
+            toggleRow(behCard, R.drawable.ic_add, "New tab button", "Show a + next to the address bar: tap = new tab, hold = new private tab. With the Hub button it stays hidden until you turn it on; then New tab leaves the Hub",
                 { AppearancePrefs.newTabBtn(act) }) { on -> AppearancePrefs.setNewTabBtn(act, on); AppearanceScreen.onChange?.invoke() }
             toggleRow(behCard, R.drawable.ic_screen, "Swipe for fullscreen", "Swipe the bar " + (if (up) "up" else "down") + " to hide the bar and system bars",
                 { AppearancePrefs.swipeFs(act) }) { on -> AppearancePrefs.setSwipeFs(act, on) }
@@ -517,7 +517,7 @@ object AppearanceScreen {
             prevHub?.visibility = if (AppearancePrefs.hubOn(act)) View.VISIBLE else View.GONE // 0.0.456
             prevHome?.visibility = if (AppearancePrefs.hubOn(act)) View.GONE else View.VISIBLE
             prevBar?.let { b -> // 0.0.459: Hub ON = the preview bar is accent-filled like the real bar
-                val hub = AppearancePrefs.hubOn(act)
+                val hub = false // 0.0.463: the Hub bar is the same flat bar now
                 val fill = act.getColor(R.color.mg_primary)
                 val on = act.getColor(R.color.mg_on_primary)
                 fun cr(fg: Int) = androidx.core.graphics.ColorUtils.calculateContrast(fg or (0xFF shl 24), fill or (0xFF shl 24)) // 0.0.460: same contrast rule as the real bar (MainActivity.barInk)

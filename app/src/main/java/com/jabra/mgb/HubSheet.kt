@@ -39,7 +39,7 @@ object HubSheet {
     private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 
     /** [state] 0 = normal, 1 = accent (on). */
-    class Tile(val id: String, val label: String, val icon: Int, val enabled: Boolean = true, val state: Int = 0)
+    class Tile(val id: String, val label: String, val icon: Int, val enabled: Boolean = true, val state: Int = 0) { var slot = -1 } // 0.0.463: slot = position in the saved 9 (tiles can be left out, the hold-to-edit still edits the right slot)
 
     /** 0.0.458: one action the Hub can hold. The code behind an id lives in MainActivity.hubTile / hubRun. */
     class Entry(val id: String, val label: String, val icon: Int)
@@ -59,7 +59,7 @@ object HubSheet {
         Entry("desktop", "Desktop site", R.drawable.ic_desktop), Entry("settings", "Settings", R.drawable.ic_settings),
         Entry("bookmark", "Bookmark this page", R.drawable.ic_bookmark_border)
     )
-    val DEFAULT = listOf("home", "newtab", "private", "back", "forward", "reload", "engine", "shield", "bookmarks")
+    val DEFAULT = listOf("home", "newtab", "private", "bookmarks", "history", "downloads", "ext", "engine", "find") // 0.0.463: back / forward / reload live in the 3-dot menu + edge swipe, the shield sits in the address field: no duplicates
 
     private fun sp(c: Context) = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
 
@@ -89,7 +89,7 @@ object HubSheet {
     fun show(act: Activity, bar: View, tiles: List<Tile>, run: (String) -> Unit, onEdited: () -> Unit = { }) {
         try { current?.dismiss() } catch (_: Exception) { }
         val cText = act.getColor(R.color.mg_text)
-        val cChip = act.getColor(R.color.mg_surface_variant)
+        val cDim = act.getColor(R.color.mg_text_dim)
         val cPrimary = act.getColor(R.color.mg_primary)
         val cOnPrimary = act.getColor(R.color.mg_on_primary)
 
@@ -98,20 +98,21 @@ object HubSheet {
             setPadding(Util.dp(act, 12), Util.dp(act, 12), Util.dp(act, 12), Util.dp(act, 8))
             background = GradientDrawable().apply {
                 setColor(act.getColor(R.color.mg_surface))
-                cornerRadius = Util.dp(act, 24).toFloat()
+                cornerRadius = Util.dp(act, 22).toFloat()
                 setStroke(Util.dp(act, 1), act.getColor(R.color.mg_outline))
             }
-            elevation = Util.dp(act, 8).toFloat()
+            elevation = Util.dp(act, 4).toFloat()
         }
         val pop = PopupWindow(card, bar.width.coerceAtLeast(Util.dp(act, 240)), WRAP, true).apply {
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             isOutsideTouchable = true
-            elevation = Util.dp(act, 8).toFloat()
+            elevation = Util.dp(act, 4).toFloat()
         }
         val ripple = TypedValue()
         val hasRipple = act.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, ripple, true)
 
-        for (r in 0 until 3) {
+        val rows = (tiles.size + 2) / 3
+        for (r in 0 until rows) {
             val row = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; weightSum = 3f }
             for (c in 0 until 3) {
                 val t = tiles.getOrNull(r * 3 + c)
@@ -122,22 +123,20 @@ object HubSheet {
                 }
                 if (t != null) {
                     val on = t.state == 1
-                    val chip = ImageView(act).apply {
+                    val chip = ImageView(act).apply { // 0.0.463: minimal: plain icon, no chip behind it; active = accent icon
                         setImageResource(t.icon)
-                        setColorFilter(if (on) cOnPrimary else cText)
+                        setColorFilter(if (on) cPrimary else cText)
                         scaleType = ImageView.ScaleType.CENTER_INSIDE
-                        setPadding(Util.dp(act, 14), Util.dp(act, 14), Util.dp(act, 14), Util.dp(act, 14))
-                        background = GradientDrawable().apply { setColor(if (on) cPrimary else cChip); cornerRadius = Util.dp(act, 16).toFloat() }
+                        setPadding(Util.dp(act, 12), Util.dp(act, 12), Util.dp(act, 12), Util.dp(act, 12))
                     }
-                    cell.addView(chip, LinearLayout.LayoutParams(Util.dp(act, 52), Util.dp(act, 52)))
+                    cell.addView(chip, LinearLayout.LayoutParams(Util.dp(act, 48), Util.dp(act, 48)))
                     cell.addView(TextView(act).apply {
                         text = t.label
-                        textSize = 12f
-                        setTextColor(cText)
-                        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                        textSize = 11.5f
+                        setTextColor(if (on) cPrimary else cDim)
                         gravity = Gravity.CENTER
                         setSingleLine(true)
-                        setPadding(0, Util.dp(act, 6), 0, 0)
+                        setPadding(0, 0, 0, Util.dp(act, 2))
                     }, LinearLayout.LayoutParams(MATCH, WRAP))
                     cell.isClickable = true
                     cell.contentDescription = t.label
@@ -149,7 +148,7 @@ object HubSheet {
                         pop.dismiss()
                         bar.post { try { run(t.id) } catch (_: Exception) { } }
                     }
-                    attachHold(act, cell, chip, r * 3 + c, pop, bar, onEdited)
+                    attachHold(act, cell, chip, if (t.slot >= 0) t.slot else r * 3 + c, pop, bar, onEdited)
                 }
                 row.addView(cell, LinearLayout.LayoutParams(0, WRAP, 1f))
             }

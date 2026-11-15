@@ -252,7 +252,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     // ---------- 0.0.459 (S4): Hub style look = accent-filled bar (reference screenshot). Hub OFF = the Classic drawables + tokens, untouched. ----------
 
-    private fun hubStyle(): Boolean = AppearancePrefs.hubOn(this)
+    private fun hubStyle(): Boolean = false // 0.0.463: the Hub no longer has its own (accent-filled) look: same flat minimal bar as Classic, so every hubStyle() look branch stays off
 
     /** the real fill of the Hub bar (?attr/colorPrimary of the current theme: accent + surface overlays included). */
     private fun barFill(): Int {
@@ -324,7 +324,16 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     /** 0.0.456: the Hub (3x3 popup above / below the bar). 0.0.458: the 9 tiles come from HubSheet.ids (owner can change them, hold a tile = picker). Same calls as the 3-dot menu: see hubRun. */
     private fun showHub() {
-        val tiles = HubSheet.ids(this).map { hubTile(it) }
+        // 0.0.463: no duplicates: a tile is left out while the same thing is already on the bar (arrows ON, "+" shown, shield / engine badge shown)
+        fun onBar(id: String): Boolean = when (id) {
+            "back" -> AppearancePrefs.navBack(this)
+            "forward" -> AppearancePrefs.navFwd(this)
+            "newtab" -> btnNewTab.visibility == View.VISIBLE
+            "shield" -> btnShield.visibility == View.VISIBLE
+            "engine" -> btnEngine.visibility == View.VISIBLE
+            else -> false
+        }
+        val tiles = HubSheet.ids(this).mapIndexedNotNull { slot, id -> if (onBar(id)) null else hubTile(id).also { it.slot = slot } }
         HubSheet.show(this, findViewById(R.id.bottom_bar), tiles, { hubRun(it) }) { findViewById<View>(R.id.bottom_bar)?.post { showHub() } } // after an edit the Hub opens again with the new tile
     }
 

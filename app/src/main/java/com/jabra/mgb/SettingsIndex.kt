@@ -19,8 +19,8 @@ object SettingsIndex {
 
     /** 0.0.444: text of the small "?" button on a row (key = row label). Two or three plain lines. */
     val HELP: Map<String, String> = mapOf(
-        "Hub button" to "Puts a 3x3 button at the left of the address bar. Tap it to open the Hub with 9 tiles; hold a tile for 1.5 seconds to choose another action for it. The bar is filled with your accent colour.",
-        "Reset Hub tiles" to "Puts the 9 Hub tiles back to the default actions (home, new tab, private, back, forward, reload, engine, guard, bookmarks).",
+        "Hub button" to "Puts a 3x3 button at the left of the address bar. Tap it to open the Hub (up to 9 tiles); hold a tile for 1.5 seconds to choose another action for it. Tiles for things already on the bar (arrows, +) are hidden automatically.",
+        "Reset Hub tiles" to "Puts the 9 Hub tiles back to the default actions (home, new tab, private, bookmarks, history, downloads, extensions, engine, find).",
         "App downloader" to "Used for normal files: a tab link, a blob or a Grabber file. Set the parts, a speed limit, the queue and resume. Streams (HLS / DASH) use Stream downloads instead.",
         "Download engine" to "Used for streams (HLS / DASH): speed, retries, limits and live recording. Normal files use File downloads instead.",
         "Download rules" to "Checked before a download starts: Wi-Fi only, battery and storage. Change it only if downloads do not start when you expect.",
