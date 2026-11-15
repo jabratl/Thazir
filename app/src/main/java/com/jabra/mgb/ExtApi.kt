@@ -334,7 +334,10 @@ object ExtApi {
         fun go() {
             ChromeBridge.emit(event, args, xid) { it.kind == ChromeBridge.Kind.EXT && xid in it.ids && TabsApi.listens(it, event) }
         }
-        if (wake && ExtBackground.has(xid) && !ExtBackground.running(xid)) ExtBackground.ensure(xid) { go() } else go()
+        if (wake && ExtBackground.has(xid) && !ExtBackground.running(xid)) {
+            // 0.0.477: page events (webNavigation / webRequest / tabs) start a stopped worker only when the browser is calm (not while a page loads); clicks, alarms, menus, commands still start it at once
+            if (event.startsWith("webNavigation.") || event.startsWith("webRequest.") || event.startsWith("tabs.")) ExtBackground.ensureCalm(xid) { go() } else ExtBackground.ensure(xid) { go() }
+        } else go()
     }
 
     /** tabs.onCreated / onUpdated ... for every enabled extension; url / title are removed where it may not see them. */

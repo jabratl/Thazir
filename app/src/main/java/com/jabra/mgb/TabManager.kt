@@ -214,7 +214,7 @@ class TabManager(
         val mi = android.app.ActivityManager.MemoryInfo()
         am?.getMemoryInfo(mi)
         "tabs=" + tabs.size + " popups=" + tabs.count { it.popup } + " thisIsPopup=" + tab.popup + " adblock=" + (if (AdBlock.enabled) "on" else "off") +
-            " desktop=" + (if (tab.desktop) "on" else "off") + " exts=" + ExtRegistry.all().count() + " freeRam=" + (mi.availMem / 1048576L) + "MB" + (if (mi.lowMemory) " LOW" else "")
+            " desktop=" + (if (tab.desktop) "on" else "off") + " exts=" + ExtRegistry.all().count() + " bgWorkers=" + ExtBackground.count() + " freeRam=" + (mi.availMem / 1048576L) + "MB" + (if (mi.lowMemory) " LOW" else "")
     } catch (_: Throwable) { "" }
 
     private fun freeDead(dead: WebView) {
@@ -743,6 +743,7 @@ class TabManager(
         }
 
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+            if (!tab.isExt) ExtBackground.pageTouch() // 0.0.477: extension workers / script refresh wait until the browser is calm
             if (tab.popup && !tab.isExt && url != null && AdBlock.blocksPage(url, tab.openerUrl)) { // 0.0.106: ad pop-up
                 Util.toast(ctx, "Pop-up blocked")
                 container.post { close(tab) }
@@ -782,6 +783,7 @@ class TabManager(
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {
+            if (!tab.isExt) ExtBackground.pageTouch() // 0.0.477
             tab.url = url ?: tab.url
             val risky = !tab.isExt && !tab.priv && CrashGuard.isRisky(Util.host(tab.url)) // 0.0.475: crash-risky site = no optional page scripts (password fill and the ad blocker flags stay)
             tab.progress = 100

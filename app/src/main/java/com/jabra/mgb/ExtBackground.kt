@@ -103,6 +103,40 @@ object ExtBackground {
     /** True if this enabled extension has a service worker we can run. */
     fun has(id: String): Boolean = swOf(id) != null
 
+    // ---------- 0.0.477: no worker start / stop / script refresh while a page is loading ----------
+    // A hidden worker WebView was created (and later destroyed) right at the page start of the tab, by webNavigation / webRequest / tabs events:
+    // the same "build and destroy a whole WebView while Chromium is starting a page" pattern that was suspected for the native crashes.
+    @Volatile private var lastPage = 0L
+    private val calmWait = HashMap<String, ArrayList<(Boolean) -> Unit>>() // main thread only
+
+    /** TabManager.onPageStarted / onPageFinished (normal tabs). */
+    fun pageTouch() { lastPage = SystemClock.uptimeMillis() }
+
+    /** true = no tab started or finished a page in the last 3 s. */
+    fun calm(): Boolean = SystemClock.uptimeMillis() - lastPage > 3000L
+
+    fun count(): Int = bgs.size
+
+    /** Like ensure(), for events nobody is waiting for (webNavigation / webRequest / tabs): the start waits until the browser is calm (max 12 s). Events that pile up while waiting: first 20 are kept, the rest dropped. */
+    fun ensureCalm(id: String, cb: (Boolean) -> Unit) {
+        ui {
+            if (bgs[id] != null || calm()) { ensure(id, cb); return@ui }
+            val l = calmWait[id]
+            if (l != null) { if (l.size < 20) l.add(cb); return@ui }
+            calmWait[id] = arrayListOf(cb)
+            Diag.keep("I", "extbg", "worker start deferred", Diag.mask(nameOf(id).take(24)))
+            waitCalm(id, 0)
+        }
+    }
+
+    private fun waitCalm(id: String, tries: Int) {
+        main.postDelayed({
+            if (!calm() && tries < 12) { waitCalm(id, tries + 1); return@postDelayed }
+            val l = calmWait.remove(id) ?: return@postDelayed
+            ensure(id) { ok -> for (f in l) { try { f(ok) } catch (e: Exception) { Log.e(TAG, "calm waiter", e) } } }
+        }, 1000L)
+    }
+
     fun running(id: String): Boolean = bgs[id] != null
 
     fun idOf(w: WebView): String? = bgs.values.firstOrNull { it.web === w }?.id
@@ -161,7 +195,7 @@ object ExtBackground {
             for (b in bgs.values.toList()) {
                 val info = ExtRegistry.get(b.id)
                 if (info == null || !info.enabled) { stop(b.id, "turned off"); continue }
-                if (b.ready && b.busy == 0 && now - b.lastActive > IDLE_MS) stop(b.id, "idle")
+                if (b.ready && b.busy == 0 && now - b.lastActive > IDLE_MS && calm()) stop(b.id, "idle") // 0.0.477: never destroy a worker while a page is loading
             }
             if (bgs.isEmpty()) ticking = false else main.postDelayed(this, TICK_MS)
         }
@@ -267,6 +301,7 @@ object ExtBackground {
             w.loadUrl(own + PAGE)
             if (!ticking) { ticking = true; main.postDelayed(tick, TICK_MS) }
             EngineHost.addLog("ext worker started: " + nameOf(id))
+            Diag.keep("I", "extbg", "worker start", Diag.mask(nameOf(id).take(24))) // 0.0.477: breadcrumb for the crash report
         }
     }
 
@@ -296,6 +331,7 @@ object ExtBackground {
                 b.web.webChromeClient = null
                 main.post { try { b.web.destroy() } catch (e: Exception) { Log.e(TAG, "destroy", e) } }
                 EngineHost.addLog("ext worker stopped: " + nameOf(id) + " (" + why + ")")
+                Diag.keep("I", "extbg", "worker stop (" + why + ")", Diag.mask(nameOf(id).take(24))) // 0.0.477
                 for (f in ws) { try { f(false) } catch (e: Exception) { Log.e(TAG, "waiter", e) } }
             }
         }

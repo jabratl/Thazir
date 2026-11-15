@@ -652,8 +652,16 @@ object ContentInjector {
     }
 
     /** 0.0.108: call (UI thread) after an extension was added / removed / switched / updated: open tabs get the new scripts on their next page load. */
+    private var refreshWait = false
     fun refresh(ctx: Context) {
         if (!inited || !supported()) return
+        // 0.0.477: removing / adding document-start scripts on a WebView that is loading a page is risky: wait for a calm moment (one queued run covers every call meanwhile)
+        if (refreshWait) return
+        if (!ExtBackground.calm()) {
+            refreshWait = true
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ refreshWait = false; refresh(ctx) }, 2500L)
+            return
+        }
         val webs = synchronized(extHandles) { extHandles.keys.toList() }
         for (w in webs) {
             try {
