@@ -75,7 +75,7 @@ object DownloadsScreen {
         private val tick = object : Runnable {
             override fun run() {
                 render()
-                main.postDelayed(this, if (busy) 1000L else 2500L) // 0.0.464: 1 s only while a download runs, else 2.5 s (less work on the UI thread)
+                main.postDelayed(this, 1000)
             }
         }
 
@@ -130,7 +130,7 @@ object DownloadsScreen {
                 list?.let { l -> (l.parent?.parent as? View)?.let { BookmarksScreen.enter(act, it, enterDir) } }
                 findViewById<View>(R.id.xd_search)?.let { BookmarksScreen.enter(act, it, enterDir) }
             }
-            if (enterDir != 0) main.postDelayed(tick, 80) else main.post(tick) // 0.0.464: handed over: the slide gets its first frames before the list is built
+            main.post(tick)
         }
 
         @Suppress("OVERRIDE_DEPRECATION")
@@ -290,7 +290,6 @@ object DownloadsScreen {
         private fun render() {
             val box = list ?: return
             val jobs = EngineApi.jobs()
-            busy = jobs.any { it.optString("state") == "run" } // 0.0.464
             val hist = histOf()
             val s = jobs.joinToString("|") {
                 it.optString("key") + ":" + it.optString("state") + ":" + pctOf(it) + ":" + it.optBoolean("paused") + ":" + it.optString("text") +
@@ -322,7 +321,6 @@ object DownloadsScreen {
             if (fresh) BookmarksScreen.fillChunked(box, rows, { gen == renderGen && list === box }) else for (r in rows) box.addView(r()) // 0.0.446
         }
 
-        private var busy = false // 0.0.464: a download is running
         private var renderGen = 0 // 0.0.446: a newer render() stops the batches of an older one
 
         // ---------- S65: card design (surface cards, icon tile, pill buttons) ----------
