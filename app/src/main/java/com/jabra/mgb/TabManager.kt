@@ -206,6 +206,7 @@ class TabManager(
     // The WebView render process can die (low memory, a bug in a page). If onRenderProcessGone returns false the whole APP is killed.
     // Now the dead WebView is replaced by a fresh one (like doSuspend) and the page comes back: the open tab at once, other tabs when opened.
     private val crashLog = HashMap<Int, ArrayList<Long>>()
+    @Volatile private var lastPopupAt = 0L // 0.0.468: onCreateWindow rate limit
 
     private fun freeDead(dead: WebView) {
         try { (dead.parent as? ViewGroup)?.removeView(dead) } catch (_: Throwable) { }
@@ -447,10 +448,13 @@ class TabManager(
         tab.web.stopLoading()
         ChromeBridge.unbind(tab.web)
         tab.web.webChromeClient = null
-        container.post {
+        // 0.0.468: a pop-up WebView is torn down gently: our own client is replaced (no app code runs from the dying page), the page is emptied
+        // and the destroy waits a moment, so Chromium is not still starting the window when the WebView goes away.
+        if (tab.popup) { try { tab.web.webViewClient = WebViewClient(); tab.web.loadUrl("about:blank") } catch (_: Throwable) { } }
+        container.postDelayed({
             tab.web.destroy()
             if (tab.priv && tabs.none { it.priv }) purgePrivate() // S26: last private tab closed = wipe its data
-        }
+        }, if (tab.popup) 700L else 0L)
         if (wasActive) {
             val next = tabs.firstOrNull { it.id == tab.openerId }
                 ?: tabs.getOrNull(minOf(idx, tabs.size - 1))
@@ -726,7 +730,8 @@ class TabManager(
             if (view != null && !view.canGoForward() && url != tab.url) tab.homeFwd = false // 0.0.130: a new page cuts the Home entry ahead
             tab.url = url ?: tab.url
             tab.progress = 0
-            if (!tab.priv && !tab.isExt && url != null && url.startsWith("http")) Diag.i("page", "start", Util.host(url)) // 0.0.465: breadcrumb (host only, never in a private tab) so a native crash report shows the last site
+            if (!tab.priv && !tab.isExt && url != null && url.startsWith("http")) { Diag.i("page", "start", Util.host(url)); CrashGuard.note(Util.host(url)) } // 0.0.468: CrashGuard remembers the host (disk) so a native crash marks it risky
+            // // 0.0.465: breadcrumb (host only, never in a private tab) so a native crash report shows the last site
             if (tab.home) { // S13
                 val kept = tab.keepUrl // 0.0.130: same page loading under Home keeps Home; another address leaves it
                 if (kept == null || (url != null && url != kept)) { tab.home = false; tab.keepUrl = null; tab.homeFwd = false; syncHome() }
@@ -793,8 +798,9 @@ class TabManager(
     private fun chrome(tab: Tab) = object : WebChromeClient() {
         override fun onProgressChanged(view: WebView?, newProgress: Int) {
             tab.progress = newProgress
-            if (!tab.isExt && newProgress in 35..99) CosmeticFilter.inject(ctx, view, tab.url) // S42: early, so the banner does not flash
-            if (!tab.isExt && newProgress in 35..99) SocialMode.inject(ctx, view, tab.url, tab.desktop) // 0.0.224: early viewport for the chat
+            val risky = tab.isExt.not() && !tab.priv && CrashGuard.isRisky(Util.host(tab.url)) // 0.0.468: a site that crashed the WebView before: no JS injection while it loads
+            if (!tab.isExt && !risky && newProgress in 35..99) CosmeticFilter.inject(ctx, view, tab.url) // S42: early, so the banner does not flash
+            if (!tab.isExt && !risky && newProgress in 35..99) SocialMode.inject(ctx, view, tab.url, tab.desktop) // 0.0.224: early viewport for the chat
             listener.onPageInfo(tab)
         }
 
@@ -816,11 +822,27 @@ class TabManager(
             view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?
         ): Boolean {
             if (!isUserGesture || resultMsg == null) return false
+            // 0.0.468: pop-up spam (pop-under ads) made the app create and destroy a whole WebView (profile, 10+ scripts, 4 JS bridges) again and again
+            // while Chromium was still starting the page: a risky path for a native crash. Returning false = Chromium refuses the window safely.
+            val now = android.os.SystemClock.uptimeMillis()
+            val opener = Util.host(tab.url)
+            val why = when {
+                !tab.priv && !tab.isExt && CrashGuard.isRisky(opener) -> "risky site"
+                now - lastPopupAt < 1500L -> "too fast"
+                tabs.count { it.popup } >= 2 -> "too many"
+                else -> null
+            }
+            if (why != null) {
+                Diag.i("popup", "refused ($why)", if (tab.priv) "(private tab)" else opener)
+                return false
+            }
+            lastPopupAt = now
             val t = newTab(null, tab.id, true) ?: return false
-            val transport = resultMsg.obj as WebView.WebViewTransport
+            val transport = resultMsg.obj as? WebView.WebViewTransport ?: run { close(t); return false }
             t.popup = true; t.openerUrl = tab.url // 0.0.106
             transport.webView = t.web
             resultMsg.sendToTarget()
+            Diag.i("popup", "opened", if (tab.priv) "(private tab)" else opener)
             return true
         }
 
