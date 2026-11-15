@@ -260,20 +260,10 @@ object Backup {
     /** Menu / Settings: list of recently closed tabs, tap = reopen in a new tab. */
     fun closedTabs(act: Activity, tabs: TabManager?) {
         val list = ClosedTabs.list()
-        if (list.isEmpty()) {
-            Util.toast(act, "No recently closed tabs")
-            return
-        }
-        val labels = list.map { it.title.take(40) + "  |  " + Util.host(it.url) }.toTypedArray()
-        MaterialAlertDialogBuilder(act)
-            .setTitle("Recently closed tabs")
-            .setItems(labels) { _, i ->
-                val e = list[i]
-                ClosedTabs.remove(e.url)
-                tabs?.newTab(e.url)
-            }
-            .setPositiveButton("Clear list") { _, _ -> ClosedTabs.clear() }
-            .setNegativeButton("Close", null)
-            .show()
+        // 0.0.461: select + delete (ListEditor): tap = reopen, hold = select several and delete them
+        ListEditor.show(act, "Recently closed tabs", list.map { ListEditor.Row(it.title.take(60), Util.host(it.url)) }, "No recently closed tabs",
+            onOpen = { i -> val e = list[i]; ClosedTabs.remove(e.url); tabs?.newTab(e.url) },
+            onDelete = { idx -> for (i in idx) ClosedTabs.remove(list[i].url) },
+            onClear = { ClosedTabs.clear() })
     }
 }
