@@ -291,8 +291,8 @@ class HomeView(
         })
     }
 
-    /** S34: recent sites that are not pinned: one tap to jump back. */
-    private fun recentRow(): View? {
+    /** 0.0.469: recent sites that are not pinned, newest first, ONE row per site (the same rule the chips always used). */
+    private fun recentItems(limit: Int): List<Bookmarks.Item> {
         val skip = HashSet<String>()
         skip.add("appassets.androidplatform.net")
         for (h in Bookmarks.home()) if (h.url.isNotBlank()) skip.add(Util.host(h.url))
@@ -302,19 +302,59 @@ class HomeView(
             val host = Util.host(h.url)
             if (host.isBlank() || !skip.add(host)) continue
             items.add(h)
-            if (items.size >= 6) break
+            if (items.size >= limit) break
         }
+        return items
+    }
+
+    /** 0.0.469: remove a site from "Recently visited" = delete ALL its history rows (else the next older page of the same site would take its place). Undo bar. */
+    private fun removeRecent(items: List<Bookmarks.Item>) {
+        try {
+            val hosts = items.map { Util.host(it.url).lowercase() }.toSet()
+            val rows = Bookmarks.history().filter { Util.host(it.url).lowercase() in hosts }
+            if (Bookmarks.removeHistoryMany(rows) > 0) { refresh(); BmUndo.history(this, rows) { refresh() } }
+        } catch (_: Exception) { Util.toast(context, "Could not remove") }
+    }
+
+    /** 0.0.469: list of all recent sites (up to 40): tap = open, hold / Select = tick several and Delete (ListEditor). */
+    private fun editRecent() {
+        val act = context as? android.app.Activity ?: return
+        val list = recentItems(40)
+        ListEditor.show(act, "Recently visited", list.map { ListEditor.Row(it.title.take(60), Util.host(it.url)) }, "Nothing here yet",
+            onOpen = { i -> list.getOrNull(i)?.let { onOpen(it.url) } },
+            onDelete = { idx -> removeRecent(idx.mapNotNull { list.getOrNull(it) }) })
+    }
+
+    /** S34: recent sites that are not pinned: one tap to jump back. 0.0.469: "Edit" opens the list editor, hold a chip = new tab / remove. */
+    private fun recentRow(): View? {
+        val items = recentItems(6)
         if (items.isEmpty()) return null
         val col = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        col.addView(TextView(context).apply {
+        val head = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), 0, 0, dp(6)) }
+        head.addView(TextView(context).apply {
             text = "RECENTLY VISITED"
             setTextColor(context.getColor(R.color.mg_text_dim))
             textSize = 11f
             letterSpacing = 0.16f
-            setPadding(dp(8), 0, 0, dp(10))
-        }, LinearLayout.LayoutParams(MATCH, WRAP))
+        }, LinearLayout.LayoutParams(0, WRAP, 1f))
+        head.addView(TextView(context).apply {
+            text = "Edit"
+            setTextColor(context.getColor(R.color.mg_primary))
+            textSize = 13f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setPadding(dp(14), dp(8), dp(12), dp(8))
+            isClickable = true
+            setOnClickListener { editRecent() }
+        }, LinearLayout.LayoutParams(WRAP, WRAP))
+        col.addView(head, LinearLayout.LayoutParams(MATCH, WRAP))
         val line = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(4), 0, dp(4), 0) }
-        for (r in items) line.addView(chip(r.title, r.url), LinearLayout.LayoutParams(WRAP, dp(44)).apply { marginEnd = dp(8) })
+        for (r in items) line.addView(chip(r.title, r.url) {
+            val name = r.title.ifBlank { Util.host(r.url) }
+            MaterialAlertDialogBuilder(context)
+                .setTitle(name)
+                .setItems(arrayOf("Open in new tab", "Remove from Recently visited")) { _, which -> if (which == 0) onOpenNew(r.url) else removeRecent(listOf(r)) }
+                .show()
+        }, LinearLayout.LayoutParams(WRAP, dp(44)).apply { marginEnd = dp(8) })
         col.addView(HorizontalScrollView(context).apply {
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
@@ -323,7 +363,7 @@ class HomeView(
         return col
     }
 
-    private fun chip(title: String, url: String): View {
+    private fun chip(title: String, url: String, onHold: () -> Unit): View {
         val name = title.ifBlank { Util.host(url) }
         val letter = Util.host(url).firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "?"
         val t = tint(Util.host(url))
@@ -340,7 +380,7 @@ class HomeView(
             isClickable = true
             isFocusable = true
             setOnClickListener { onOpen(url) }
-            setOnLongClickListener { onOpenNew(url); true }
+            setOnLongClickListener { onHold(); true }
             val favC = Favicons.get(Util.host(url)) // S45
             if (favC != null) addView(ImageView(context).apply {
                 setImageBitmap(favC)

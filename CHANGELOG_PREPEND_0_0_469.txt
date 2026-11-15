@@ -1,0 +1,10 @@
+0.0.469 (NEW: edit "Recently visited" on the Home page)
+- Base = 0.0.468. Changed files: app/build.gradle.kts (0.0.469), HomeView.kt
+- Before: the chips of "RECENTLY VISITED" could only be tapped (open) or held (new tab). No way to remove one.
+- 1. "Edit" text at the right of the RECENTLY VISITED label: opens ListEditor (the sheet of Recently closed tabs): all recent sites (up to 40, one row per site), tap = open, hold or "Select" = tick several, Delete (n) / All / Done.
+- 2. Hold a chip: menu "Open in new tab" / "Remove from Recently visited" (before: hold = new tab at once).
+- 3. Remove = deletes ALL history rows of that site (otherwise the next older page of the same site would take the chip's place). Undo bar (BmUndo.history, 6 s) puts them back. Bookmarks, pinned tiles, passwords, cookies are not touched. Private tab Home does not show the row (as before).
+- COULD BREAK: hold on a chip now asks first (one extra tap for "new tab"). Removing a site also removes it from the History screen.
+- NOT tested: Gradle build (CI), device. Brackets: same balance as 0.0.467 HomeView.kt.
+- DEVICE TEST: (1) Home: tap Edit > sheet lists sites; hold one, tick two, Delete: chips update, Undo bar appears, Undo brings them back. (2) hold a chip > Remove: chip gone, History screen has no rows of that site. (3) hold a chip > Open in new tab works. (4) no history = row hidden, Edit not shown.
+- ROLLBACK: restore HomeView.kt from 0.0.467.
