@@ -1,0 +1,8 @@
+0.0.473 (Downloads screen: same 3-dot button as Bookmarks / History, with Select and Folder location)
+- Base = 0.0.472. Changed files: app/build.gradle.kts, DownloadsScreen.kt. No new file, no new resource.
+1. DownloadsScreen.kt: the header button that was hidden (xd_close, the X) now becomes the 3-dot (ic_more, 44 x 48 dp, padding 10 dp = the same as the Bookmarks / History header), so the pill bar has the SAME width on all 3 screens (before, Downloads had no 3-dot and the pill was wider). The X stays only when the pills are not shown (no tabsRef), as before.
+2. NEW moreMenu(): popup menu from BmUi.menu (same look as the Bookmarks menu): "Select" (starts multi-select of saved files, same as long press; while selecting it reads "Stop selecting") and "Folder location" (DownloadFolder.showDialog: shows the folder now, Choose folder... / Use default / Close; same dialog as Settings > Downloads > Download folder).
+- COULD BREAK: nothing outside the Downloads header. The Clear text button (xd_clear) is still hidden as in 0.0.126.
+- NOT tested: Gradle build (CI), device.
+- DEVICE TEST: (1) Bookmarks > History > Downloads: the pill bar has the same width and the 3-dot is in the same place on all 3. (2) Downloads 3-dot > Select: the select card appears (All / Remove / Delete / Done), tap rows to pick. While selecting the entry reads "Stop selecting". (3) Folder location: dialog shows the folder, "Choose folder..." opens the system folder picker, "Use default" goes back to the phone Downloads folder. (4) Light + dark theme: menu text and icons readable.
+- ROLLBACK: restore DownloadsScreen.kt and app/build.gradle.kts from 0.0.472 (or in DownloadsScreen.kt put back the line findViewById<View>(R.id.xd_close).visibility = View.GONE and delete moreMenu).

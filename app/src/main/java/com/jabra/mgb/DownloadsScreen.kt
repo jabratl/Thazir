@@ -116,7 +116,12 @@ object DownloadsScreen {
                     }
                 }
                 hdr.addView(bar, at, android.widget.LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginStart = dp(4); marginEnd = dp(4) })
-                findViewById<View>(R.id.xd_close).visibility = View.GONE // the back arrow already closes
+                findViewById<android.widget.ImageView>(R.id.xd_close)?.apply { // 0.0.473: same 3-dot as Bookmarks / History (same size, same place), so the pill bar has the same width on all 3 screens
+                    setImageResource(R.drawable.ic_more)
+                    setPadding(dp(10), dp(10), dp(10), dp(10))
+                    contentDescription = "More"
+                    setOnClickListener { moreMenu(this) }
+                }
             }
             findViewById<android.widget.EditText>(R.id.xd_search)?.let { et -> // S66
                 et.background = round(act.getColor(R.color.mg_surface_variant), 22)
@@ -220,6 +225,16 @@ object DownloadsScreen {
                 .setNegativeButton("Cancel", null)
                 .show()
             et.requestFocus()
+        }
+
+        /** 0.0.473: 3-dot menu of the Downloads screen: Select (multi-select of saved files) and Folder location (Choose folder / Use default). */
+        private fun moreMenu(anchor: View) {
+            BmUi.menu(act, anchor, listOf(
+                BmUi.Entry(if (selecting) "Stop selecting" else "Select", R.drawable.ic_bm_select) {
+                    if (selecting) endSelect() else { selecting = true; picked.clear(); sig = ""; render() }
+                },
+                BmUi.Entry("Folder location", R.drawable.ic_bm_folder) { DownloadFolder.showDialog(act) { } }
+            ))
         }
 
         // ---------- S19: select mode ----------
