@@ -493,7 +493,7 @@ object AppearanceScreen {
             val up = AppearancePrefs.barTop(act) // A6: directions follow the bar position
             toggleRow(behCard, R.drawable.ic_hub, "Hub button", "3x3 button at the left of the bar: home, new tab, private tab, back, forward, reload, search engine, Privacy Guard and bookmarks. Hold it = your Home button action",
                 { AppearancePrefs.hubOn(act) }) { on -> AppearancePrefs.setHubOn(act, on); AppearanceScreen.onChange?.invoke(); updatePreview() } // 0.0.456
-            toggleRow(behCard, R.drawable.ic_add, "New tab button", "Show a + next to the address bar: tap = new tab, hold = new private tab",
+            toggleRow(behCard, R.drawable.ic_add, "New tab button", "Show a + next to the address bar: tap = new tab, hold = new private tab. With the Hub button it stays hidden until you turn it on (New tab is in the Hub)",
                 { AppearancePrefs.newTabBtn(act) }) { on -> AppearancePrefs.setNewTabBtn(act, on); AppearanceScreen.onChange?.invoke() }
             toggleRow(behCard, R.drawable.ic_screen, "Swipe for fullscreen", "Swipe the bar " + (if (up) "up" else "down") + " to hide the bar and system bars",
                 { AppearancePrefs.swipeFs(act) }) { on -> AppearancePrefs.setSwipeFs(act, on) }

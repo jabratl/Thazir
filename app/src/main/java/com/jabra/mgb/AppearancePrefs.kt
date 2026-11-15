@@ -64,7 +64,8 @@ object AppearancePrefs {
     /** 0.0.456: ON = Hub button (3x3 dots, opens the Hub) replaces the left Home-action button. Default OFF = today's bar. */
     fun hubOn(c: Context): Boolean = sp(c).getBoolean(K_BAR_HUB, false)
     fun setHubOn(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_BAR_HUB, on).apply() }
-    fun newTabBtn(c: Context): Boolean = sp(c).getBoolean(K_NEWTAB, true)
+    /** 0.0.457: with the Hub button ON the "+" is hidden until the owner turns "New tab button" on by hand (key present); New tab is a Hub tile. Hub OFF = as before (default ON). */
+    fun newTabBtn(c: Context): Boolean = if (hubOn(c) && !sp(c).contains(K_NEWTAB)) false else sp(c).getBoolean(K_NEWTAB, true)
     fun setNewTabBtn(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_NEWTAB, on).apply() }
     fun swipeNav(c: Context): Boolean = sp(c).getBoolean(K_SWIPE_NAV, true)
     fun setSwipeNav(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_SWIPE_NAV, on).apply() }
