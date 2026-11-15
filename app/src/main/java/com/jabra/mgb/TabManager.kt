@@ -621,7 +621,7 @@ class TabManager(
             // S41: HTTPS-only mode
             if (!tab.isExt && request.isForMainFrame && u.scheme == "http" && HttpsOnly.on(ctx) && tab.httpsAllow != u.host && tab.httpsFrom != u.toString()) {
                 val up = HttpsOnly.upgrade(u.toString())
-                if (up != null) { tab.httpsFrom = u.toString(); view?.loadUrl(up); return true }
+                if (up != null) { tab.httpsFrom = u.toString(); view?.let { v -> container.post { try { v.loadUrl(up) } catch (_: Throwable) { } } }; return true } // 0.0.465: the https load starts one message later, never inside shouldOverrideUrlLoading (same rule as 0.0.415)
             }
             // S39: a link / redirect to a video file or stream opens the built-in player (not Chromium's media page)
             if (!tab.isExt && request.isForMainFrame && playLink(tab, u.toString())) return true
@@ -726,6 +726,7 @@ class TabManager(
             if (view != null && !view.canGoForward() && url != tab.url) tab.homeFwd = false // 0.0.130: a new page cuts the Home entry ahead
             tab.url = url ?: tab.url
             tab.progress = 0
+            if (!tab.priv && !tab.isExt && url != null && url.startsWith("http")) Diag.i("page", "start", Util.host(url)) // 0.0.465: breadcrumb (host only, never in a private tab) so a native crash report shows the last site
             if (tab.home) { // S13
                 val kept = tab.keepUrl // 0.0.130: same page loading under Home keeps Home; another address leaves it
                 if (kept == null || (url != null && url != kept)) { tab.home = false; tab.keepUrl = null; tab.homeFwd = false; syncHome() }

@@ -119,7 +119,8 @@ object UiMode {
     fun applyPage(w: WebView, allowed: Boolean) {
         try {
             if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-                WebSettingsCompat.setAlgorithmicDarkeningAllowed(w.settings, allowed)
+                if (WebSettingsCompat.isAlgorithmicDarkeningAllowed(w.settings) != allowed) // 0.0.465: write only when it changes (this runs in onPageStarted on every page; fewer native settings writes inside a navigation callback)
+                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(w.settings, allowed)
             }
         } catch (e: Exception) { /* old WebView: pages stay as they are */ }
     }
