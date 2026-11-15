@@ -44,12 +44,27 @@ object BookmarksScreen {
     }
 
     /** 0.0.366: shared slide / fade used by both screens for the body under the header. dir +1 = from the right, -1 = from the left. */
-    fun enter(act: Activity, v: View, dir: Int) {
+    fun enter(act: Activity, v: View, dir: Int, delay: Long = 0L, startAlpha: Float = 0f, dur: Long = 260L) { // 0.0.467: delay (old list fades first), startAlpha (a handed-over screen never starts blank), dur
         if (dir == 0 || TabPrefs.reduce(act)) return
-        v.alpha = 0f
+        v.alpha = startAlpha
         v.translationX = dir * Util.dp(act, 36).toFloat()
-        v.animate().alpha(1f).translationX(0f).setDuration(260)
+        v.animate().alpha(1f).translationX(0f).setStartDelay(delay).setDuration(dur)
             .setInterpolator(android.view.animation.DecelerateInterpolator(1.8f)).start()
+    }
+
+    /** 0.0.467: status + navigation bar of a Bookmarks / History / Downloads window = the page colour (mg_bg), icons dark or light to match. The dialog theme drew a light lavender status bar over the dark screen. */
+    fun styleBars(act: Activity, w: android.view.Window?) {
+        if (w == null) return
+        try {
+            val bg = act.getColor(R.color.mg_bg)
+            w.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            w.statusBarColor = bg
+            w.navigationBarColor = bg
+            val light = androidx.core.graphics.ColorUtils.calculateLuminance(bg) > 0.5
+            val ic = androidx.core.view.WindowCompat.getInsetsController(w, w.decorView)
+            ic.isAppearanceLightStatusBars = light
+            ic.isAppearanceLightNavigationBars = light
+        } catch (_: Throwable) { }
     }
 
     /** S25: the 3 top pills. selected: 0 Bookmarks, 1 History, 2 Downloads. pick(i) is called on tap. */
@@ -92,11 +107,11 @@ object BookmarksScreen {
                 cur = i
                 lastPill = i
                 if (segW > 0 && !reduce) {
-                    ind.animate().translationX(i * segW.toFloat()).setDuration(280)
+                    ind.animate().translationX(i * segW.toFloat()).setDuration(200) // 0.0.467: 280 -> 200, in step with the body
                         .setInterpolator(android.view.animation.DecelerateInterpolator(1.8f)).start()
                     for (j in tv.indices) {
                         val to = act.getColor(if (j == i) R.color.mg_on_primary else R.color.mg_text)
-                        if (j == i || j == old) android.animation.ObjectAnimator.ofArgb(tv[j], "textColor", tv[j].currentTextColor, to).setDuration(220).start()
+                        if (j == i || j == old) android.animation.ObjectAnimator.ofArgb(tv[j], "textColor", tv[j].currentTextColor, to).setDuration(160).start()
                     }
                 } else {
                     ind.translationX = i * segW.toFloat()
@@ -205,6 +220,7 @@ object BookmarksScreen {
                 it.setBackgroundDrawable(ColorDrawable(act.getColor(R.color.mg_bg)))
                 it.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
             }
+            styleBars(act, window) // 0.0.467
         }
 
         /** S23: (re)build the whole screen: top pills + search + list. Called at start and when the mode changes. */
@@ -221,7 +237,7 @@ object BookmarksScreen {
             host.addView(body, android.widget.FrameLayout.LayoutParams(MATCH, MATCH))
             root.addView(host, LinearLayout.LayoutParams(MATCH, 0, 1f))
             setContentView(root)
-            if (enterDir != 0) { enter(act, body, enterDir); enterDir = 0; body.post { render() } } else render() // 0.0.464: handed over from Downloads: the slide starts first, the list is filled the next frame
+            if (enterDir != 0) { enter(act, body, enterDir, 0L, 0.4f, 200L); enterDir = 0; body.post { render() } } else render() // 0.0.464: handed over from Downloads: the slide starts first, the list is filled the next frame
         }
 
         /** 0.0.366: search + filter + list of the current mode (the part that changes when a pill is tapped). Sets list / empty. */
@@ -272,10 +288,9 @@ object BookmarksScreen {
             val old = host.getChildAt(host.childCount - 1)
             val nb = buildBody()
             host.addView(nb, android.widget.FrameLayout.LayoutParams(MATCH, MATCH))
-            enter(act, nb, dir)
+            enter(act, nb, dir, 110L, 0f, 220L) // 0.0.467: starts after the old list has faded (no two lists on screen)
             nb.post { if (mode == m) render() } // 0.0.464: animation first, rows next frame (was: rows built before the first animation frame)
-            val d = dp(36).toFloat()
-            old?.animate()?.alpha(0f)?.translationX(-dir * d)?.setDuration(170)
+            old?.animate()?.alpha(0f)?.setDuration(110) // 0.0.467: fade only, no slide
                 ?.setInterpolator(android.view.animation.AccelerateInterpolator(1.2f))
                 ?.withEndAction { host.removeView(old) }?.start()
         }
