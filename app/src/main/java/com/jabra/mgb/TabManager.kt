@@ -719,6 +719,10 @@ class TabManager(
 
         override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean { // S83: same result as the default (false), only logged
             Diag.e("tab", if (detail?.didCrash() == true) "tab crashed (render process)" else "tab killed by the system (low memory?)", if (tab.priv) "(private tab)" else tab.url)
+            if (!tab.priv && !tab.isExt) { // 0.0.471: 2 real render crashes of one site in 24 h = that site becomes "risky" (CrashGuard)
+                val n = CrashGuard.rendererCrash(Util.host(tab.url), detail?.didCrash() == true)
+                if (n >= 2) Diag.w("guard", "render process crashed $n times in 24 h: marked risky", Util.host(tab.url))
+            }
             // 0.0.417: false made Android kill the whole app. Now the tab is rebuilt (recoverTab) and the app stays alive.
             if (view == null) return false
             return try {

@@ -116,6 +116,10 @@ object CrashReport {
         val ev = try { Diag.mask(Diag.dump(15)) } catch (_: Throwable) { "" }
         if (ev.isNotBlank()) b.append("\n--- Last events ---\n").append(ev.take(2500))
         if (javaText.isNotBlank()) DiagExtra.saveCrashCopy(app, javaText, javaTime) // the Report center keeps it too
+        try { // 0.0.471: the app keeps its own list of crashes (Report center > Crash history)
+            val lib = part?.nativeLines?.firstNotNullOfOrNull { Regex("#0\\s+(\\S+)\\s+\\+0x").find(it)?.groupValues?.get(1) } ?: ""
+            CrashHistory.add(app, ts, part?.reason ?: "CRASH (Java)", part?.status, CrashGuard.lastCrashHost(), lib)
+        } catch (_: Throwable) { }
         show(act, title, b.toString(), ts, javaText.isNotBlank())
     }
 

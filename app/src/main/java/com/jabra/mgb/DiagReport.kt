@@ -255,6 +255,7 @@ object DiagReport {
 
         secs.add(safe(Section("sites", "Browser", "Errors by site", INFO, listOf("not readable"))) { DiagMore.bySite(now) }) // 0.0.402
         secs.add(safe(Section("guard", "Browser", "Crash guard", INFO, listOf("not readable"))) { CrashGuard.section() }) // 0.0.470
+        secs.add(safe(Section("crashhist", "Device", "Crash history", INFO, listOf("not readable"))) { CrashHistory.section(ctx) }) // 0.0.471
 
         // ---- verdict (S86: rule engine, DiagRules.kt)
         val x = DiagRules.Facts()
