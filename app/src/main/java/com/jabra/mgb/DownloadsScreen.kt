@@ -363,10 +363,9 @@ object DownloadsScreen {
 
         private fun card(): LinearLayout = LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(14), dp(12), dp(12), dp(10))
-            background = round(act.getColor(R.color.mg_surface), 16)
+            setPadding(dp(16), dp(12), dp(12), dp(12))
+            background = BmUi.flatRow(act, false, 16) // flat row, hairline divider (was a surface card)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                .apply { setMargins(dp(12), dp(5), dp(12), dp(5)) }
         }
 
         /** Round tile with an icon, tinted with the accent colour. */
@@ -374,7 +373,7 @@ object DownloadsScreen {
             setImageResource(icon)
             setColorFilter(act.getColor(R.color.mg_primary))
             setPadding(dp(10), dp(10), dp(10), dp(10))
-            background = round(androidx.core.graphics.ColorUtils.setAlphaComponent(act.getColor(R.color.mg_primary), 40), 12)
+            background = round(androidx.core.graphics.ColorUtils.setAlphaComponent(act.getColor(R.color.mg_primary), 40), 20) // round tile
             layoutParams = LinearLayout.LayoutParams(dp(40), dp(40)).apply { marginEnd = dp(12) }
         }
 
@@ -488,7 +487,7 @@ object DownloadsScreen {
             if (selecting) { // S19: tap toggles, no Show / Open buttons
                 c.isClickable = true
                 c.setOnClickListener { toggle(h) }
-                if (isOn) c.background = round(act.getColor(R.color.mg_surface_variant), 16)
+                if (isOn) c.background = BmUi.flatRow(act, true, 16)
             } else if (id > 0) {
                 // S65: both buttons call DownloadsApi directly (the old engine eval did nothing when the id was unknown)
                 val actions = actionRow()

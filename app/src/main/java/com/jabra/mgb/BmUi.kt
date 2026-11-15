@@ -49,6 +49,26 @@ object BmUi {
         setMargins(dp(a, 16), dp(a, 4), dp(a, 16), dp(a, 4))
     }
 
+    /**
+     * Flat list row (no card): full width, ripple, and a hairline divider at the bottom that starts insetStartDp from the left
+     * (so it lines up with the text, not the icon). on = selected row (violet tint). Colours only from R.color.mg_* (light + dark).
+     */
+    fun flatRow(a: Activity, on: Boolean = false, insetStartDp: Int = 0): android.graphics.drawable.Drawable {
+        val prim = a.getColor(R.color.mg_primary)
+        val fill = GradientDrawable().apply {
+            setColor(if (on) ColorUtils.blendARGB(a.getColor(R.color.mg_surface), prim, 0.16f) else Color.TRANSPARENT)
+        }
+        val line = GradientDrawable().apply { setColor(a.getColor(R.color.mg_outline)) }
+        val layers = android.graphics.drawable.LayerDrawable(arrayOf<android.graphics.drawable.Drawable>(fill, line)).apply {
+            setLayerGravity(1, Gravity.BOTTOM)
+            setLayerHeight(1, maxOf(1, dp(a, 1) / 2))
+            setLayerInsetLeft(1, dp(a, insetStartDp))
+        }
+        return RippleDrawable(ColorStateList.valueOf(ColorUtils.setAlphaComponent(prim, 0x30)), layers, ColorDrawable(Color.WHITE))
+    }
+
+    fun flatParams() = LinearLayout.LayoutParams(MATCH, WRAP)
+
     /** Violet-tinted rounded tile with the two-tone folder icon. */
     fun folderTile(a: Activity): View {
         val prim = a.getColor(R.color.mg_primary)
@@ -58,7 +78,7 @@ object BmUi {
             setPadding(dp(a, 7), dp(a, 7), dp(a, 7), dp(a, 7))
             background = GradientDrawable().apply {
                 setColor(ColorUtils.setAlphaComponent(prim, 0x26))
-                cornerRadius = dp(a, 12).toFloat()
+                cornerRadius = dp(a, 18).toFloat() // round tile, like the site icons
             }
         }
     }

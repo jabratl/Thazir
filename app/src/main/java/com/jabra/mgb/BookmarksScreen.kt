@@ -307,7 +307,7 @@ object BookmarksScreen {
             textSize = 15f
             setTextColor(act.getColor(R.color.mg_text))
             setHintTextColor(act.getColor(R.color.mg_text_dim))
-            background = BmUi.card(act, act.getColor(R.color.mg_surface_variant), 22) // 0.0.348
+            background = round(act.getColor(R.color.mg_surface_variant), 22) // filled, no outline (same as the Downloads search)
             setPadding(dp(16), 0, dp(16), 0)
             act.getDrawable(R.drawable.ic_search)?.mutate()?.let { d -> // 0.0.348: search icon
                 d.setTint(act.getColor(R.color.mg_text_dim)); d.setBounds(0, 0, dp(20), dp(20))
@@ -584,10 +584,10 @@ object BookmarksScreen {
             val r = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = dp(60)
-                setPadding(dp(12), dp(8), dp(12), dp(8))
-                layoutParams = BmUi.cardParams(act) // 0.0.348: card row
-                background = BmUi.rippleCard(act)
+                minimumHeight = dp(58)
+                setPadding(dp(16), dp(8), dp(12), dp(8))
+                layoutParams = BmUi.flatParams() // flat row with inset divider
+                background = BmUi.flatRow(act, false, 66)
             }
             r.addView(BmUi.folderTile(act), LinearLayout.LayoutParams(dp(36), dp(36)))
             r.addView(TextView(act).apply {
@@ -654,7 +654,7 @@ object BookmarksScreen {
             val box = android.widget.FrameLayout(act)
             box.background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(androidx.core.graphics.ColorUtils.blendARGB(act.getColor(R.color.mg_surface), tint, 0.25f))
-                cornerRadius = dp(10).toFloat()
+                shape = android.graphics.drawable.GradientDrawable.OVAL // round site icon
             }
             val letter = TextView(act).apply {
                 text = host.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "?"
@@ -684,11 +684,11 @@ object BookmarksScreen {
             val isOn = selecting && picked.contains(key)
             val r = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
-                minimumHeight = dp(60)
+                minimumHeight = dp(58)
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(12), dp(8), dp(14), dp(8))
-                layoutParams = BmUi.cardParams(act) // 0.0.348: card row
-                background = BmUi.rippleCard(act, isOn)
+                setPadding(dp(16), dp(8), dp(14), dp(8))
+                layoutParams = BmUi.flatParams() // flat row with inset divider
+                background = BmUi.flatRow(act, isOn, if (selecting) 104 else 68)
             }
             if (selecting) { // S27: round check box
                 r.addView(ImageView(act).apply {
@@ -708,7 +708,7 @@ object BookmarksScreen {
                     }
                 }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(14) })
             }
-            r.addView(favTile(b.url), LinearLayout.LayoutParams(dp(34), dp(34)).apply { marginEnd = dp(14) }) // S78
+            r.addView(favTile(b.url), LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = dp(14) }) // S78
             val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
             col.addView(TextView(act).apply {
                 text = b.title.ifBlank { Util.host(b.url) }
