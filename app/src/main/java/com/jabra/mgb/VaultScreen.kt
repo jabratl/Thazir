@@ -444,6 +444,24 @@ object VaultScreen {
                     }
                 }
             }, lp(0, MATCH, dp(a, 48)))
+            // 0.0.453: index lost and passphrase forgotten: rebuild with the quick-unlock key (fingerprint / screen lock).
+            if (a is FragmentActivity && VaultStore.quickOn(a) && AppLock.available(a)) {
+                c.addView(link(a, "Index lost? Rebuild with fingerprint / screen lock") {
+                    Vault.unlock(a, "Rebuild vault list") {
+                        err.text = "Rebuilding..."; err.visibility = View.VISIBLE
+                        bg.execute {
+                            val k = VaultStore.quickKey(a)
+                            val r = if (k == null) VaultStore.Res(false, "Quick unlock is not set up on this phone.")
+                            else VaultStore.rebuildIndexQuick(a, k).also { VaultCrypto.wipe(k) }
+                            main.post {
+                                if (dlg?.isShowing != true) return@post
+                                if (r.ok) { pw.setText(""); unlocked(a); Util.toast(a, r.msg) }
+                                else { err.text = r.msg; err.visibility = View.VISIBLE }
+                            }
+                        }
+                    }
+                }, lp(0, MATCH, dp(a, 48)))
+            }
             c.addView(link(a, "Close") { close() }, lp(0, MATCH, dp(a, 48)))
         }
     }

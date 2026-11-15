@@ -239,15 +239,23 @@ object VaultStore {
      * Refuses (writes nothing) when index.enc or index.bak exists. Bookmarks / history / titles / folders lived only in the old index and cannot come back;
      * saved pages get title + address from their .mht header, files get "Recovered file N.ext". Blobs are only read, never changed or deleted.
      */
-    fun rebuildIndex(c: Context, pass: CharArray): Res {
+    fun rebuildIndex(c: Context, pass: CharArray): Res = rebuildWith(c, true) { h -> VaultCrypto.openPass(h, pass) }.also { VaultCrypto.wipe(pass) }
+
+    /** 0.0.453: same rebuild, but the key comes from the quick-unlock wrap (fingerprint / screen lock). Caller wipes its own array. */
+    fun rebuildIndexQuick(c: Context, key: ByteArray): Res = rebuildWith(c, false) { h -> if (VaultCrypto.verifyDek(h, key)) key.copyOf() else null }
+
+    private fun rebuildWith(c: Context, count: Boolean, open: (VaultCrypto.Header) -> ByteArray?): Res {
         val app = c.applicationContext
         var k: ByteArray? = null
         try {
             val tree = treeUri(app) ?: return Res(false, "No vault folder chosen.")
-            if (lockoutLeftMs(app) > 0L) return Res(false, tooMany(app))
+            if (count && lockoutLeftMs(app) > 0L) return Res(false, tooMany(app))
             val h = readHeader(app)
-            k = VaultCrypto.openPass(h, pass)
-            if (k == null) { noteFail(app); return Res(false, if (lockoutLeftMs(app) > 0L) tooMany(app) else "Wrong passphrase.") }
+            k = open(h)
+            if (k == null) {
+                if (!count) return Res(false, "The saved quick-unlock key does not match this vault. Use the passphrase.")
+                noteFail(app); return Res(false, if (lockoutLeftMs(app) > 0L) tooMany(app) else "Wrong passphrase.")
+            }
             val root = rootDoc(tree)
             if (child(app, tree, root, IDX) != null || child(app, tree, root, IDX_BAK) != null)
                 return Res(false, "An index file is still in the folder, so nothing was rebuilt. Use Unlock and send the message it shows.")
@@ -313,11 +321,11 @@ object VaultStore {
             if (VaultCrypto.decStr(k, String(readAll(app, iu), Charsets.UTF_8)) != text) { del(app, iu); return Res(false, "Could not verify the new index. Nothing was changed.") }
             synchronized(this) { dek = k; index = idx; header = h; dirty = false }
             k = null
-            folderOk = true; leftAt = System.currentTimeMillis(); clearFails(app)
+            folderOk = true; leftAt = System.currentTimeMillis(); if (count) clearFails(app)
             return Res(true, "Rebuilt: " + items.length() + " items (" + np + " pages, " + nf + " files)" + (if (bad > 0) ", " + bad + " blobs could not be read" else ""))
         } catch (e: Exception) {
             return Res(false, "Could not rebuild: " + (e.message ?: e.javaClass.simpleName))
-        } finally { VaultCrypto.wipe(pass); VaultCrypto.wipe(k) }
+        } finally { VaultCrypto.wipe(k) }
     }
 
     private fun loadIndex(c: Context, k: ByteArray): JSONObject? {
