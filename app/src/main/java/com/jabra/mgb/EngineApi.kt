@@ -39,12 +39,19 @@ object EngineApi {
     }
 
     /** Saved files, newest first (V77 keeps the browser download id in "id"). */
+    private var histSrc: org.json.JSONArray? = null // 0.0.464: sorted copy is reused while the stored array is the same object with the same length (Downloads asks every second)
+    private var histLen = -1
+    private var histOut: List<JSONObject> = emptyList()
+
     fun history(): List<JSONObject> {
         val a = try { ChromeBridge.local.get("mgHist").optJSONArray("mgHist") } catch (e: Exception) { null }
             ?: return emptyList()
+        if (a === histSrc && a.length() == histLen) return histOut
         val out = ArrayList<JSONObject>()
         for (i in 0 until a.length()) a.optJSONObject(i)?.let { out.add(it) }
-        return out.sortedByDescending { it.optLong("time") }
+        val sorted = out.sortedByDescending { it.optLong("time") }
+        histSrc = a; histLen = a.length(); histOut = sorted
+        return sorted
     }
 
     fun fmtSize(b: Long): String = when {

@@ -1,0 +1,10 @@
+0.0.464 (FIX: smoother Bookmarks / History / Downloads switching)
+- Base = 0.0.463. Changed files: app/build.gradle.kts, BookmarksScreen.kt, DownloadsScreen.kt, EngineApi.kt
+1. Downloads refresh: every 1 s only while a download runs, else every 2.5 s. busy flag set in render().
+2. EngineApi.history(): sorted copy reused while the stored array is unchanged (same object + length), so the 1 s tick no longer re-sorts the whole list.
+3. Slide first, rows after: Bookmarks <> History fills the new list one frame after the animation starts; Downloads <> Bookmarks hand-over delays the first fill (Downloads 80 ms, Bookmarks next frame).
+4. fillChunked first batch 10 -> 6 rows (step 8 unchanged).
+NOT changed: Bookmarks <> Downloads still opens a second Dialog window (a one-window rewrite is a bigger change, only worth it if it still stutters on the device).
+COULD BREAK: a new download started while Downloads is open and idle shows up after up to 2.5 s.
+NOT tested: Gradle build (CI), device.
+Rollback: restore the 4 files from 0.0.463.
