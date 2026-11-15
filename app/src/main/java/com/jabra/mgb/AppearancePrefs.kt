@@ -6,7 +6,7 @@ import java.io.File
 /**
  * APPEARANCE A2: ALL ap_* prefs of the Appearance plan (file mgb_ui, so Backup.kt already saves them).
  * Later steps (A3-A8) only call these getters / setters. Defaults = today's behaviour.
- * Existing keys reused elsewhere: night (UiMode), dark_pages (UiMode), hide_bar (MainActivity scroll).
+ * Existing keys reused elsewhere: night (UiMode), hide_bar (MainActivity scroll).
  */
 object AppearancePrefs {
     const val K_BAR_POS = "ap_bar_pos"

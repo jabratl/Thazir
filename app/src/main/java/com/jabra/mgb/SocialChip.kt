@@ -97,8 +97,6 @@ object SocialChip {
             col.addView(sw("App mode for ${p.label}", "Phone-style page, banners hidden", siteOn) { v -> SocialProfiles.setSiteOn(act, p.id, v) })
             val bm = SocialBlur.siteMode(act, p.id)
             col.addView(pick("Blur pictures", SocialBlur.siteLabel(bm)) { SocialBlur.cycleSite(act, p.id) })
-            val dk = SocialDark.siteMode(act, p.id)
-            col.addView(pick("Dark page", SocialDark.siteLabel(dk)) { SocialDark.cycleSite(act, p.id) })
             col.addView(pick("Pull to refresh here", SocialPull.siteNames[SocialPull.site(act, p.id)] + if (SocialPull.site(act, p.id) == 0) (if (SocialPull.isChat(tab.url)) " (off in chat)" else " (on)") else "", live = true) { SocialPull.setSite(act, p.id, (SocialPull.site(act, p.id) + 1) % 3) })
             col.addView(sw("Link cleaner", "All social sites", SocialClean.on(act)) { v -> SocialClean.setOn(act, v) })
             col.addView(sw("Focus mode", "All social sites: hide Reels / Shorts-like parts", SocialFocus.on(act)) { v -> SocialFocus.setOn(act, v) })

@@ -91,7 +91,7 @@ object SettingsScreen {
         /** Step C: the ONLY mgb_ui keys each card's "Reset to default" may remove. Nothing else is ever touched. */
         private val RESET = mapOf(
             "general" to listOf("night", "accent", "surf", "dark_pages", "dark_sites", "page_tc", "engine", "tr_lang", "hide_bar", "pull_refresh", "rotate_browser",
-                "ap_bar_pos", "ap_bar_hub", "ap_hub_slots", "ap_home_action", "ap_full_url", "ap_swipe_fs", "ap_swipe_tabs", "ap_swipe_side", "ap_swipe_nav", "ap_wp_dim", "ap_undo_toast", "url_suggest", "ap_start_page", "ap_bar_compact", "ap_nav_back", "ap_nav_fwd", "ap_nav_hide", "ap_zoom_def", "ap_force_zoom", "ap_touchpad", "ap_simple_hint", "sm_on", "sm_sep", "sm_int", "sm_full", "sm_bars", "sm_back", "sm_splash", "sm_cs", "sm_kb", "sm_big", "sm_links", "sm_win", "sm_dfix", "sm_pre", "sm_keep", "sm_dyn", "sm_touch", "sm_fbshare", "sm_clean", "sm_lock", "sm_lockd", "sm_err", "sm_focus", "sm_ext", "sm_pip", "sm_dock", "sm_save2", "sm_mute", "sm_tl", "sm_t_day", "sm_t_sec") + MediaPrefs.KEYS + Orbit.KEYS + SiteMute.KEY + SocialProfiles.all.map { "sm_s_" + it.id } + SocialProfiles.all.map { "sm_x_" + it.id } + SocialProfiles.all.map { "sm_ua_" + it.id } + SocialBlur.keys + SocialBadge.keys + SocialNsfw.keys + SocialDark.keys + SocialSlot.keys + listOf("swipe_close", "close_confirm", "reduce_motion", "tab_suspend_min", ExtFit.KEY, ExtFit.KEY_W, ExtTheme.KEY, ExtCssCompat.KEY, ExtDark.KEY, ExtPriv.KEY), // A9, A11, A1, A2: + Appearance keys; 0.0.312: + Tabs keys (Tabs card merged into Browser)
+                "ap_bar_pos", "ap_bar_hub", "ap_hub_slots", "ap_home_action", "ap_full_url", "ap_swipe_fs", "ap_swipe_tabs", "ap_swipe_side", "ap_swipe_nav", "ap_wp_dim", "ap_undo_toast", "url_suggest", "ap_start_page", "ap_bar_compact", "ap_nav_back", "ap_nav_fwd", "ap_nav_hide", "ap_zoom_def", "ap_force_zoom", "ap_touchpad", "ap_simple_hint", "sm_on", "sm_sep", "sm_int", "sm_full", "sm_bars", "sm_back", "sm_splash", "sm_cs", "sm_kb", "sm_big", "sm_links", "sm_win", "sm_dfix", "sm_pre", "sm_keep", "sm_dyn", "sm_touch", "sm_fbshare", "sm_clean", "sm_lock", "sm_lockd", "sm_err", "sm_focus", "sm_ext", "sm_pip", "sm_dock", "sm_save2", "sm_mute", "sm_tl", "sm_t_day", "sm_t_sec") + MediaPrefs.KEYS + Orbit.KEYS + SiteMute.KEY + SocialProfiles.all.map { "sm_s_" + it.id } + SocialProfiles.all.map { "sm_x_" + it.id } + SocialProfiles.all.map { "sm_ua_" + it.id } + SocialBlur.keys + SocialBadge.keys + SocialNsfw.keys + SocialSlot.keys + listOf("swipe_close", "close_confirm", "reduce_motion", "tab_suspend_min", ExtFit.KEY, ExtFit.KEY_W, ExtTheme.KEY, ExtCssCompat.KEY, ExtDark.KEY, ExtPriv.KEY), // A9, A11, A1, A2: + Appearance keys; 0.0.312: + Tabs keys (Tabs card merged into Browser)
             "downloads" to listOf("auto_diag", "dr_wifi", "dr_metered", "dr_batt", "dr_store", "li_on", "dp_on", "dp_n", "dp_min_mb", "dl_limit_kbps", "dl_max_jobs", "dl_auto_resume", "dp_tail", DownloadAsk.KEY), // D1, D2: download rules
             "grabber" to listOf("web_play", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),
             "player" to listOf("pl_gestures", "pl_hold_speed", "pl_hold_slide", "pl_dtap_sec", "pl_seek_sens", "pl_vol_boost", "pl_bright", "pl_fit_default",
@@ -114,9 +114,8 @@ object SettingsScreen {
         /** Step B: one short hint line for rows that have none (text only, kept under about 34 characters). */
         private val HINTS = mapOf(
             "Theme" to "Light, dark or follow phone",
-            "Appearance" to "Theme and dark pages",
+            "Appearance" to "Theme and colours",
             "Accessibility" to "Zoom, captions, simplified view",
-            "Dark pages" to "Darken websites (reload page)",
             "Search engine" to "Used in the address bar",
             "Translate to" to "Language for page translation",
             "Hide bar while scrolling" to "Bottom bar hides on scroll",
@@ -175,10 +174,9 @@ object SettingsScreen {
         /** S21f: hidden search words per row label (the row is found by these too). */
         private val KW = mapOf(
             "Theme" to "dark light night mode appearance colour",
-            "Appearance" to "theme dark light night look colour style wallpaper bar top bottom toggle dark pages home button swipe fullscreen undo start page menu",
+            "Appearance" to "theme dark light night look colour style wallpaper bar top bottom toggle home button swipe fullscreen undo start page menu",
             "Accessibility" to "zoom text size font bigger larger smaller read default saved sites preview force pinch touchpad captions subtitles simplified reader article",
             "Default browser" to "links open http https set app phone settings",
-            "Dark pages" to "dark mode night websites black",
             "Search engine" to "google bing duckduckgo default address bar",
             "Translate to" to "language translation",
             "Hide bar while scrolling" to "bottom bar toolbar fullscreen immersive",
@@ -1123,10 +1121,6 @@ object SettingsScreen {
                 row.addView(c, LinearLayout.LayoutParams(0, WRAP, 1f).apply { marginStart = dp(3); marginEnd = dp(3) })
             }
             chip(R.drawable.ic_shield, "Ad blocker", AdBlock.enabled) { AdBlock.toggle() }
-            chip(R.drawable.ic_theme, "Dark pages", UiMode.darkPages(act)) {
-                UiMode.setDarkPages(act, !UiMode.darkPages(act))
-                BookmarksScreen.tabsRef?.applyDarkPages()
-            }
             chip(R.drawable.ic_screen, "Hide bar on scroll", prefs.getBoolean("hide_bar", false)) { prefs.edit().putBoolean("hide_bar", !prefs.getBoolean("hide_bar", false)).apply() }
             chip(R.drawable.ic_play, "Reduce motion", TabPrefs.reduceSwitch(act)) { TabPrefs.set(act, "reduce_motion", !TabPrefs.reduceSwitch(act)) }
             return row

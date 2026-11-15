@@ -9,7 +9,7 @@ import org.json.JSONObject
  * Problem: Thazir darkens a light page itself (WebView darkening) but the page still reports prefers-color-scheme = light, so a site
  * that themes itself (ChatGPT "System") stays light and its extension panels read "light" -> white card, white text.
  * Pref "ext_theme" in mgb_ui: absent = AUTO, 1 = OFF (old behaviour), 2 = ON.
- *  - AUTO: only when the app is dark AND Thazir shows this page dark (Dark pages ON, or the site rule says Dark):
+ *  - AUTO: 0.0.476: does nothing any more (the Dark pages feature was removed, Thazir never darkens a web page itself):
  *    matchMedia('(prefers-color-scheme: dark)') answers true (light query: false), so the site switches to its real dark theme.
  *  - ON: the same whenever the app is dark, whatever the Dark pages setting says.
  *  - OFF: nothing changes.
@@ -60,8 +60,7 @@ object ExtTheme {
             val m = mode(c)
             if (m == OFF || origins.isEmpty() || !UiMode.appDark(c)) return null
             val t = tpl ?: c.applicationContext.assets.open("shim/theme-hint.js").bufferedReader().use { it.readText() }.also { tpl = it }
-            val rules = try { JSONObject(sp(c).getString(SiteDark.KEY, "{}") ?: "{}") } catch (_: Throwable) { JSONObject() }
-            val cfg = JSONObject().put("m", m).put("ad", true).put("dp", UiMode.darkPages(c)).put("r", rules).put("o", JSONArray(origins.toList()))
+            val cfg = JSONObject().put("m", m).put("ad", true).put("dp", false).put("r", JSONObject()).put("o", JSONArray(origins.toList()))
             t.replace("/*CFG*/null", cfg.toString())
         } catch (_: Throwable) { null }
     }

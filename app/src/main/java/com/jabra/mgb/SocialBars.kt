@@ -87,12 +87,11 @@ object SocialBars {
         return Color.rgb(m.groupValues[1].toInt().coerceIn(0, 255), m.groupValues[2].toInt().coerceIn(0, 255), m.groupValues[3].toInt().coerceIn(0, 255))
     }
 
-    /** Colour the page asks for, or null (switch OFF, no page colour, speed dial / extension / saved page, or a light colour on a page we darken). */
+    /** Colour the page asks for, or null (switch OFF, no page colour, speed dial / extension / saved page). */
     private fun pageColor(a: Activity, tab: TabManager.Tab?): Int? {
         if (tab == null || !pageOn(a) || tab.isExt || tab.home || tab.savedPage) return null
         if (!tab.url.startsWith("http://") && !tab.url.startsWith("https://")) return null
         val c = colors[tab.web] ?: return null
-        if (UiMode.appDark(a) && SiteDark.effective(a, tab.url) && luminance(c) > 0.5) return null
         return c
     }
 

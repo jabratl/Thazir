@@ -63,12 +63,6 @@ object UiMode {
         return true
     }
 
-    fun darkPages(ctx: Context): Boolean = sp(ctx).getBoolean("dark_pages", false)
-
-    fun setDarkPages(ctx: Context, on: Boolean) {
-        sp(ctx).edit().putBoolean("dark_pages", on).apply()
-    }
-
     /** 0.0.421: true when the app is dark right now (Activity configuration, so System mode is honoured too). */
     fun appDark(ctx: Context): Boolean =
         (ctx.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
@@ -113,15 +107,5 @@ object UiMode {
     fun smoothRecreate(act: Activity) {
         act.recreate()
         try { if (!TabPrefs.reduce(act)) act.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out) } catch (e: Exception) { }
-    }
-
-    /** allowed = user switch on and not an extension page. Takes effect on the next page load. */
-    fun applyPage(w: WebView, allowed: Boolean) {
-        try {
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-                if (WebSettingsCompat.isAlgorithmicDarkeningAllowed(w.settings) != allowed) // 0.0.465: write only when it changes (this runs in onPageStarted on every page; fewer native settings writes inside a navigation callback)
-                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(w.settings, allowed)
-            }
-        } catch (e: Exception) { /* old WebView: pages stay as they are */ }
     }
 }

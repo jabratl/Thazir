@@ -254,15 +254,6 @@ object AppearanceScreen {
                     UiMode.smoothRecreate(act) // 0.0.421
                 }
             }
-            toggleRow(themeCard, R.drawable.ic_theme, "Dark pages", "Darken websites that have no dark style (reload the page)",
-                { UiMode.darkPages(act) }) { on ->
-                UiMode.setDarkPages(act, on)
-                BookmarksScreen.tabsRef?.applyDarkPages()
-                Util.toast(act, if (on) "Dark pages ON (reload the page)" else "Dark pages OFF (reload the page)")
-            }
-            navRow(themeCard, R.drawable.ic_theme, "Dark page exceptions", SiteDark.count(act).let { if (it == 0) "None" else "$it sites" }) { // 0.0.424: per-site Dark / Original, edited in Site settings or from the lock sheet of a page
-                SiteSettings.open(act) { }
-            }
             toggleRow(themeCard, R.drawable.ic_theme, "Page colour on phone bars", "The bar next to the page takes the colour the site asks for (theme-color)", // 0.0.424
                 { SocialBars.pageOn(act) }) { on ->
                 SocialBars.setPageOn(act, on)

@@ -177,7 +177,7 @@ class TabManager(
             fresh.settings.useWideViewPort = true
             fresh.settings.loadWithOverviewMode = true
         }
-        if (t.isExt) UiMode.applyExt(ctx, fresh, t.url) else UiMode.applyPage(fresh, SiteDark.effective(ctx, t.url)) // 0.0.421 / 0.0.424: per site + per extension
+        if (t.isExt) UiMode.applyExt(ctx, fresh, t.url) // 0.0.421: per extension (0.0.476: web pages are never darkened)
         (old.parent as? ViewGroup)?.removeView(old)
         old.stopLoading()
         ChromeBridge.unbind(old)
@@ -246,7 +246,7 @@ class TabManager(
             fresh.settings.useWideViewPort = true
             fresh.settings.loadWithOverviewMode = true
         }
-        if (t.isExt) UiMode.applyExt(ctx, fresh, t.url) else UiMode.applyPage(fresh, SiteDark.effective(ctx, t.url)) // 0.0.421 / 0.0.424: per site + per extension
+        if (t.isExt) UiMode.applyExt(ctx, fresh, t.url) // 0.0.421: per extension (0.0.476: web pages are never darkened)
         bgViews.remove(t)
         freeDead(dead)
         t.web = fresh
@@ -279,10 +279,10 @@ class TabManager(
     fun all(): List<Tab> = tabs.toList()
     fun byId(id: Int): Tab? = tabs.firstOrNull { it.id == id }
 
-    /** S20: Dark pages switch changed (takes effect on the next page load). */
+    /** 0.0.476: the Dark pages feature is gone; this now only refreshes the extension pages (Dark mode per extension, Match page theme). */
     fun applyDarkPages() {
-        try { ContentInjector.refresh(ctx) } catch (_: Throwable) { } // 0.0.428 (S3): theme hint of extensions follows Dark pages (next page load)
-        for (t in tabs) if (t.isExt) UiMode.applyExt(ctx, t.web, t.url) else SiteDark.apply(ctx, t.web, t.url) // 0.0.421 / 0.0.424: each tab = its site rule, else the switch
+        try { ContentInjector.refresh(ctx) } catch (_: Throwable) { } // 0.0.428 (S3): theme hint of extensions (next page load)
+        for (t in tabs) if (t.isExt) UiMode.applyExt(ctx, t.web, t.url) // 0.0.421
     }
 
     // ---------- tabs ----------
@@ -314,7 +314,7 @@ class TabManager(
             web.settings.useWideViewPort = true
             web.settings.loadWithOverviewMode = true
         }
-        if (tab.isExt) UiMode.applyExt(ctx, web, tab.url) else UiMode.applyPage(web, SiteDark.effective(ctx, tab.url)) // S20 / 0.0.421 / 0.0.424
+        if (tab.isExt) UiMode.applyExt(ctx, web, tab.url) // S20 / 0.0.421 (0.0.476: web pages are never darkened)
         if (url == HOME_PAGE) tab.home = true // S13: speed dial, nothing to load
         TabsApi.onCreated(tab) // S6
         if (select) switchTo(tab)
@@ -384,10 +384,18 @@ class TabManager(
             if (bgViews.isNotEmpty()) bgHandler.postDelayed(this, 5000)
         }
     }
+    /** 0.0.475: run [block] on the next main-thread turn, NOT inside the Chromium navigation callback (same rule as the 0.0.415 / 0.0.465 fixes). Skipped when the tab is gone or its page view was replaced. */
+    private fun later(tab: Tab, view: WebView?, block: (WebView) -> Unit) {
+        if (view == null) return
+        container.post { try { if (tabs.contains(tab) && tab.web === view) block(view) } catch (_: Throwable) { } }
+    }
+
     private fun keepPlaying(t: Tab): Boolean {
         if (!MediaPrefs.bg(ctx) || t.priv || t.home || t.isExt || !MediaPrefs.audible(ctx)) return false
         val h = SiteConfig.hostOf(t.web.url ?: t.url)
         if (h != "youtube.com" && !h.endsWith(".youtube.com") && h != "youtu.be") return false
+        if (CrashGuard.isRisky(h)) return false // 0.0.475: no 1 px background view for a site that crashed the WebView before
+        Diag.keep("I", "media", "background play view", h) // 0.0.475: breadcrumb for the next crash report
         t.web.layoutParams = FrameLayout.LayoutParams(1, 1)
         t.web.alpha = 0.01f
         t.web.onResume(); t.web.resumeTimers()
@@ -413,7 +421,7 @@ class TabManager(
         }
         tab.web.requestFocus()
         TabsApi.onActivated(tab) // S6
-        tab.pending?.let { tab.pending = null; tab.web.loadUrl(it) }
+        tab.pending?.let { tab.pending = null; if (!tab.priv && !tab.isExt) Diag.keep("I", "tab", "switch loads", Util.host(it)); tab.web.loadUrl(it) } // 0.0.475: breadcrumb
         syncHome() // S13
         listener.onActiveChanged(tab)
     }
@@ -752,17 +760,21 @@ class TabManager(
             if (!tab.isExt && view != null) { // S41: text size of this site
                 val z = TextZoom.get(ctx, Util.host(url ?: ""))
                 if (view.settings.textZoom != z) view.settings.textZoom = z
-                SocialDark.apply(ctx, view, url) // 0.0.275 (C8): dark page per social site (no site set = returns at once)
-                SiteDark.apply(ctx, view, url) // 0.0.424: dark exception per site (social choice > site rule > Dark pages switch); always sets the flag
             }
             if (!tab.isExt && !tab.savedPage && view != null) { // S29: per-site switches (T3: not for a saved page, JS stays off)
                 val jsOff = SiteConfig.has(url, SiteConfig.JS_OFF)
                 if (view.settings.javaScriptEnabled == jsOff) view.settings.javaScriptEnabled = !jsOff
                 if (SiteConfig.has(url, SiteConfig.DESKTOP) && !tab.desktop) container.post { setDesktop(tab, true) }
             }
-            if (!tab.isExt && view != null) YtAds.flag(view, url) // 0.0.105
-            if (!tab.isExt && view != null) SiteMute.flag(view, url) // 0.0.296: Mute site
-            if (!tab.isExt && !tab.savedPage && view != null) WebNotify.inject(view) // 0.0.284
+            if (!tab.isExt && view != null) { // 0.0.475: these 3 page scripts ran INSIDE onPageStarted (Chromium is still starting the navigation); now on the next main-thread turn. Risky site: only the YouTube flags (the ad blocker switch must still be honoured).
+                val risky0 = !tab.priv && CrashGuard.isRisky(Util.host(url ?: ""))
+                val saved0 = tab.savedPage
+                later(tab, view) { v ->
+                    YtAds.flag(v, url) // 0.0.105
+                    if (!risky0) SiteMute.flag(v, url) // 0.0.296: Mute site
+                    if (!risky0 && !saved0) WebNotify.inject(v) // 0.0.284
+                }
+            }
             if (!tab.isExt && !tab.savedPage && view != null && url != null && SocialMode.ensure(ctx, view, url, tab.desktop)) { /* 0.0.415: ensure() posts the switch + reload itself */ } // 0.0.224
             TabsApi.onUpdated(tab, JSONObject().put("status", "loading").put("url", tab.url)) // S6
             ExtApi3.started(tab, tab.url) // 0.0.431 (S6): webNavigation onBeforeNavigate + onCommitted
@@ -771,9 +783,10 @@ class TabManager(
 
         override fun onPageFinished(view: WebView?, url: String?) {
             tab.url = url ?: tab.url
+            val risky = !tab.isExt && !tab.priv && CrashGuard.isRisky(Util.host(tab.url)) // 0.0.475: crash-risky site = no optional page scripts (password fill and the ad blocker flags stay)
             tab.progress = 100
             tab.popup = false // 0.0.106: the pop-up passed the check
-            if (!tab.isExt && !tab.savedPage && view != null) WebNotify.inject(view) // 0.0.284
+            if (!tab.isExt && !tab.savedPage && !risky && view != null) later(tab, view) { WebNotify.inject(it) } // 0.0.284 (0.0.475: next turn, not on risky sites)
             if (tab.isExt) ExtDark.onLoaded(ctx, view, url ?: tab.url) // 0.0.424: extension on Always dark
             if (tab.isExt) ExtFit.onLoaded(ctx, view, url ?: tab.url, null) // 0.0.427 (S2): installed extension page in a tab fits the phone
             if (!tab.isExt && view != null) SocialBars.readPage(ctx, view) // 0.0.424: page theme-color for the phone bars (switch OFF = returns at once)
@@ -781,16 +794,16 @@ class TabManager(
             if (tab.extWide && tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // 0.0.109
             if (!tab.isExt && view != null) EngineHost.noteUa(url ?: tab.url, view.settings.userAgentString) // 0.0.110: extension requests to this site use this user agent
             if (!tab.isExt && (!tab.priv || PwScreen.privFill(ctx)) && tab.url.startsWith("http")) view?.evaluateJavascript(PwSmart.hookJs(ctx), null) // S30 (0.0.388: smart hook, old hook = fallback)
-            if (!tab.isExt && !tab.priv && tab.url.startsWith("http") && WebVideo.onFor(ctx, tab.url)) view?.evaluateJavascript(WebVideo.JS, null) // S45
+            if (!tab.isExt && !tab.priv && tab.url.startsWith("http") && !risky && WebVideo.onFor(ctx, tab.url)) view?.evaluateJavascript(WebVideo.JS, null) // S45
             if (!tab.isExt) YtAds.flag(view, tab.url) // 0.0.105
-            if (!tab.isExt) SiteMute.flag(view, tab.url) // 0.0.296
-            if (!tab.isExt) CosmeticFilter.inject(ctx, view, tab.url) // S42
-            if (!tab.isExt) SocialMode.inject(ctx, view, tab.url, tab.desktop) // 0.0.224
-            if (!tab.isExt && !tab.savedPage) RedditMature.inject(ctx, view, tab.url) // 0.0.415
+            if (!tab.isExt && !risky) SiteMute.flag(view, tab.url) // 0.0.296
+            if (!tab.isExt && !risky) CosmeticFilter.inject(ctx, view, tab.url) // S42
+            if (!tab.isExt && !risky) SocialMode.inject(ctx, view, tab.url, tab.desktop) // 0.0.224
+            if (!tab.isExt && !tab.savedPage && !risky) RedditMature.inject(ctx, view, tab.url) // 0.0.415
             // S13: browsing history (web pages only, not extension pages)
             if (!tab.isExt && !tab.priv && (tab.url.startsWith("http://") || tab.url.startsWith("https://")))
                 Bookmarks.addHistory(view?.title ?: tab.title, tab.url)
-            if (!tab.isExt && !tab.savedPage && view != null && AppearancePrefs.forceZoom(ctx) && tab.url.startsWith("http") &&
+            if (!tab.isExt && !tab.savedPage && view != null && AppearancePrefs.forceZoom(ctx) && !risky && tab.url.startsWith("http") &&
                 !ZoomTools.optedOut(ctx, Util.host(tab.url))) view.evaluateJavascript(ZoomTools.FORCE_JS, null) // A3: Force enable zoom
             SimpleHint.check(ctx, tab, this@TabManager) // A4: returns at once when the switch is OFF
             TabsApi.onUpdated(tab, JSONObject().put("status", "complete")) // S6
