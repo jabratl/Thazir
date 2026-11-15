@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 0.0.459 (S4): bar pill in Hub style = accent-filled (reference screenshot look), no outline. Theme attribute only, so every accent + surface follows. Chosen in code (MainActivity.applyBarStyle) when the Hub button is ON; Classic = bg_bar_pill. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="?attr/colorPrimary" />
+    <corners android:radius="26dp" />
+</shape>

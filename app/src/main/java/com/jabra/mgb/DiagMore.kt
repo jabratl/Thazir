@@ -108,6 +108,8 @@ object DiagMore {
         chk("Extension CSS compatibility", ExtCssCompat.label(ExtCssCompat.mode(ctx)), "Auto") // 0.0.434
         chk("Extensions with own Dark mode", try { ExtRegistry.all().count { ExtDark.mode(ctx, it.id) != ExtDark.AUTO } } catch (_: Throwable) { 0 }, 0) // 0.0.437 (S12)
         chk("Extensions allowed in private", ExtPriv.changedCount(ctx), 0) // 0.0.438
+        chk("Hub button", AppearancePrefs.hubOn(ctx), false) // 0.0.458
+        chk("Hub tiles changed", HubSheet.isCustom(ctx), false) // 0.0.458
         return if (ch.isEmpty()) listOf("Changed from default: nothing ($n settings checked)") else listOf("Changed from default ($n settings checked):") + ch
     }
 

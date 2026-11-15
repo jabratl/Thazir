@@ -493,6 +493,10 @@ object AppearanceScreen {
             val up = AppearancePrefs.barTop(act) // A6: directions follow the bar position
             toggleRow(behCard, R.drawable.ic_hub, "Hub button", "3x3 button at the left of the bar: home, new tab, private tab, back, forward, reload, search engine, Privacy Guard and bookmarks. Hold it = your Home button action",
                 { AppearancePrefs.hubOn(act) }) { on -> AppearancePrefs.setHubOn(act, on); AppearanceScreen.onChange?.invoke(); updatePreview() } // 0.0.456
+            navRow(behCard, R.drawable.ic_reload, "Reset Hub tiles", if (HubSheet.isCustom(act)) "Custom" else "Default") { // 0.0.458: tiles are edited by holding one in the Hub
+                HubSheet.reset(act)
+                android.widget.Toast.makeText(act, "Hub tiles are back to default", android.widget.Toast.LENGTH_SHORT).show()
+            }
             toggleRow(behCard, R.drawable.ic_add, "New tab button", "Show a + next to the address bar: tap = new tab, hold = new private tab. With the Hub button it stays hidden until you turn it on (New tab is in the Hub)",
                 { AppearancePrefs.newTabBtn(act) }) { on -> AppearancePrefs.setNewTabBtn(act, on); AppearanceScreen.onChange?.invoke() }
             toggleRow(behCard, R.drawable.ic_screen, "Swipe for fullscreen", "Swipe the bar " + (if (up) "up" else "down") + " to hide the bar and system bars",
@@ -512,6 +516,17 @@ object AppearanceScreen {
             prevHome?.setImageResource(AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(act)).first)
             prevHub?.visibility = if (AppearancePrefs.hubOn(act)) View.VISIBLE else View.GONE // 0.0.456
             prevHome?.visibility = if (AppearancePrefs.hubOn(act)) View.GONE else View.VISIBLE
+            prevBar?.let { b -> // 0.0.459: Hub ON = the preview bar is accent-filled like the real bar
+                val hub = AppearancePrefs.hubOn(act)
+                val ink = act.getColor(if (hub) R.color.mg_on_primary else R.color.mg_text)
+                b.background = if (hub) round(act.getColor(R.color.mg_primary), 26) else round(act.getColor(R.color.mg_bg), 26, 1f, act.getColor(R.color.mg_outline))
+                val vg = b as? LinearLayout
+                if (vg != null) for (i in 0 until vg.childCount) when (val v = vg.getChildAt(i)) {
+                    is ImageView -> v.setColorFilter(ink)
+                    is TextView -> { v.setTextColor(ink); if (v !== prevUrl) v.background = round(0, 7, 2f, if (hub) ink else act.getColor(R.color.mg_text_dim)) }
+                    else -> { }
+                }
+            }
             prevBack?.visibility = if (AppearancePrefs.navBack(act)) View.VISIBLE else View.GONE // A1: preview shows the arrows (Forward dimmed = no forward page)
             prevFwd?.visibility = if (AppearancePrefs.navFwd(act) && !AppearancePrefs.navHide(act)) View.VISIBLE else View.GONE
         }

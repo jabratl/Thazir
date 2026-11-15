@@ -247,25 +247,111 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         val hub = AppearancePrefs.hubOn(this) // 0.0.456: Hub style = Hub button instead of the Home-action button
         btnHub.visibility = if (hub) View.VISIBLE else View.GONE
         btnHome.visibility = if (hub) View.GONE else View.VISIBLE
+        applyBarStyle() // 0.0.459: Hub style = accent-filled bar
     }
 
-    /** 0.0.456: the Hub (3x3 popup above / below the bar). Same calls as the 3-dot menu and the bar buttons: see hubRun. */
+    // ---------- 0.0.459 (S4): Hub style look = accent-filled bar (reference screenshot). Hub OFF = the Classic drawables + tokens, untouched. ----------
+
+    private fun hubStyle(): Boolean = AppearancePrefs.hubOn(this)
+
+    /** the real fill of the Hub bar (?attr/colorPrimary of the current theme: accent + surface overlays included). */
+    private fun barFill(): Int {
+        val tv = android.util.TypedValue()
+        return if (theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true) && tv.type in android.util.TypedValue.TYPE_FIRST_COLOR_INT..android.util.TypedValue.TYPE_LAST_COLOR_INT) tv.data else getColor(R.color.mg_primary)
+    }
+
+    /** ink on the filled bar: mg_on_primary when it keeps contrast >= 3:1 with the fill, else white / black, whichever reads better (checked at run time, so every accent in light + dark is readable). */
+    private fun barInk(): Int {
+        val fill = barFill()
+        val on = getColor(R.color.mg_on_primary)
+        fun cr(fg: Int) = androidx.core.graphics.ColorUtils.calculateContrast(fg or (0xFF shl 24), fill or (0xFF shl 24))
+        if (cr(on) >= 3.0) return on
+        return if (cr(android.graphics.Color.WHITE) >= cr(android.graphics.Color.BLACK)) android.graphics.Color.WHITE else android.graphics.Color.BLACK
+    }
+
+    private fun alphaOf(c: Int, a: Int): Int = androidx.core.graphics.ColorUtils.setAlphaComponent(c, a)
+
+    /** colour of the bar icons: ink on the Hub bar, mg_text on the Classic bar. */
+    private fun barIcon(): Int = if (hubStyle()) barInk() else getColor(R.color.mg_text)
+
+    /** colour of the tab count: ink on the Hub bar (private tab = the plum ring on the field), else as before (private = accent). */
+    private fun tabInk(priv: Boolean): Int = if (hubStyle()) barInk() else getColor(if (priv) R.color.mg_primary else R.color.mg_text)
+
+    /** address field on the Hub bar: resting = ink 20 % capsule, focused = surface + 2 dp ring; private tab = plum ring (also while typing). Radius 20 dp, 2 dp inset inside the 44 dp touch area. */
+    private fun hubFieldBg(priv: Boolean): android.graphics.drawable.Drawable {
+        val ink = barInk()
+        val plum = androidx.core.graphics.ColorUtils.blendARGB(getColor(R.color.mg_primary), getColor(R.color.mg_error), 0.5f)
+        fun shape(fill: Int, w: Int, stroke: Int) = android.graphics.drawable.GradientDrawable().apply {
+            setColor(fill); cornerRadius = Util.dp(this@MainActivity, 20).toFloat(); if (w > 0) setStroke(Util.dp(this@MainActivity, w), stroke)
+        }
+        val inset = Util.dp(this, 2)
+        val rest = shape(alphaOf(ink, 0x33), if (priv) 2 else 0, androidx.core.graphics.ColorUtils.blendARGB(ink, plum, 0.35f))
+        val focus = shape(getColor(R.color.mg_surface), 2, if (priv) plum else ink)
+        val sl = android.graphics.drawable.StateListDrawable()
+        sl.addState(intArrayOf(android.R.attr.state_focused), android.graphics.drawable.InsetDrawable(focus, 0, inset, 0, inset))
+        sl.addState(intArrayOf(), android.graphics.drawable.InsetDrawable(rest, 0, inset, 0, inset))
+        return sl
+    }
+
+    /** Idempotent: sets (or puts back) the bar + field drawables and every static icon / text colour of the bar. Dynamic colours follow hubStyle() in applyNavArrows / refreshShield / refreshAll / refreshTabRing / setUrlLock. */
+    private fun applyBarStyle() {
+        val hub = hubStyle()
+        val bar = findViewById<View>(R.id.bottom_bar) ?: return
+        val ink = barInk()
+        val csl = { rest: Int, focus: Int -> android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()), intArrayOf(focus, rest)) }
+        bar.setBackgroundResource(if (hub) R.drawable.bg_bar_hub else R.drawable.bg_bar_pill)
+        val wasPriv = urlBgPriv
+        urlBgNormal = null
+        urlBgPriv = false
+        urlBar.setBackgroundResource(R.drawable.bg_url_field)
+        if (hub) { urlBgPriv = wasPriv; urlBar.background = hubFieldBg(wasPriv) } else tintUrlBar(wasPriv)
+        urlBar.setTextColor(if (hub) csl(ink, getColor(R.color.mg_text)) else android.content.res.ColorStateList.valueOf(getColor(R.color.mg_text)))
+        urlBar.setHintTextColor(if (hub) csl(alphaOf(ink, 0xD9), getColor(R.color.mg_text_dim)) else android.content.res.ColorStateList.valueOf(getColor(R.color.mg_text_dim)))
+        for (v in listOf(btnHub, btnHome, findViewById<ImageView>(R.id.btn_menu))) if (hub) v.setColorFilter(ink) else v.clearColorFilter()
+        if (hub) { // Hub button: translucent rounded chip behind the dots (radius 14 dp, 4 dp inset inside the 44 dp touch area)
+            val chip = android.graphics.drawable.GradientDrawable().apply { setColor(alphaOf(ink, 0x26)); cornerRadius = Util.dp(this@MainActivity, 14).toFloat() }
+            btnHub.background = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(alphaOf(ink, 0x40)), android.graphics.drawable.InsetDrawable(chip, Util.dp(this, 4)), null)
+        } else {
+            val tv = android.util.TypedValue()
+            if (theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)) btnHub.setBackgroundResource(tv.resourceId)
+        }
+        btnTabs.setTextColor(tabInk(::tabs.isInitialized && tabs.active?.priv == true))
+        if (::tabs.isInitialized) refreshTabRing() else btnTabs.strokeColor = if (hub) android.content.res.ColorStateList.valueOf(ink) else (tabStroke0 ?: btnTabs.strokeColor)
+        btnEngine.setTextColor(if (hub) ink else barFill())
+        findViewById<TextView>(R.id.btn_social)?.setTextColor(if (hub) ink else barFill())
+    }
+
+    /** 0.0.456: the Hub (3x3 popup above / below the bar). 0.0.458: the 9 tiles come from HubSheet.ids (owner can change them, hold a tile = picker). Same calls as the 3-dot menu: see hubRun. */
     private fun showHub() {
+        val tiles = HubSheet.ids(this).map { hubTile(it) }
+        HubSheet.show(this, findViewById(R.id.bottom_bar), tiles, { hubRun(it) }) { findViewById<View>(R.id.bottom_bar)?.post { showHub() } } // after an edit the Hub opens again with the new tile
+    }
+
+    /** 0.0.458: look + enabled state of one Hub tile (ids = HubSheet.CATALOG). */
+    private fun hubTile(id: String): HubSheet.Tile {
         val cur = tabs.active
-        val g = PrivacyGuard.state(cur)
-        val (hIcon, hLabel) = AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(this))
-        val tiles = listOf(
-            HubSheet.Tile("home", hLabel, hIcon),
-            HubSheet.Tile("newtab", "New tab", R.drawable.ic_add),
-            HubSheet.Tile("private", "Private", R.drawable.ic_lock),
-            HubSheet.Tile("back", "Back", R.drawable.ic_back, cur != null && tabs.canBack(cur)),
-            HubSheet.Tile("forward", "Forward", R.drawable.ic_forward, cur != null && tabs.canFwd(cur)),
-            HubSheet.Tile("reload", if (cur?.loading == true) "Stop" else "Reload", if (cur?.loading == true) R.drawable.ic_close else R.drawable.ic_reload, cur != null),
-            HubSheet.Tile("engine", "Engine", R.drawable.ic_search),
-            HubSheet.Tile("shield", "Guard", R.drawable.ic_shield, g != 0, if (g == 1) 1 else 0),
-            HubSheet.Tile("bookmarks", "Bookmarks", R.drawable.ic_bookmark)
-        )
-        HubSheet.show(this, findViewById(R.id.bottom_bar), tiles) { hubRun(it) }
+        val canPage = cur != null && !cur.home && !cur.isExt
+        val canMark = canPage && cur != null && cur.url.startsWith("http")
+        return when (id) {
+            "home" -> { val (i, l) = AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(this)); HubSheet.Tile(id, l, i) }
+            "newtab" -> HubSheet.Tile(id, "New tab", R.drawable.ic_add)
+            "private" -> HubSheet.Tile(id, "Private", R.drawable.ic_lock)
+            "back" -> HubSheet.Tile(id, "Back", R.drawable.ic_back, cur != null && tabs.canBack(cur))
+            "forward" -> HubSheet.Tile(id, "Forward", R.drawable.ic_forward, cur != null && tabs.canFwd(cur))
+            "reload" -> HubSheet.Tile(id, if (cur?.loading == true) "Stop" else "Reload", if (cur?.loading == true) R.drawable.ic_close else R.drawable.ic_reload, cur != null)
+            "engine" -> HubSheet.Tile(id, "Engine", R.drawable.ic_search)
+            "shield" -> { val g = PrivacyGuard.state(cur); HubSheet.Tile(id, "Guard", R.drawable.ic_shield, g != 0, if (g == 1) 1 else 0) }
+            "bookmarks" -> HubSheet.Tile(id, "Bookmarks", R.drawable.ic_bookmark)
+            "history" -> HubSheet.Tile(id, "History", R.drawable.ic_history)
+            "downloads" -> HubSheet.Tile(id, "Downloads", R.drawable.ic_download)
+            "ext" -> HubSheet.Tile(id, "Extensions", R.drawable.ic_ext)
+            "share" -> HubSheet.Tile(id, "Share", R.drawable.ic_share, canMark)
+            "find" -> HubSheet.Tile(id, "Find", R.drawable.ic_search, canMark)
+            "desktop" -> HubSheet.Tile(id, "Desktop", R.drawable.ic_desktop, canPage, if (cur?.desktop == true) 1 else 0)
+            "settings" -> HubSheet.Tile(id, "Settings", R.drawable.ic_settings)
+            "bookmark" -> { val marked = canMark && cur != null && Bookmarks.isBookmarked(cur.url); HubSheet.Tile(id, if (marked) "Saved" else "Bookmark", if (marked) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border, canMark, if (marked) 1 else 0) }
+            else -> HubSheet.Tile(id, "Reload", R.drawable.ic_reload, cur != null)
+        }
     }
 
     private fun hubRun(id: String) {
@@ -280,6 +366,14 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             "engine" -> EnginePicker.show(this, btnHub) { refreshShield() }
             "shield" -> PrivacyGuard.show(this, tabs) { refreshShield() }
             "bookmarks" -> BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs)
+            "history" -> BookmarksScreen.open(this, BookmarksScreen.Mode.HISTORY, tabs) // 0.0.458: the same calls as showMenu.barAct
+            "downloads" -> DownloadsScreen.open(this)
+            "ext" -> ExtTray.show(this)
+            "share" -> cur?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) }
+            "find" -> FindBar.open(this, cur?.web)
+            "desktop" -> cur?.let { tabs.setDesktop(it, !it.desktop) }
+            "settings" -> SettingsScreen.open(this)
+            "bookmark" -> toggleBookmark()
         }
     }
 
@@ -298,7 +392,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             v.visibility = if (show) View.VISIBLE else View.GONE
             v.isEnabled = can
             v.alpha = if (can) 1f else 0.38f
-            v.setColorFilter(getColor(R.color.mg_text))
+            v.setColorFilter(barIcon()) // 0.0.459: ink on the Hub bar
             v.layoutParams?.let { lp -> if (lp.width != w) { lp.width = w; v.layoutParams = lp } }
         }
         one(btnBack, AppearancePrefs.navBack(this), cur != null && tabs.canBack(cur))
@@ -478,7 +572,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                 val i = s.indexOf(h)
                 val sp = android.text.SpannableString(s)
                 if (i >= 0) {
-                    val dim = getColor(R.color.mg_text_dim)
+                    val dim = if (hubStyle()) alphaOf(barInk(), 0xB3) else getColor(R.color.mg_text_dim) // 0.0.459
                     if (i > 0) sp.setSpan(android.text.style.ForegroundColorSpan(dim), 0, i, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                     if (i + h.length < s.length) sp.setSpan(android.text.style.ForegroundColorSpan(dim), i + h.length, s.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
@@ -499,7 +593,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         if (d != null) {
             val sz = Util.dp(this, if (secure == false) 14 else 18)
             d.setBounds(0, 0, sz, sz)
-            d.setTint(if (secure == false) getColor(R.color.mg_error) else androidx.core.graphics.ColorUtils.blendARGB(getColor(R.color.mg_text_dim), getColor(R.color.mg_success), 0.6f)) // 0.0.336: https tune icon = soft green (security cue kept)
+            d.setTint(if (hubStyle()) barInk() else if (secure == false) getColor(R.color.mg_error) else androidx.core.graphics.ColorUtils.blendARGB(getColor(R.color.mg_text_dim), getColor(R.color.mg_success), 0.6f)) // 0.0.336: https tune icon = soft green (security cue kept)
         }
         urlBar.setCompoundDrawablesRelative(d, null, null, null)
     }
@@ -510,6 +604,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     /** 0.0.287: private tab = address field in a plum tone (violet + rose mixed from theme tokens), so it is never taken for a normal tab. */
     private fun tintUrlBar(priv: Boolean) {
         if (priv == urlBgPriv) return
+        if (hubStyle()) { urlBgPriv = priv; urlBar.background = hubFieldBg(priv); return } // 0.0.459: Hub bar = ink capsule, private = plum ring
         if (urlBgNormal == null) urlBgNormal = urlBar.background?.constantState
         urlBgPriv = priv
         if (!priv) { urlBgNormal?.let { urlBar.background = it.newDrawable().mutate() }; return }
@@ -542,7 +637,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                 progress.alpha = 1f
             }.start()
         }
-        btnTabs.setTextColor(getColor(if (tab?.priv == true) R.color.mg_primary else R.color.mg_text)) // S26
+        btnTabs.setTextColor(tabInk(tab?.priv == true)) // S26, 0.0.459: ink on the Hub bar
         refreshTabRing() // 0.0.380
         tintUrlBar(tab?.priv == true) // 0.0.287
         refreshUrlField()
@@ -562,13 +657,29 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             btnShield.alpha = 0f; btnShield.visibility = View.VISIBLE
             btnShield.animate().alpha(1f).setDuration(160).start()
         } else if (!show) btnShield.visibility = View.GONE
-        btnShield.setColorFilter(getColor(if (st == 2) R.color.mg_text_dim else R.color.mg_primary))
+        btnShield.setColorFilter(if (hubStyle()) (if (st == 2) alphaOf(barInk(), 0x8C) else barInk()) else getColor(if (st == 2) R.color.mg_text_dim else R.color.mg_primary)) // 0.0.459: ink on the Hub bar (off = dim)
         urlBar.setPaddingRelative(urlBar.paddingStart, urlBar.paddingTop, Util.dp(this, if (show) 40 else 16), urlBar.paddingBottom) // 0.0.335: shield sits inside the field, keep the text clear of it
         // S69: engine badge on the home page and while typing (where the shield is not shown)
         val eng = (tabs.active?.home == true || urlBar.hasFocus()) && !navTight() // A1: no badge when both arrows squeeze the bar
         btnEngine.visibility = if (eng) View.VISIBLE else View.GONE
-        if (eng) EnginePicker.styleBadge(this, btnEngine)
+        if (eng) {
+            EnginePicker.styleBadge(this, btnEngine)
+            if (hubStyle()) { // 0.0.459: badge sits on the filled bar
+                btnEngine.setTextColor(barInk())
+                btnEngine.background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(alphaOf(barInk(), 0x33)) }
+            } else btnEngine.setTextColor(barFill())
+        }
         SocialChip.update(this, tabs, urlBar.hasFocus()) // 0.0.286: social chip at the end of the address bar
+        findViewById<TextView>(R.id.btn_social)?.let { chip -> // 0.0.459: chip on the filled bar = ink text + ink 20 % fill (outline when the site is ON)
+            chip.setTextColor(if (hubStyle()) barInk() else barFill())
+            if (hubStyle() && chip.visibility == View.VISIBLE) {
+                val p = tabs.active?.let { SocialProfiles.of(it.url) }
+                val on = p != null && SocialProfiles.siteOn(this, p.id)
+                chip.background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = Util.dp(this@MainActivity, 11).toFloat(); setColor(alphaOf(barInk(), 0x33)); if (on) setStroke(Util.dp(this@MainActivity, 1), alphaOf(barInk(), 0xAA))
+                }
+            }
+        }
         if (btnShield.visibility == View.VISIBLE && !shieldRoom()) { // 0.0.336: chip appeared after the shield was decided: shield steps aside
             btnShield.visibility = View.GONE
             urlBar.setPaddingRelative(urlBar.paddingStart, urlBar.paddingTop, Util.dp(this, 16), urlBar.paddingBottom)
@@ -576,7 +687,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         // 0.0.319: "+" hides while typing, on a squeezed bar and when the Social chip is shown, so the address field keeps its room
         val showNew = shared && AppearancePrefs.newTabBtn(this) && !urlBar.hasFocus() && !navTight() && findViewById<View>(R.id.btn_social).visibility != View.VISIBLE
         btnNewTab.visibility = if (showNew) View.VISIBLE else View.GONE
-        btnNewTab.setColorFilter(getColor(R.color.mg_text))
+        btnNewTab.setColorFilter(barIcon()) // 0.0.459
     }
 
     // ---------- TabManager.Listener ----------
@@ -616,7 +727,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         try {
             val a = tabs.active
             val g = if (a != null && !a.priv) TabSwitcher.groupInfoOf(a.id) else null
-            val c = if (g != null) android.content.res.ColorStateList.valueOf(g.color) else tabStroke0
+            val c = if (g != null) android.content.res.ColorStateList.valueOf(g.color) else if (hubStyle()) android.content.res.ColorStateList.valueOf(barInk()) else tabStroke0
             if (c != null) btnTabs.strokeColor = c
             val n = tabs.count
             btnTabs.contentDescription = "Tabs, " + n + " open" + (if (g != null) ", group " + g.name else "")
