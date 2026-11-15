@@ -1,0 +1,6 @@
+0.0.466 (FIX: build error in BookmarksScreen.kt from 0.0.464)
+- Base = 0.0.465. Changed files: app/build.gradle.kts, BookmarksScreen.kt
+1. 0.0.464 put a // comment before the "{" of BookmarksScreen.fillChunked, so the brace was commented out (Kotlin: "Expecting member declaration"). The brace is back before the comment. No other change.
+Checked: brace / paren balance of every file changed in 0.0.462 - 0.0.465 (same as the original; no other swallowed brace).
+NOT tested: Gradle build (CI), device.
+Rollback: restore BookmarksScreen.kt from 0.0.463 (then 0.0.464 smoothing is gone).

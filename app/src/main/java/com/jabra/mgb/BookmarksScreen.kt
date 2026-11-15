@@ -125,7 +125,7 @@ object BookmarksScreen {
      * 0.0.446: add the rows of a list in small batches: the first screen at once, the rest one batch per frame, so opening a page or
      * switching Bookmarks / History / Downloads never blocks the UI thread while the slide runs. alive() = false means a newer render started: stop.
      */
-    internal fun fillChunked(box: LinearLayout, jobs: List<() -> View>, alive: () -> Boolean, from: Int = 0, first: Int = 10, step: Int = 8) {
+    internal fun fillChunked(box: LinearLayout, jobs: List<() -> View>, alive: () -> Boolean, from: Int = 0, first: Int = 6, step: Int = 8) { // 0.0.464: first batch 10 -> 6, the slide starts sooner
         val end = minOf(jobs.size, from + (if (from == 0) first else step))
         for (i in from until end) box.addView(jobs[i]())
         if (end < jobs.size) box.post { if (alive()) fillChunked(box, jobs, alive, end, first, step) }
@@ -221,8 +221,7 @@ object BookmarksScreen {
             host.addView(body, android.widget.FrameLayout.LayoutParams(MATCH, MATCH))
             root.addView(host, LinearLayout.LayoutParams(MATCH, 0, 1f))
             setContentView(root)
-            render()
-            if (enterDir != 0) { enter(act, body, enterDir); enterDir = 0 }
+            if (enterDir != 0) { enter(act, body, enterDir); enterDir = 0; body.post { render() } } else render() // 0.0.464: handed over from Downloads: the slide starts first, the list is filled the next frame
         }
 
         /** 0.0.366: search + filter + list of the current mode (the part that changes when a pill is tapped). Sets list / empty. */
@@ -273,8 +272,8 @@ object BookmarksScreen {
             val old = host.getChildAt(host.childCount - 1)
             val nb = buildBody()
             host.addView(nb, android.widget.FrameLayout.LayoutParams(MATCH, MATCH))
-            render()
             enter(act, nb, dir)
+            nb.post { if (mode == m) render() } // 0.0.464: animation first, rows next frame (was: rows built before the first animation frame)
             val d = dp(36).toFloat()
             old?.animate()?.alpha(0f)?.translationX(-dir * d)?.setDuration(170)
                 ?.setInterpolator(android.view.animation.AccelerateInterpolator(1.2f))
