@@ -42,6 +42,7 @@ import kotlin.math.hypot
  * Top switch: Tabs | Private | Groups. 2-column cards with a page thumbnail (taken when you leave a tab or open the
  * switcher; a colour avatar until one exists), title, host, close. Select mode (menu or long press): tick cards, then
  * Group / Ungroup / Close. Groups live in memory only (lost when the app restarts); private tabs cannot be grouped.
+ * 0.0.474: drop a tab on another tab = the group is made at once (no dialog), also in the Private view; Pin group / Unpin group.
  */
 object TabSwitcher {
     private const val TAG = "Thazir.switcher"
@@ -49,6 +50,7 @@ object TabSwitcher {
     private val thumbs = HashMap<Int, Bitmap>()
     private val groups = LinkedHashMap<String, MutableSet<Int>>()
     private val colors = HashMap<String, Int>() // S43: group colour (palette value); missing = colour from the name
+    private val pinnedGroups = LinkedHashSet<String>() // 0.0.474: pinned groups sit first (saved with the session, key "p")
 
     private val PALETTE = intArrayOf(
         0xFFB0B4BC.toInt(), 0xFF6C8CF0.toInt(), 0xFFF06C7C.toInt(), 0xFFF5C26B.toInt(), 0xFF7FD67F.toInt(),
@@ -61,15 +63,17 @@ object TabSwitcher {
     fun exportGroups(indexOf: Map<Int, Int>): String {
         val g = org.json.JSONObject()
         val cc = org.json.JSONObject()
+        val pp = org.json.JSONArray() // 0.0.474: pinned groups
         for ((n, ids) in groups) {
             val a = org.json.JSONArray()
             for (id in ids) indexOf[id]?.let { a.put(it) }
             if (a.length() > 0) {
                 g.put(n, a)
                 colors[n]?.let { cc.put(n, it) }
+                if (n in pinnedGroups) pp.put(n)
             }
         }
-        return org.json.JSONObject().put("v", 2).put("g", g).put("c", cc).toString()
+        return org.json.JSONObject().put("v", 2).put("g", g).put("c", cc).put("p", pp).toString() // "v" stays 2: older builds ignore "p"
     }
 
     fun importGroups(json: String, idAt: (Int) -> Int?) {
@@ -80,6 +84,7 @@ object TabSwitcher {
             val cc = if (v2) o.optJSONObject("c") else null
             groups.clear()
             colors.clear()
+            pinnedGroups.clear()
             for (n in g.keys()) {
                 val a = g.getJSONArray(n)
                 val s = LinkedHashSet<Int>()
@@ -89,6 +94,8 @@ object TabSwitcher {
                     if (cc != null && cc.has(n)) colors[n] = cc.getInt(n)
                 }
             }
+            val pp = if (v2) o.optJSONArray("p") else null // 0.0.474: pinned groups (older files have none)
+            if (pp != null) for (i in 0 until pp.length()) { val pn = pp.optString(i); if (groups.containsKey(pn)) pinnedGroups.add(pn) }
         } catch (e: Exception) { Log.e(TAG, "groups restore", e) }
     }
 
@@ -218,11 +225,11 @@ object TabSwitcher {
     }
 
     /** 0.0.363 (P2): one group saved whole (name, colour, tab order). Shared by the switcher Undo and the main browser Undo. */
-    class GroupSnap(val name: String, val color: Int?, val ids: List<Int>)
+    class GroupSnap(val name: String, val color: Int?, val ids: List<Int>, val pinned: Boolean = false)
 
     /** Every group that holds one of [ids] (plus group [plus] when it exists), with order + colour. */
     private fun snapGroups(ids: Set<Int>, plus: String? = null): List<GroupSnap> =
-        groups.entries.filter { e -> e.key == plus || e.value.any { it in ids } }.map { GroupSnap(it.key, colors[it.key], it.value.toList()) }
+        groups.entries.filter { e -> e.key == plus || e.value.any { it in ids } }.map { GroupSnap(it.key, colors[it.key], it.value.toList(), it.key in pinnedGroups) }
 
     /** Puts the saved groups back exactly (order + colour). [removeName] = a group that did not exist before and must go. */
     private fun restoreGroups(list: List<GroupSnap>, removeName: String?, alive: (Int) -> Boolean) {
@@ -235,8 +242,9 @@ object TabSwitcher {
             if (keep.isEmpty()) { groups.remove(s.name); continue }
             groups[s.name] = LinkedHashSet<Int>(keep)
             s.color?.let { colors[s.name] = it }
+            if (s.pinned) pinnedGroups.add(s.name) // 0.0.474
         }
-        if (removeName != null && removeName !in names) { groups.remove(removeName); colors.remove(removeName) }
+        if (removeName != null && removeName !in names) { groups.remove(removeName); colors.remove(removeName); pinnedGroups.remove(removeName) }
         onChanged?.invoke()
     }
 
@@ -263,6 +271,7 @@ object TabSwitcher {
                 cur.add(if (gi < 0) cur.size else gi.coerceIn(0, cur.size), nt.id)
                 groups[g.name] = LinkedHashSet<Int>(cur)
                 g.color?.let { if (!colors.containsKey(g.name)) colors[g.name] = it }
+                if (g.pinned) pinnedGroups.add(g.name) // 0.0.474
             }
             if (only) tm.allTabs().filter { it.home && !it.priv }.forEach { h -> if (tm.allTabs().size > 1) tm.close(h) } // the Home tab made by closing the last one
             onChanged?.invoke()
@@ -275,6 +284,7 @@ object TabSwitcher {
         for (g in groups.values) g.retainAll(ids)
         groups.entries.removeAll { it.value.isEmpty() }
         colors.keys.retainAll(groups.keys)
+        pinnedGroups.retainAll(groups.keys)
     }
 
     /** T1: put tabs into group [name] (created when missing); they leave any other group. */
@@ -435,6 +445,7 @@ object TabSwitcher {
             for (g in groups.values) g.retainAll(ids)
             groups.entries.removeAll { it.value.isEmpty() }
             colors.keys.retainAll(groups.keys)
+            pinnedGroups.retainAll(groups.keys) // 0.0.474
             thumbs.keys.retainAll(ids)
             if (openGroup != null && !groups.containsKey(openGroup)) { openGroup = null; mode = backMode }
         }
@@ -664,6 +675,7 @@ object TabSwitcher {
                     setTextColor(c(R.color.mg_text))
                     typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
                 })
+                if (g in pinnedGroups) ttl.addView(ImageView(act).apply { setImageResource(R.drawable.ic_pin); setColorFilter(c(R.color.mg_text_dim)); contentDescription = "Pinned" }, LinearLayout.LayoutParams(dp(16), dp(16)).apply { marginStart = dp(8) }) // 0.0.474
                 top.addView(ttl, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(60); marginEnd = dp(64) })
                 top.addView(icon(R.drawable.ic_more, "Group menu") { groupMenu(it, g, true) }, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.END or Gravity.CENTER_VERTICAL).apply { marginEnd = dp(8) })
                 return
@@ -793,7 +805,8 @@ object TabSwitcher {
         private fun groupNames(): List<String> {
             val q = query.trim().lowercase()
             val pv = gp()
-            return groups.keys.filter { kindOf(it) == pv && (q.isEmpty() || it.lowercase().contains(q)) }
+            val l = groups.keys.filter { kindOf(it) == pv && (q.isEmpty() || it.lowercase().contains(q)) }
+            return l.filter { it in pinnedGroups } + l.filter { it !in pinnedGroups } // 0.0.474: pinned groups first
         }
 
         private fun renderList() {
@@ -1144,8 +1157,9 @@ object TabSwitcher {
             })
             items.add(MI("Edit group name", R.drawable.ic_edit) { renameGroup(name) })
             items.add(MI("Edit group colour", R.drawable.ic_theme) { recolor(name) })
-            items.add(MI("Close group", R.drawable.ic_close) { closeGroup(name) })
-            items.add(MI("Delete group", R.drawable.ic_trash) { deleteGroup(name) })
+            items.add(MI(if (name in pinnedGroups) "Unpin group" else "Pin group", R.drawable.ic_pin) { togglePin(name) }) // 0.0.474
+            items.add(MI("Close group", R.drawable.ic_close) { askPinned(name, "Close") { closeGroup(name) } })
+            items.add(MI("Delete group", R.drawable.ic_trash) { askPinned(name, "Delete") { deleteGroup(name) } })
             popup(anchor, items, if (inView) 0 else -anchor.height + dp(44))
         }
 
@@ -1159,6 +1173,7 @@ object TabSwitcher {
             val gName = groupOf(t)
             val gIdx = gName?.let { groups[it]?.toList()?.indexOf(t.id) } ?: -1
             val gCol = gName?.let { colors[it] }
+            val gPin = gName != null && gName in pinnedGroups // 0.0.474
             val onlyOne = all.size == 1
             (if (dir != 0f) v.animate().translationX(dir * v.width * 1.1f).alpha(0f).setInterpolator(EASE).setDuration(ms(220)) // 0.0.364: fade + slide, one curve
             else v.animate().alpha(0f).scaleX(0.7f).scaleY(0.7f).setInterpolator(EASE).setDuration(ms(200))).withEndAction {
@@ -1174,6 +1189,7 @@ object TabSwitcher {
                         l.add(gIdx.coerceIn(0, l.size), nt.id)
                         groups[gName] = LinkedHashSet<Int>(l)
                         if (gCol != null && !colors.containsKey(gName)) colors[gName] = gCol
+                        if (gPin) pinnedGroups.add(gName) // 0.0.474
                     }
                     if (onlyOne) tm.allTabs().firstOrNull { it.home && !it.priv && it !== nt }?.let { tm.close(it) } // the Home tab made by closing the last tab
                     pendingGlide = null
@@ -1185,6 +1201,30 @@ object TabSwitcher {
         // ---- groups
 
         private fun nextColor(): Int = PALETTE[(groups.size % (PALETTE.size - 1)) + 1]
+
+        /** 0.0.474: first free "Group N" (a group made by a drag needs its name at once). */
+        private fun freeGroupName(): String {
+            var n = groups.size + 1
+            while (groups.containsKey("Group $n")) n++
+            return "Group $n"
+        }
+
+        /** 0.0.474: Pin group / Unpin group. Pinned groups sit first (Groups page + tab grid), show a pin, and ask before Close group / Delete group. */
+        private fun togglePin(name: String) {
+            val on = pinnedGroups.add(name)
+            if (!on) pinnedGroups.remove(name)
+            Util.toast(act, if (on) "Group pinned" else "Group unpinned")
+            animateNext = true
+            render()
+        }
+
+        private fun askPinned(name: String, verb: String, go: () -> Unit) {
+            if (name !in pinnedGroups) { go(); return }
+            MaterialAlertDialogBuilder(act).setMessage("\"" + name + "\" is pinned. " + verb + " it anyway?")
+                .setPositiveButton(verb) { _, _ -> go() }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
 
         /** Colour circles (2 rows) + optional name field. [initName] null = colour only. */
         private fun groupDialog(title: String, initName: String?, initColor: Int, ok: String, onCancel: () -> Unit = {}, done: (String, Int) -> Unit) {
@@ -1293,11 +1333,13 @@ object TabSwitcher {
             val snap = LinkedHashMap<String, List<Int>>() // 0.0.362: whole group order + colour, for Undo
             val cols = HashMap<String, Int>()
             for ((n, g) in groups) if (g.any { it in ids }) { snap[n] = g.toList(); colors[n]?.let { cols[n] = it } }
+            val pins = snap.keys.filter { it in pinnedGroups } // 0.0.474
             for (g in groups.values) g.removeAll(ids)
             endSelect(false)
             render()
             if (snap.isNotEmpty()) undo((if (ids.size == 1) "1 tab" else ids.size.toString() + " tabs") + " ungrouped") {
                 for ((n, l) in snap) { groups[n] = LinkedHashSet<Int>(l); cols[n]?.let { colors[n] = it } }
+                pinnedGroups.addAll(pins) // 0.0.474
                 animateNext = false
                 render()
             }
@@ -1311,6 +1353,7 @@ object TabSwitcher {
                 groups[nn] = ids
                 colors.remove(old)
                 colors[nn] = col
+                if (pinnedGroups.remove(old)) pinnedGroups.add(nn) // 0.0.474: a pinned group stays pinned after a rename
                 if (openGroup == old) openGroup = nn
                 render()
             }
@@ -1328,6 +1371,7 @@ object TabSwitcher {
         private fun deleteGroup(name: String) {
             val ids = groups[name]?.toList() ?: emptyList() // 0.0.362: Undo brings the group back (same tabs, order, colour)
             val col = colors[name]
+            val wasPinned = pinnedGroups.remove(name) // 0.0.474
             groups.remove(name)
             colors.remove(name)
             if (openGroup == name) { openGroup = null; mode = backMode }
@@ -1339,6 +1383,7 @@ object TabSwitcher {
                     for (g in groups.values) g.removeAll(ids.toSet())
                     groups[name] = LinkedHashSet<Int>(ids)
                     if (col != null) colors[name] = col
+                    if (wasPinned) pinnedGroups.add(name) // 0.0.474
                 }
                 animateNext = false
                 render()
@@ -1358,14 +1403,14 @@ object TabSwitcher {
 
         private fun doCloseList(list: List<TabManager.Tab>, msg: String? = null) {
             // S21d: no confirm dialog: close at once and offer Undo (http tabs come back at the same place and group)
-            class Snap(val url: String, val idx: Int, val g: String?, val col: Int?, val gi: Int = -1)
+            class Snap(val url: String, val idx: Int, val g: String?, val col: Int?, val gi: Int = -1, val pin: Boolean = false)
             val all = tm.allTabs()
             val snaps = ArrayList<Snap>()
             for (t in list) {
                 val url = t.web.url ?: t.url
                 if (t.priv || t.isExt || t.home || !url.startsWith("http")) continue
                 val g = groupOf(t)
-                snaps.add(Snap(url, all.indexOf(t), g, g?.let { colors[it] }, g?.let { groups[it]?.toList()?.indexOf(t.id) } ?: -1))
+                snaps.add(Snap(url, all.indexOf(t), g, g?.let { colors[it] }, g?.let { groups[it]?.toList()?.indexOf(t.id) } ?: -1, g != null && g in pinnedGroups))
             }
             snaps.sortBy { it.idx }
             val n = list.size
@@ -1382,6 +1427,7 @@ object TabSwitcher {
                     if (s.g != null) {
                         back.getOrPut(s.g) { ArrayList() }.add(Pair(s.gi, nt.id))
                         if (s.col != null && !colors.containsKey(s.g)) colors[s.g] = s.col
+                        if (s.pin) pinnedGroups.add(s.g) // 0.0.474
                     }
                 }
                 for ((gn, l) in back) {
@@ -1428,7 +1474,7 @@ object TabSwitcher {
 
         // ---- S44: drag a tab onto a group (or onto another tab = new group)
 
-        private fun canDrag() = (mode == 0 || (mode == 2 && openGroup != null)) && query.isBlank() && !selecting && !searching // S75: also inside a group
+        private fun canDrag() = (mode == 0 || mode == 1 || (mode == 2 && openGroup != null)) && query.isBlank() && !selecting && !searching // S75: also inside a group, 0.0.474: also the Private view
 
         private val scroller = object : Runnable {
             override fun run() {
@@ -1615,11 +1661,9 @@ object TabSwitcher {
                     else if (target is String) moveInto(target, setOf(t.id))
                     else if (target is TabManager.Tab && openGroup != null) reorder(t.id, target.id) // S77
                     else if (target is TabManager.Tab) {
-                        groupDialog("New tab group", "Group " + (groups.size + 1), nextColor(), "Save", { render() }) { n, col ->
-                            val name = n.ifBlank { "Group " + (groups.size + 1) }
-                            if (!groups.containsKey(name)) colors[name] = col
-                            moveInto(name, setOf(t.id, target.id))
-                        }
+                        val name = freeGroupName() // 0.0.474: no dialog: the group is made at once (name + colour chosen here), rename / recolour in the group menu, Undo bar comes from moveInto
+                        colors[name] = nextColor()
+                        moveInto(name, setOf(t.id, target.id))
                     } else render()
                 }.start()
         }
@@ -1690,6 +1734,7 @@ object TabSwitcher {
         private fun pullOut(id: Int) {
             val name = groups.entries.firstOrNull { id in it.value }?.key
             val col = if (name != null) colors[name] else null
+            val pin = name != null && name in pinnedGroups // 0.0.474
             for (g in groups.values) g.remove(id)
             animateNext = false
             render()
@@ -1697,6 +1742,7 @@ object TabSwitcher {
             undo("Tab removed from group") {
                 groups.getOrPut(name) { LinkedHashSet() }.add(id)
                 if (col != null) colors[name] = col
+                if (pin) pinnedGroups.add(name) // 0.0.474
                 animateNext = false
                 render()
             }
@@ -1981,7 +2027,7 @@ object TabSwitcher {
             val box = FrameLayout(act).apply {
                 background = round(tonal(colorOf(name), 0.22f), 16) // 0.0.295: Chrome group card = container tinted with the group colour
                 clipToOutline = true
-                contentDescription = "Group $name, ${inside.size} tabs" // S4
+                contentDescription = "Group $name, ${inside.size} tabs" + (if (name in pinnedGroups) ", pinned" else "") // S4
                 setOnClickListener { v -> openGroupView(name, v) }
                 setOnLongClickListener { v -> v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS); groupMenu(v, name, false); true }
             }
@@ -2001,6 +2047,7 @@ object TabSwitcher {
                 setTextColor(c(R.color.mg_text))
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             }, LinearLayout.LayoutParams(0, WRAP, 1f))
+            if (name in pinnedGroups) head.addView(ImageView(act).apply { setImageResource(R.drawable.ic_pin); setColorFilter(c(R.color.mg_text_dim)); contentDescription = "Pinned" }, LinearLayout.LayoutParams(dp(14), dp(14)).apply { marginEnd = dp(6) }) // 0.0.474
             head.addView(TextView(act).apply {
                 text = inside.size.toString()
                 textSize = 12f
@@ -2035,6 +2082,7 @@ object TabSwitcher {
                 setTextColor(c(R.color.mg_text))
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             })
+            if (name in pinnedGroups) line.addView(ImageView(act).apply { setImageResource(R.drawable.ic_pin); setColorFilter(c(R.color.mg_text_dim)); contentDescription = "Pinned" }, LinearLayout.LayoutParams(dp(14), dp(14)).apply { marginStart = dp(6) }) // 0.0.474
             col.addView(line)
             col.addView(TextView(act).apply {
                 text = inside.size.toString() + (if (inside.size == 1) " tab" else " tabs")

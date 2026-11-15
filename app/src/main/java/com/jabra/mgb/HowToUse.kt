@@ -41,7 +41,8 @@ object HowToUse {
                 "Tap the tab counter to see all tabs and groups. Open one by tapping it. On a tab card the menu has Close other tabs and Close tabs after this (pinned tabs stay, Undo comes up); the switcher menu has Reload all tabs.",
                 "Close a tab with its X. If Settings > Tabs and motion has swipe on, swipe the tab card instead.",
                 "Closed one by mistake? Menu > Recently closed tabs brings it back. Tap a row to reopen it; hold a row (or tap Select) to tick several and delete them, or Clear all.",
-                "Menu > Bookmark all tabs saves every open web tab into one folder."
+                "Menu > Bookmark all tabs saves every open web tab into one folder.",
+                "Hold a tab card, then drag it onto another tab: a group is made at once (name and colour are chosen for you, change them in the group menu). Group menu > Pin group keeps a group first in the list and asks before it is closed or deleted."
             ), "Menu > New private tab keeps no history and uses separate cookies.",
             listOf(
                 "Type: weather today - it runs a search. Type: example.com - it opens that site.",
