@@ -188,7 +188,7 @@ object CommandCenter {
         val canPage = cur != null && !cur.home && !cur.isExt && cur.url.startsWith("http")
         val actions = ArrayList<Cmd>()
         fun reg(icon: Int, title: String, sub: String, kw: String, f: () -> Unit) { actions.add(Cmd(icon, title, sub, kw, f)) }
-        reg(R.drawable.ic_add, "New tab", "Open the speed dial in a new tab", "open create blank", { tabs.newTab(TabManager.HOME_PAGE) })
+        reg(R.drawable.ic_add, "New tab", "Open the speed dial in a new tab", "open create blank", { tabs.newTab(TabManager.HOME_PAGE, 0, true, tabs.active?.priv == true) }) // 0.0.452
         reg(R.drawable.ic_lock, "New private tab", "No history, separate cookies", "incognito secret", { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) })
         reg(R.drawable.ic_screen, "Tab switcher", "See all open tabs and groups", "tabs overview grid", { tabs.showSwitcher() })
         reg(R.drawable.ic_home, "Home", "Go to the speed dial", "start page", { tabs.goHome() })

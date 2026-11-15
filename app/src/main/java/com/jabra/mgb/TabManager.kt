@@ -1170,7 +1170,7 @@ class TabManager(
         val list = v.findViewById<LinearLayout>(R.id.tabs_list)
         val title = v.findViewById<TextView>(R.id.tabs_title)
         v.findViewById<View>(R.id.tabs_new).setOnClickListener {
-            newTab(HOME_PAGE) // S13
+            newTab(HOME_PAGE, 0, true, active?.priv == true) // S13 (0.0.452: private stays private)
             dlg.dismiss()
         }
         fun render() {

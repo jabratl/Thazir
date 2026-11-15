@@ -91,7 +91,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         btnNewTab = findViewById(R.id.btn_newtab) // 0.0.319
         btnNewTab.setOnClickListener { // same as Chrome: a private tab opens another private tab
             it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-            tabs.newTab(TabManager.HOME_PAGE, 0, true, tabs.active?.priv == true)
+            newTabHere()
         }
         btnNewTab.setOnLongClickListener {
             it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
@@ -219,11 +219,14 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         if (savedInstanceState == null) window.decorView.postDelayed({ HowToUse.maybeOffer(this) }, 2500) // V14: one-time welcome offer
     }
 
+    /** 0.0.452: ONE place for every "New tab" entry point of the main window: a private tab in front = the new tab is private too (Chrome way). */
+    private fun newTabHere() { tabs.newTab(TabManager.HOME_PAGE, 0, true, tabs.active?.priv == true) }
+
     /** APPEARANCE A3: the left bar button does what Appearance > Address bar says (default = Home, as before). */
     private fun homeClick() {
         when (AppearancePrefs.homeAction(this)) {
             "back" -> tabs.active?.let { if (tabs.canBack(it)) tabs.back(it) }
-            "newtab" -> tabs.newTab(TabManager.HOME_PAGE)
+            "newtab" -> newTabHere() // 0.0.452: from a private tab the new tab is private
             "refresh" -> reloadOrStop()
             "bookmarks" -> BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs)
             "extensions" -> ExtTray.show(this)
@@ -296,7 +299,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             "downloads" -> MenuSheet.Act(R.drawable.ic_download, true) { DownloadsScreen.open(this) }
             "history" -> MenuSheet.Act(R.drawable.ic_history, true) { BookmarksScreen.open(this, BookmarksScreen.Mode.HISTORY, tabs) }
             "bookmarks" -> MenuSheet.Act(R.drawable.ic_bookmark, true) { BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs) }
-            "newtab" -> MenuSheet.Act(R.drawable.ic_add, true) { tabs.newTab(TabManager.HOME_PAGE) }
+            "newtab" -> MenuSheet.Act(R.drawable.ic_add, true) { newTabHere() } // 0.0.452
             "private" -> MenuSheet.Act(R.drawable.ic_lock, true) { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }
             "find" -> MenuSheet.Act(R.drawable.ic_search, canMark) { FindBar.open(this, tabs.active?.web) }
             "desktop" -> MenuSheet.Act(R.drawable.ic_desktop, canPage) { tabs.active?.let { tabs.setDesktop(it, !it.desktop) } }
