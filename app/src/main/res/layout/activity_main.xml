@@ -46,6 +46,21 @@
         android:paddingStart="4dp"
         android:paddingEnd="4dp">
 
+        <!-- 0.0.456: Hub button (3x3 dots), shown only when Appearance > Hub button is ON; then btn_home is hidden (its action = hold on the Hub button) -->
+        <ImageView
+            android:id="@+id/btn_hub"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="Hub"
+            android:focusable="true"
+            android:padding="12dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_hub"
+            android:tooltipText="Hub"
+            android:visibility="gone" />
+
         <ImageView
             android:id="@+id/btn_home"
             android:layout_width="44dp"

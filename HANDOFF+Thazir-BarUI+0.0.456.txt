@@ -1,0 +1,132 @@
+HANDOFF: Thazir "Hub address bar" UI PLAN            app now: 0.0.456 (appVersionName in app/build.gradle.kts)
+STATUS 0.0.456: S1 DONE (Hub button + Hub popup, switch OFF by default). Next = S2. Facts for the next steps: HubSheet.kt (object HubSheet: class Tile(id,label,icon,enabled=true,state=0 normal|1 accent), show(act, bar, tiles, run) = PopupWindow, card as wide as bar, above bottom bar / below top bar); MainActivity.showHub() builds the 9 tiles, hubRun(id) runs them (home newtab private back forward reload engine shield bookmarks); applyHomeIcon() also sets btnHub / btnHome visibility (btnHome GONE when Hub ON); layout has btn_hub (44dp, gone) before btn_home; AppearancePrefs.hubOn / setHubOn (ap_bar_hub); AppearanceScreen has prevHub in barPreview + updatePreview and the "Hub button" toggleRow before "New tab button"; RESET general has ap_bar_hub. DiagMore.changed / SettingsIndex.HELP list NO ap_* appearance keys today, so nothing was added there (S3 may add). NOT tested: Gradle build (CI), device. OLD STATUS: PLANNING DONE, NO CODE CHANGED. This file is the plan for the address bar redesign only. The older status line (0.0.455 CrashReport) stays in HANDOFF.txt, do not overwrite it.
+Naming: this file = "HANDOFF+Thazir-BarUI+<version>.txt" (now 0.0.456) (the old "HANDOFF+Thazir+0.0.455.txt" is a different, older record, keep it).
+
+=====================================================================
+1. PROJECT SUMMARY
+=====================================================================
+Thazir = Android browser (Kotlin, classic Views + XML, NOT Compose), package com.jabra.mgb, WebView based, Material3 DayNight, 240 .kt files in app/src/main/java/com/jabra/mgb, layout app/src/main/res/layout/activity_main.xml. Built by CI (GitHub workflow), no Android SDK in the chat sandbox: Gradle build and device are NEVER tested in chat (say so in every handoff).
+GOAL (owner): make the address bar look and work like the reference screenshot (Vivaldi/Quetta style bar): left = icon + 3x3 dots icon, middle = address field, right = tab count box + menu. The 3x3 dots button opens a "Hub" that holds the features that are in the bar today. Design is my choice, pick what is best.
+Reference files in this zip: _design/reference-bar.png (screenshot), _design/Thazir-UI-concept-icons.html (Claude concept: tokens, 4-column menugrid tiles = surface2, radius 16, icon + 12px label, sheet radius 24).
+
+ASSUMPTIONS (1 line each)
+- A1: Hub is a NEW option (Appearance switch), OFF until S6, so the old bar ("Classic") stays 100% as it is for anyone who does not turn it on. Rollback = switch OFF.
+- A2: the screenshot's first left icon (sidebar/panel) = Thazir's existing left button (btn_home with the chosen Address bar action). In Hub style it moves INTO the Hub (tile 1) and also = hold on the Hub button.
+- A3 (UPDATED, owner asked for the screenshot look): Hub style = ACCENT-FILLED floating pill like the screenshot (bar fill colorPrimary, icons mg_on_primary, field = translucent overlay capsule, tab ring outlined mg_on_primary). Colour comes from the owner's accent theme (purple #5947C7 light / #B6A8FF dark today), so it follows Accent themes. The old quiet surface look stays as option "Quiet bar" (S5). Mockup agreed in chat (light + dark + Hub open).
+- A4: phone portrait only (the app has no tablet/landscape breakpoints). "1280px" check = a wide window (tablet / desktop-mode / split) just must not break; not a design target.
+
+=====================================================================
+2. TARGET DESIGN (what goes where)
+=====================================================================
+Bar (Hub style), left to right:
+  [ Hub 3x3 ] [ address field: lock/engine badge at start, text, shield inside the end, Social chip at the end ] [ tab count ring ] [ 3-dot menu ]
+Today (Classic): [ home-action ] [back] [fwd] [engine badge] [ field + shield ] [social chip] [ + ] [ tab ring ] [ 3-dot ]
+Move into the Hub (3x3 tiles, default 9):
+  1 Home action (icon+label from AppearancePrefs.homeIconAndLabel, runs homeClick)   2 New tab (private tab keeps private = newTabHere)
+  3 Private tab (tabs.newTab(HOME_PAGE,0,true,true))   4 Back   5 Forward   6 Reload / Stop
+  7 Search engine (EnginePicker)   8 Privacy Guard (state colour)   9 Bookmarks
+STAY on the bar: address field, shield (inside field), Social chip (only social sites), tab ring, 3-dot menu. Back/Forward arrows stay ONLY if the owner's existing switches (ap_nav_back / ap_nav_fwd) are ON. The "+" button is hidden in Hub style (it is Hub tile 2) unless the owner turned "New tab button" on explicitly in Hub style.
+LOOK OF THE BAR (Hub style): pill radius 26dp, 52dp (44 compact), fill colorPrimary, no outline; Hub button 44dp with a rounded-14 translucent chip (white 22% in light / on_primary 15% in dark) behind ic_hub; field = capsule radius 20dp, 40dp visual, fill = mg_on_primary at 20% alpha, text + hint mg_on_primary (hint 85%), lock at start, shield inside the end; focused field = mgSurface fill + 2dp mg_on_primary ring + mg_text text; tab ring 32dp radius 8dp 2dp stroke mg_on_primary; 3-dot ic_more tinted mg_on_primary; private tab = plum field overlay as today (tintUrlBar must still be visible on the filled bar).
+Hub popup = floating card (PopupWindow), same width as the bar, anchored ABOVE a bottom bar / BELOW a top bar, radius 24dp, fill mgSurface, 1dp mgOutline, elevation 8dp, 3 columns x 3 rows, tile = 56dp chip (mgSurfaceVariant, radius 16dp) + 24dp icon + 12sp label (mg_text), min touch 48dp. Tile states: disabled = alpha .38 (Back/Forward when impossible), Reload shows Stop (ic_close) while loading, Privacy Guard = colorPrimary when guarding / mg_text_dim when off for the site. Tap = run action + close. Hold a tile 1.5 s = Edit shortcut (S3, same pattern as MenuBar). Hub button: tap = open Hub, hold = homeClick().
+New icon: ic_hub.xml (3x3 round dots, 24dp, tint mg_text, same vector style as ic_tab_grid.xml / ic_more.xml).
+
+=====================================================================
+3. FILE MAP (bar related, all in app/src/main/java/com/jabra/mgb unless said)
+=====================================================================
+res/layout/activity_main.xml : LinearLayout bottom_bar (52dp, margins 10/6/10/8, bg_bar_pill, elevation 3dp, padding 4dp). Children in order: btn_home(44), btn_back(36, gone), btn_fwd(36, gone), btn_engine(28 TextView, gone), url_bar(EditText 0dp weight 1, 44dp, bg_url_field), btn_shield(34x44, marginStart -38dp to sit INSIDE the field, gone), btn_social(34 TextView, gone), btn_newtab(34x44), btn_tabs(MaterialButton 34dp outlined radius 8 stroke 2dp), btn_menu(40x44 ic_more). progress = LinearProgressIndicator at top of the web area.
+MainActivity.kt (794 lines): fields btnHome/btnBack/btnFwd/btnTabs/btnShield/btnNewTab/btnEngine/urlBar; onCreate wiring lines ~83-170; homeClick() ~227 (when homeAction: back/newtab/refresh/bookmarks/extensions/else tabs.goHome()); applyHomeIcon() ~239; applyNavArrows() ~250-266 (also sets urlBar.minWidth 96dp when an arrow shows); reloadOrStop(); showMenu() ~280 (3-dot sheet; local fun barAct(id) maps MenuBar ids to actions); refreshShield() ~517-540 (decides shield / engine badge / Social chip / "+" visibility, shieldRoom(), navTight()); tintUrlBar(priv) (plum field in private tabs); newTabHere() (private stays private, 0.0.452); urlBar long-press = Copy link / Paste & go / Share; leaveUrlBar(); submitUrl().
+AppearancePrefs.kt (prefs file mgb_ui): K_BAR_POS ap_bar_pos (bottom|top), K_HOME_ACTION ap_home_action (home|back|newtab|refresh|bookmarks|extensions), K_NEWTAB ap_bar_newtab (default ON), K_BAR_COMPACT ap_bar_compact (bar 44dp), K_NAV_BACK ap_nav_back, K_NAV_FWD ap_nav_fwd, K_NAV_HIDE ap_nav_hide, K_FULL_URL, K_SWIPE_FS/TABS/SIDE, homeIconAndLabel(action). Helper sp(c) is private, add new keys in the same style.
+AppearanceScreen.kt (906 lines): Bars tab with live address bar preview (previewBox, prevUrl, ~line 89), toggleRow(card, icon, title, help, ...) rows, nav card ~443-458, behaviour card ~493 (New tab button). New Hub switch goes here; the preview must show the Hub button when Hub is ON.
+MenuBar.kt (pinned 5-icon bar of the 3-dot sheet): CATALOG (Entry(id,label,icon)): back forward bookmark ext reload home share downloads history bookmarks newtab private find desktop settings; DEFAULT; ids(c), set(c,slot,id) with swap, resetBar, attachEdit(v,slot,onChanged) = hold 1.5 s -> "Edit shortcut" popup -> picker. Prefs mgb_menu_custom key "bar" (ids joined by "|"). NOTE: Backup.SETTINGS = mgb_ui, mgb_adblock, mgb_site, mgb_userscripts, mgb_us_values, so mgb_menu_custom is NOT backed up.
+MenuSheet.kt, ToolsSheet.kt, MenuCustom.kt : bottom-sheet look (rounded cards, icon + title + help line), customise menu + its "Reset to default" (clears the whole mgb_menu_custom file). Read only.
+BarGestures.kt : touch listener on bottom_bar (swipe up/down = fullscreen / tab switcher, left/right = next/prev tab, 60dp / 56dp thresholds, not while typing; SiteSheet.touch handles the lock tap on url_bar). Listener sits on the bar view and url_bar: a new child must not eat these gestures.
+Other code that finds R.id.bottom_bar and anchors to it (check in S6): GroupStrip.kt, SocialDock.kt, UndoBar.kt, UrlSuggest.kt, EdgeSwipe.kt, PwScreen.kt, SiteWindow.kt, AppearancePrefs.kt line ~85 (bar view when bottom).
+EnginePicker.kt : show(act, anchor, onPick), styleBadge(ctx, TextView). PrivacyGuard.kt : state(tab) = 0 hidden / 1 guarding / 2 off for this site. SocialChip.kt : update(act, tabs, typing). UiMode.kt, SocialBars.kt (owner of window bar colours, S5 touches), SurfaceStyle.kt + AccentTheme.kt (Soft / Classic white / True black + accent).
+SettingsScreen.kt : RESET map (the ONLY mgb_ui keys a card Reset may remove; card "general" holds the ap_* keys) -> add every new key. DiagMore.kt : changed() has a chk() line per setting with a known default -> add one per new key. SettingsIndex.kt : HELP map (key = row label) -> add an entry for the new row. HowToUse.kt : help text (S6).
+
+=====================================================================
+4. KEY IDS / FUNCTIONS / DATA SHAPES (existing, do not rename)
+=====================================================================
+View ids: bottom_bar btn_home btn_back btn_fwd btn_engine url_bar btn_shield btn_social btn_newtab btn_tabs btn_menu progress web_container. NEW (this plan): btn_hub.
+Prefs (mgb_ui): see above. NEW keys planned: ap_bar_hub (Boolean, default false until S6) ; ap_hub_slots (String, 9 ids joined by "|", default = the 9 above) ; ap_bar_quiet (Boolean, S5, default false = filled bar).
+Hub slot ids (own list in HubSheet, S1 fixed): home newtab private back forward reload engine shield bookmarks. S3 adds the MenuBar ids (history downloads ext share find desktop settings bookmark). Do NOT add engine/shield to MenuBar.CATALOG unless MenuBar users (barAct in showMenu) get an else-branch.
+Actions: tabs.goHome(), tabs.newTab(url, openerId, select, priv, lazy, social), tabs.back(it)/fwd(it)/canBack/canFwd, newTabHere(), reloadOrStop(), BookmarksScreen.open(act, Mode.BOOKMARKS, tabs), ExtTray.show(act), DownloadsScreen.open(act), EnginePicker.show(act, anchor, onPick). Shield tap handler: find with grep "btnShield.setOnClickListener" (not read yet).
+Hub action runner: add MainActivity.hubRun(id) (new fun, same ids and same code calls as showMenu.barAct; do not refactor barAct).
+
+=====================================================================
+5. DESIGN RULES (audited, keep)
+=====================================================================
+COLOURS (tokens only, never hard-coded; light / dark in values/colors.xml + values-night/colors.xml, attrs in values/attrs.xml): mgBg (mg_bg #E9EDF6 / #0B0D13), mgSurface (#F8FAFE / #141722), mgSurfaceVariant (#DCE2EF / #202435), mgOutline (#C5CCDF / #34384A), colorPrimary = accent (mg_primary #5947C7 / #B6A8FF), mg_text (#151823 / #F0EFF8), mg_text_dim (#4F586F / #B0B2C2), mg_error, mg_success. In code: getColor(R.color.mg_text) etc. Accent themes (colors_accent / themes_accent) and Surfaces Soft / Classic white / True black (colors_surface, themes_surface, 0.0.423) change these at run time: a new drawable must use ?attr/... so all of them work.
+SHAPES: bar pill radius 26dp, 1dp mgOutline, elevation 3dp, 52dp high (44dp compact), margins 10/6/10/8dp, padding 4dp. Address field = capsule radius 20dp, 40dp visual inside 44dp touch (2dp inset), rest = mgSurfaceVariant + 1dp mgOutline, focused = mgSurface + 2dp colorPrimary ring. Tab ring = 34dp, radius 8dp, stroke 2dp, 13sp bold. Sheets/cards = radius 16-24dp.
+ICONS: 24dp vector, fillColor #FF000000 with android:tint="@color/mg_text", shown in 44dp touch boxes with 12dp padding (9dp for 36dp arrows, 8dp for 34dp). Ripple = ?attr/selectableItemBackgroundBorderless. Disabled = alpha 0.38. Private tab = plum tint on the field (tintUrlBar).
+TYPE: system font; address text 15sp sans-serif-medium (hint mg_text_dim); labels 12-14sp; no custom font files.
+SPACING: dp via Util.dp(ctx, n); 4/8/12/16dp rhythm. Pop-ups: PopupWindow (MenuBar) or BottomSheetDialog (MenuSheet, ToolsSheet).
+DARK / LIGHT: automatic by theme (values-night). BREAKPOINTS: none. Width rules in code: field must stay >= 140dp for the shield (shieldRoom), navTight() drops engine badge and "+" when both arrows show. A new bar button must respect these (it takes 44dp: check a 360dp phone keeps the field >= 140dp).
+BEHAVIOUR RULES: patch only; keep every id and handler name; hide-on-scroll (S33) and bar fullscreen swipe must still work; while typing (urlBar focus) shield and "+" hide as today; the Hub button stays visible.
+
+=====================================================================
+6. VERSION + CHANGELOG + OUTPUT CONVENTION
+=====================================================================
+- Version = ONE line in app/build.gradle.kts: val appVersionName = "0.0.455". Each step bumps by 1 (S1 = 0.0.456 ... S6 = 0.0.461).
+- CHANGELOG.txt is 477 KB: never rewrite it. Deliver CHANGELOG_PREPEND_0_0_<ver>.txt (the owner prepends it). Format (see CHANGELOG_PREPEND_0_0_455.txt in this zip): first line "<ver> (<NEW|MODIFY|FIX>: short title)", then "- Base = <prev>. NEW files / Changed files", numbered feature lines, HOW, CHANGED BEHAVIOUR, COULD BREAK, NOT tested (+ DEVICE TEST list), Rollback, Files.
+- Handoff each step: "HANDOFF+Thazir-BarUI+<ver>.txt" (this file with the step marked [x], STATUS line replaced, new facts added) and the one-line status in HANDOFF.txt.
+- Delivery = ONE zip "Thazir_BarUI_v0_0_<n>.zip" with ONLY added / modified files at exact repo paths (no Thazir-main/ prefix) + CHANGELOG_PREPEND + both handoff files.
+
+=====================================================================
+7. STANDING RULES
+=====================================================================
+- Patch only (no rewrite of a file). Keep logic, ids, handlers, file names. grep first, then view only the needed line ranges of big files (MainActivity 51 KB, AppearanceScreen 48 KB, SettingsScreen is large).
+- Plan max 5 lines, then build. No questions: state assumptions in 1 line. ONE step per chat; anything else found goes under NEXT.
+- Session guard: at ~85% never start a new sub-task; at ~90% stop and deliver zip + handoff.
+- Final reply under 10 lines: Done+version / Changes / Checks / NOT tested / Next.
+- Every new setting: RESET key (SettingsScreen), chk() line (DiagMore.changed), HELP entry (SettingsIndex), Backup is automatic for mgb_ui keys.
+
+=====================================================================
+8. CHECKS (Android version of the usual checklist)
+=====================================================================
+Chat sandbox: Kotlin bracket / paren balance on changed .kt (no SDK, state "Gradle not run"); xmllint --noout on every changed .xml (layout, drawables, values); duplicate android:id in activity_main.xml = none; every R.drawable / R.id / R.color used exists (grep); prefs keys unique; no JSON files touched (if one is: json.load).
+Device test list to write in each CHANGELOG: 360dp-wide phone + wide window (split screen / tablet), light + dark, 3 surfaces (Soft / Classic white / True black), bar bottom + bar top, compact bar ON, private tab, social site (Social chip), Back/Forward arrows ON, typing in the field (keyboard up), hide-on-scroll, bar swipes.
+
+=====================================================================
+9. STEP PLAN  ([ ] = open, [x] = done)  size = share of one chat session
+=====================================================================
+[x] S1  BUILD  size M (~40%)  -> 0.0.456  DONE
+    Goal: Hub button + Hub popup with the 9 fixed tiles, behind a new Appearance switch (default OFF).
+    Done as planned, except DiagMore.kt / SettingsIndex.kt (no ap_* keys are listed there, nothing added).
+    Read only: MenuBar.kt, MenuSheet.kt, EnginePicker.kt, PrivacyGuard.kt, ic_tab_grid.xml, concept html.
+    Depends: none. Design: section 2 + 5. Checks: section 8. Leaves project working: switch OFF = identical to 0.0.455.
+[ ] S2  MODIFY  size S (~20%)  -> 0.0.457
+    Goal: de-clutter the bar in Hub style: hide "+" (unless explicitly ON), arrows honour ap_nav_*, field width rules count the Hub button (shieldRoom, navTight, urlBar.minWidth), field keeps >= 140dp at 360dp.
+    Modify: MainActivity.kt (refreshShield, applyNavArrows, applyHomeIcon), AppearancePrefs.kt (newtab default in Hub style), AppearanceScreen.kt (preview), CHANGELOG. Read only: activity_main.xml, SocialChip.kt.
+    Depends: S1.
+[ ] S3  MODIFY  size M (~35%)  -> 0.0.458
+    Goal: customisable Hub: 9 slots in mgb_ui key ap_hub_slots (so Backup carries it), hold a tile 1.5 s = Edit shortcut picker with all actions (swap when already used), "Reset Hub tiles" row; more actions (history downloads ext share find desktop settings bookmark).
+    Modify: HubSheet.kt, MenuBar.kt only if the pattern (attachEdit) is reused as is (prefer: copy the pattern into HubSheet, do not change MenuBar), MainActivity.kt (hubRun for the new ids), SettingsScreen.kt RESET, DiagMore.kt, SettingsIndex.kt, CHANGELOG. Read only: MenuCustom.kt (reset hook, mgb_menu_custom).
+    Depends: S1.
+[ ] S4  MODIFY  size M (~30%)  -> 0.0.459
+    Goal: the screenshot look = ACCENT-FILLED bar (see LOOK OF THE BAR in section 2). NEW bg_bar_hub.xml (solid ?attr/colorPrimary, radius 26dp), bg_url_field_hub.xml (resting translucent capsule, focused = mgSurface + 2dp ring), chosen in code when Hub ON (Classic drawables untouched); one helper in MainActivity that tints every bar icon / text / tab ring with R.color.mg_on_primary when Hub ON (replaces the getColor(R.color.mg_text) calls in applyNavArrows / refreshShield for Hub style); 44dp compact variant; Hub popup polish (ripple, press state, enter / exit animation using mgb_popup_anim). Contrast check on every accent in light + dark.
+    Add: 2 drawables. Modify: MainActivity.kt (apply drawables), HubSheet.kt, CHANGELOG. Read only: themes.xml, SurfaceStyle.kt, AccentTheme.kt, colors*.xml, bg_bar_pill.xml, bg_url_field.xml.
+    Depends: S1. Check all 3 surfaces + accents.
+[ ] S5  BUILD  size S (~25%)  -> 0.0.460   (OPTIONAL, owner can skip)
+    Goal: "Quiet bar" option for Hub style = the old surface look (mgSurface fill + outline, icons mg_text) for owners who find the filled bar too strong; window bar colours still correct.
+    Add: ap_bar_quiet pref + row (replaces the planned ap_bar_accent), reuse the Classic drawables. Modify: MainActivity.kt (tint icons in one helper, hook into tintUrlBar), AppearanceScreen.kt, SocialBars.kt only if the status / nav bar colour must follow (read UiMode.kt first), SettingsScreen.kt RESET, DiagMore.kt, SettingsIndex.kt, CHANGELOG.
+    Depends: S4. Contrast check: icons readable on every accent in light + dark.
+[ ] S6  FIX/QA  size S (~20%)  -> 0.0.461
+    Goal: integration + switch Hub ON by default for NEW installs only (existing users keep Classic until they switch). Verify: GroupStrip / SocialDock / UndoBar / UrlSuggest / EdgeSwipe anchors, bar TOP (popup opens below), hide-on-scroll, BarGestures not blocked by btn_hub, private tab look, Backup restore of Hub keys, HowToUse text, tutorial / first-run text that names the bar buttons.
+    Modify: only what the checks show (grep first). Depends: S1-S4.
+
+Order: S1 -> S2 -> S3 -> S4 -> (S5) -> S6. Each step ends with a working app.
+
+=====================================================================
+10. RISKS / NEXT (not part of any step yet)
+=====================================================================
+- R1: AppearanceScreen preview duplicates the bar layout in code: easy to forget (S1, S2).
+- R2: bar touch handling (BarGestures + SiteSheet.touch) is attached to bar and url_bar: test taps on btn_hub, hold on btn_hub, swipe starting on btn_hub.
+- R3: showMenu.barAct and HubSheet actions duplicate the same calls: if an action changes (e.g. newTabHere was fixed in 0.0.452) both places need it.
+- R4: mgb_menu_custom (3-dot pinned bar slots) is not in Backup.SETTINGS: separate small FIX, not in this plan.
+- NEXT idea: swipe up on the Hub button = open Hub full sheet with search (Command Center already exists, CommandCenter.show).
+
+=====================================================================
+11. KICKOFF LINE FOR THE NEXT CHAT (attach Thazir-context.zip, or the full project zip)
+=====================================================================
+"Thazir: do step S2 of HANDOFF+Thazir-BarUI+0.0.456.txt (bar de-clutter in Hub style). Patch only, one step, changed files only in ONE zip, version 0.0.457, CHANGELOG_PREPEND + updated handoff, final reply under 10 lines, stop at 85%."

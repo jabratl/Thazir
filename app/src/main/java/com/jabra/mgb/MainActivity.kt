@@ -25,6 +25,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     private lateinit var tabs: TabManager
     private lateinit var urlBar: EditText
     private lateinit var btnHome: ImageView // S22
+    private lateinit var btnHub: ImageView // 0.0.456: Hub button (3x3)
     private lateinit var btnBack: ImageView // A1: optional Back arrow in the bar
     private lateinit var btnFwd: ImageView // A1: optional Forward arrow in the bar
     private lateinit var btnTabs: MaterialButton
@@ -83,6 +84,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         urlBar = findViewById(R.id.url_bar)
         urlBar.typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL) // 0.0.281: stronger address text
         btnHome = findViewById(R.id.btn_home)
+        btnHub = findViewById(R.id.btn_hub) // 0.0.456
         btnBack = findViewById(R.id.btn_back) // A1
         btnFwd = findViewById(R.id.btn_fwd) // A1
         btnTabs = findViewById(R.id.btn_tabs)
@@ -137,6 +139,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         }
         floating = FloatingDl(this, findViewById<FrameLayout>(R.id.web_container).parent as FrameLayout, tabs) // S11
 
+        btnHub.setOnClickListener { it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); showHub() } // 0.0.456: tap = Hub, hold = the Home-button action
+        btnHub.setOnLongClickListener { it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS); homeClick(); true }
         btnHome.setOnClickListener { homeClick() } // S22, 0.0.130: Home opens in the same tab; APPEARANCE A3: action from Appearance (default = Home)
         btnBack.setOnClickListener { tabs.active?.let { if (tabs.canBack(it)) tabs.back(it) } } // A1
         btnFwd.setOnClickListener { tabs.active?.let { if (tabs.canFwd(it)) tabs.fwd(it) } } // A1
@@ -240,6 +244,43 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         val (icon, label) = AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(this))
         btnHome.setImageResource(icon)
         btnHome.contentDescription = label
+        val hub = AppearancePrefs.hubOn(this) // 0.0.456: Hub style = Hub button instead of the Home-action button
+        btnHub.visibility = if (hub) View.VISIBLE else View.GONE
+        btnHome.visibility = if (hub) View.GONE else View.VISIBLE
+    }
+
+    /** 0.0.456: the Hub (3x3 popup above / below the bar). Same calls as the 3-dot menu and the bar buttons: see hubRun. */
+    private fun showHub() {
+        val cur = tabs.active
+        val g = PrivacyGuard.state(cur)
+        val (hIcon, hLabel) = AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(this))
+        val tiles = listOf(
+            HubSheet.Tile("home", hLabel, hIcon),
+            HubSheet.Tile("newtab", "New tab", R.drawable.ic_add),
+            HubSheet.Tile("private", "Private", R.drawable.ic_lock),
+            HubSheet.Tile("back", "Back", R.drawable.ic_back, cur != null && tabs.canBack(cur)),
+            HubSheet.Tile("forward", "Forward", R.drawable.ic_forward, cur != null && tabs.canFwd(cur)),
+            HubSheet.Tile("reload", if (cur?.loading == true) "Stop" else "Reload", if (cur?.loading == true) R.drawable.ic_close else R.drawable.ic_reload, cur != null),
+            HubSheet.Tile("engine", "Engine", R.drawable.ic_search),
+            HubSheet.Tile("shield", "Guard", R.drawable.ic_shield, g != 0, if (g == 1) 1 else 0),
+            HubSheet.Tile("bookmarks", "Bookmarks", R.drawable.ic_bookmark)
+        )
+        HubSheet.show(this, findViewById(R.id.bottom_bar), tiles) { hubRun(it) }
+    }
+
+    private fun hubRun(id: String) {
+        val cur = tabs.active
+        when (id) {
+            "home" -> homeClick()
+            "newtab" -> newTabHere()
+            "private" -> tabs.newTab(TabManager.HOME_PAGE, 0, true, true)
+            "back" -> cur?.let { if (tabs.canBack(it)) tabs.back(it) }
+            "forward" -> cur?.let { if (tabs.canFwd(it)) tabs.fwd(it) }
+            "reload" -> reloadOrStop()
+            "engine" -> EnginePicker.show(this, btnHub) { refreshShield() }
+            "shield" -> PrivacyGuard.show(this, tabs) { refreshShield() }
+            "bookmarks" -> BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs)
+        }
     }
 
     /** A1: both arrows ON on a narrow screen (< 400 dp) = smaller arrows, no engine badge, url field keeps at least 96 dp. */

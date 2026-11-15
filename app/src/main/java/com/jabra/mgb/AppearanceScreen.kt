@@ -89,6 +89,7 @@ object AppearanceScreen {
         private var previewBox: LinearLayout? = null // 0.0.313: live address bar preview, stays on screen while the Bars tab scrolls
         private var prevUrl: TextView? = null // A3: live preview of the address bar
         private var prevHome: ImageView? = null
+        private var prevHub: ImageView? = null // 0.0.456: Hub button in the preview
         private var prevBack: ImageView? = null // A1: arrows in the preview bar
         private var prevFwd: ImageView? = null
         private var prevBar: View? = null // A11: live height of the preview bar
@@ -490,6 +491,8 @@ object AppearanceScreen {
                 updatePreview()
             }
             val up = AppearancePrefs.barTop(act) // A6: directions follow the bar position
+            toggleRow(behCard, R.drawable.ic_hub, "Hub button", "3x3 button at the left of the bar: home, new tab, private tab, back, forward, reload, search engine, Privacy Guard and bookmarks. Hold it = your Home button action",
+                { AppearancePrefs.hubOn(act) }) { on -> AppearancePrefs.setHubOn(act, on); AppearanceScreen.onChange?.invoke(); updatePreview() } // 0.0.456
             toggleRow(behCard, R.drawable.ic_add, "New tab button", "Show a + next to the address bar: tap = new tab, hold = new private tab",
                 { AppearancePrefs.newTabBtn(act) }) { on -> AppearancePrefs.setNewTabBtn(act, on); AppearanceScreen.onChange?.invoke() }
             toggleRow(behCard, R.drawable.ic_screen, "Swipe for fullscreen", "Swipe the bar " + (if (up) "up" else "down") + " to hide the bar and system bars",
@@ -507,6 +510,8 @@ object AppearanceScreen {
             prevUrl?.text = if (AppearancePrefs.fullUrl(act)) "https://example.com/watch?v=12" else "example.com"
             prevBar?.let { b -> b.layoutParams?.let { lp -> lp.height = dp(if (AppearancePrefs.compactBar(act)) 44 else 52); b.layoutParams = lp } } // A11
             prevHome?.setImageResource(AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(act)).first)
+            prevHub?.visibility = if (AppearancePrefs.hubOn(act)) View.VISIBLE else View.GONE // 0.0.456
+            prevHome?.visibility = if (AppearancePrefs.hubOn(act)) View.GONE else View.VISIBLE
             prevBack?.visibility = if (AppearancePrefs.navBack(act)) View.VISIBLE else View.GONE // A1: preview shows the arrows (Forward dimmed = no forward page)
             prevFwd?.visibility = if (AppearancePrefs.navFwd(act) && !AppearancePrefs.navHide(act)) View.VISIBLE else View.GONE
         }
@@ -524,6 +529,14 @@ object AppearanceScreen {
                 setPadding(dp(12), dp(12), dp(12), dp(12))
             }
             prevHome = home
+            val hub = ImageView(act).apply { // 0.0.456
+                setImageResource(R.drawable.ic_hub)
+                setColorFilter(act.getColor(R.color.mg_text))
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                visibility = View.GONE
+            }
+            prevHub = hub
+            bar.addView(hub, LinearLayout.LayoutParams(dp(44), dp(44)))
             bar.addView(home, LinearLayout.LayoutParams(dp(44), dp(44)))
             fun arrow(icon: Int, dim: Boolean) = ImageView(act).apply { // A1
                 setImageResource(icon)

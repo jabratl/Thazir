@@ -15,6 +15,7 @@ object AppearancePrefs {
     const val K_SWIPE_FS = "ap_swipe_fs"
     const val K_SWIPE_TABS = "ap_swipe_tabs"
     const val K_SWIPE_NAV = "ap_swipe_nav" // 0.0.294: edge swipe = page back / forward (default ON)
+    const val K_BAR_HUB = "ap_bar_hub" // 0.0.456: Hub button (3x3) at the left of the bar, default OFF
     const val K_NEWTAB = "ap_bar_newtab" // 0.0.319: "+" new tab button next to the address bar (default ON)
     const val K_SWIPE_SIDE = "ap_swipe_side" // 0.0.293: swipe the bar left / right = previous / next tab (default ON)
     const val K_WP_DIM = "ap_wp_dim"
@@ -60,6 +61,9 @@ object AppearancePrefs {
     fun setSwipeFs(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_SWIPE_FS, on).apply() }
 
     fun swipeTabs(c: Context): Boolean = sp(c).getBoolean(K_SWIPE_TABS, false)
+    /** 0.0.456: ON = Hub button (3x3 dots, opens the Hub) replaces the left Home-action button. Default OFF = today's bar. */
+    fun hubOn(c: Context): Boolean = sp(c).getBoolean(K_BAR_HUB, false)
+    fun setHubOn(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_BAR_HUB, on).apply() }
     fun newTabBtn(c: Context): Boolean = sp(c).getBoolean(K_NEWTAB, true)
     fun setNewTabBtn(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_NEWTAB, on).apply() }
     fun swipeNav(c: Context): Boolean = sp(c).getBoolean(K_SWIPE_NAV, true)
