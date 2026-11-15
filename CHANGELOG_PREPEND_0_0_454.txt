@@ -1,0 +1,7 @@
+0.0.454 (vault: forgotten passphrase + recovery key; includes 0.0.453)
+- Why: index.enc + index.bak gone, passphrase and recovery key forgotten. Quick-unlock key (Keystore wrap of the DEK) is still on the phone.
+- 0.0.453 part: VaultStore.rebuildIndexQuick(key) + unlock page link "Index lost? Rebuild with fingerprint / screen lock" (VaultScreen.kt). Refuses if index.enc / index.bak exist, blobs only read, read-back verified, wrong tries not counted.
+- 0.0.454 part: VaultStore.resetSecrets(newPass): new passphrase wrap + new recovery wrap in ONE vault.hdr write, read back and opened with BOTH new secrets, else old header restored. VaultSettings.kt: link "Forgot passphrase and recovery key? Reset with fingerprint / screen lock" on Change passphrase page -> resetPage() (asks fingerprint / screen lock first, then shows the new recovery key once).
+- Only when quick unlock is on and available. Old passphrase and old recovery key stop working. Files untouched.
+- Cannot come back: bookmarks, history, titles, folders (lived only in the lost index).
+- Rollback: restore VaultStore.kt, VaultScreen.kt, VaultSettings.kt, app/build.gradle.kts from 0.0.452.

@@ -289,7 +289,53 @@ object VaultSettings {
                 }
             }
             c.addView(go, lp(dp(a, 20), MATCH, dp(a, 48)))
+            if (a is FragmentActivity && VaultStore.quickOn(a) && AppLock.available(a)) {
+                c.addView(VaultScreen.link(a, "Forgot passphrase and recovery key? Reset with fingerprint / screen lock") { resetPage() }, lp(dp(a, 8), MATCH, dp(a, 48)))
+            }
             c.addView(VaultScreen.link(a, "Cancel") { mainPage() }, lp(dp(a, 8), MATCH, dp(a, 48)))
+        }
+    }
+
+    // ---------- 0.0.453: reset passphrase + recovery key with fingerprint / screen lock ----------
+
+    private fun resetPage() {
+        val a = act as? FragmentActivity ?: return
+        screen = "reset"
+        page(a) { c ->
+            bar(a, c, "Reset passphrase and recovery key") { passPage() }
+            c.addView(VaultScreen.tv(a, "Use this only if you lost both. Your files are not touched. A NEW passphrase and a NEW recovery key replace the old ones at once (the old ones stop working). Your fingerprint or screen lock is asked first. The new recovery key is shown once: save it.", 14f, R.color.mg_text_dim).apply { setLineSpacing(0f, 1.15f) }, lp(dp(a, 12)))
+            val n1 = VaultScreen.field(a, "New passphrase (at least 8 characters)", true)
+            val n2 = VaultScreen.field(a, "Repeat new passphrase", true)
+            val err = VaultScreen.tv(a, "", 13f, R.color.mg_error).apply { visibility = View.GONE }
+            c.addView(n1, lp(dp(a, 20), MATCH, dp(a, 52)))
+            c.addView(n2, lp(dp(a, 12), MATCH, dp(a, 52)))
+            c.addView(err, lp(dp(a, 8)))
+            lateinit var go: MaterialButton
+            go = VaultScreen.btn(a, "Reset with fingerprint / screen lock") {
+                val x = chars(n1); val y = chars(n2)
+                val msg = when {
+                    x.size < 8 -> "Use at least 8 characters."
+                    !x.contentEquals(y) -> "The two new passphrases are different."
+                    else -> ""
+                }
+                VaultCrypto.wipe(y)
+                if (msg.isNotEmpty()) { err.text = msg; err.visibility = View.VISIBLE; VaultCrypto.wipe(x); return@btn }
+                err.visibility = View.GONE
+                Vault.unlock(a, "Reset vault passphrase") {
+                    busy = true; go.isEnabled = false; go.text = "Working (a few seconds)..."
+                    bg.execute {
+                        val r = try { VaultStore.resetSecrets(a, x) } catch (e: Exception) { VaultStore.Res(false, "Could not reset. Nothing was changed.") }
+                        main.post {
+                            busy = false
+                            if (dlg?.isShowing != true) return@post
+                            if (r.ok) { n1.setText(""); n2.setText(""); showKey(r.recovery) }
+                            else { go.isEnabled = true; go.text = "Reset with fingerprint / screen lock"; err.text = r.msg; err.visibility = View.VISIBLE }
+                        }
+                    }
+                }
+            }
+            c.addView(go, lp(dp(a, 20), MATCH, dp(a, 48)))
+            c.addView(VaultScreen.link(a, "Cancel") { passPage() }, lp(dp(a, 8), MATCH, dp(a, 48)))
         }
     }
 

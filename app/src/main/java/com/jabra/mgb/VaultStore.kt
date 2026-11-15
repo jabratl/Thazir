@@ -814,6 +814,31 @@ object VaultStore {
         }
     }
 
+    /**
+     * 0.0.453 BLOCKING. Forgot BOTH passphrase and recovery key, vault is OPEN (quick unlock / rebuild): set a NEW passphrase and a NEW recovery key in ONE header write.
+     * The UI must ask for fingerprint / screen lock right before. DEK, index and blobs untouched. New header is read back and opened with the new passphrase
+     * AND the new recovery key; on any doubt the old header is put back. Returns the new recovery key (show once). Wipes [newPass].
+     */
+    fun resetSecrets(c: Context, newPass: CharArray): Res {
+        val app = c.applicationContext
+        try {
+            val k = synchronized(this) { dek?.copyOf() } ?: return Res(false, "The vault is locked.")
+            try {
+                val h = synchronized(this) { header } ?: return Res(false, "The vault is locked.")
+                val pw = newPass.copyOf()
+                val h1 = try { VaultCrypto.rewrapPass(h, k, pw) } finally { VaultCrypto.wipe(pw) }
+                val r = VaultCrypto.newRecovery(h1, k)
+                val nh = r.first; val key = r.second
+                if (!writeHeader(app, nh)) return Res(false, "The key file could not be saved. Nothing was changed.")
+                val ok = readBackOk(app, k) { x -> VaultCrypto.openPass(x, newPass.copyOf()) } && readBackOk(app, k) { x -> VaultCrypto.openRecovery(x, key) }
+                if (!ok) { writeHeader(app, h); return Res(false, "The new secrets could not be verified, so nothing was changed.") }
+                return Res(true, "", key)
+            } finally { VaultCrypto.wipe(k) }
+        } catch (e: Exception) {
+            return Res(false, "Could not reset. Nothing was changed.")
+        } finally { VaultCrypto.wipe(newPass) }
+    }
+
     /** Approximate size of the list (index) in characters. */
     @Synchronized fun indexBytes(): Int = index?.toString()?.length ?: 0
 
