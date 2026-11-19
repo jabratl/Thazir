@@ -209,6 +209,7 @@ class TabManager(
     // Now the dead WebView is replaced by a fresh one (like doSuspend) and the page comes back: the open tab at once, other tabs when opened.
     private val crashLog = HashMap<Int, ArrayList<Long>>()
     @Volatile private var lastPopupAt = 0L // 0.0.468: onCreateWindow rate limit
+    @Volatile private var lastExtBlockAt = 0L // 0.0.479 (ad hardening): toast rate limit for blocked app / browser opens
 
     /** 0.0.470: one line of app state, saved by CrashGuard at every page start of a normal tab, so the Report center can show it after a native crash. */
     private fun crashState(tab: Tab): String = try {
@@ -668,6 +669,16 @@ class TabManager(
             }
             // 0.0.416: a page that opens a social app by itself (no tap) stays in the browser (pref app_nag_block)
             if (!tab.isExt && request.isForMainFrame && !request.hasGesture() && AppNag.blocksAuto(ctx, u)) { Util.toast(ctx, "App open blocked, staying in the browser"); return true }
+            // 0.0.479 (ad hardening): nothing (not only social apps) is opened without a tap; pop-ups never open apps; browser-push links (Chrome etc.) are refused even after a tap
+            if (!tab.isExt && AppNag.blocksExternal(ctx, u.toString(), request.hasGesture(), tab.popup)) {
+                if (request.isForMainFrame) {
+                    val now = android.os.SystemClock.uptimeMillis()
+                    if (now - lastExtBlockAt > 2500L) { lastExtBlockAt = now; Util.toast(ctx, "App open blocked, staying in the browser") }
+                    Diag.keep("I", "extblock", "refused", if (tab.priv) "(private tab)" else Util.host(tab.url))
+                    if (tab.popup) container.post { close(tab) }
+                }
+                return true
+            }
             if (request.isForMainFrame && !openExternal(u.toString())) {
                 val fb = AppNag.fallbackUrl(u.toString()) // 0.0.416: no app for this intent:// link -> its own web address, in this tab
                 if (fb != null && view != null) container.post { try { view.loadUrl(fb) } catch (_: Throwable) { } }
@@ -863,6 +874,7 @@ class TabManager(
             view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?
         ): Boolean {
             if (!isUserGesture || resultMsg == null) return false
+            if (active != null && active !== tab && !tab.isExt) { Diag.keep("I", "popup", "refused (background tab)", if (tab.priv) "(private tab)" else Util.host(tab.url)); return false } // 0.0.479 (ad hardening): a tab you are not looking at never opens windows
             // 0.0.468: pop-up spam (pop-under ads) made the app create and destroy a whole WebView (profile, 10+ scripts, 4 JS bridges) again and again
             // while Chromium was still starting the page: a risky path for a native crash. Returning false = Chromium refuses the window safely.
             val now = android.os.SystemClock.uptimeMillis()

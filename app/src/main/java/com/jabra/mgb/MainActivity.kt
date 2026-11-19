@@ -37,6 +37,11 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     private lateinit var floating: FloatingDl // S11
     private var lastNight = 0
     private var siteWin = false // 0.0.247 (A7): this window is a site window (own task for one social site)
+    companion object {
+        @Volatile private var mainRef: java.lang.ref.WeakReference<MainActivity>? = null // the live main (non-site) window
+    }
+
+    private var dup = false // 0.0.479: this instance only forwarded a Share/link to the already-open main window and closes at once
     private var shared = true // 0.0.247 (A7): this window owns the app-wide helpers (false = a site window while the main window lives)
 
     // S29 FIX: the saved theme must be set BEFORE AppCompat reads it (attachBaseContext). Before, the first start
@@ -47,9 +52,24 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 0.0.479: MainActivity is launchMode "standard", so a Share / link from another app made a SECOND main window (its own tabs, no
+        // incognito tab). If a main window is already alive, hand the intent to it and close this one. Site windows are not touched.
+        val live = mainRef?.get()
+        if (live != null && !live.isFinishing && !live.isDestroyed && !SiteWindow.isSite(intent) &&
+            intent?.action.let { it != null && it != Intent.ACTION_MAIN }) {
+            dup = true
+            super.onCreate(null)
+            try { live.onNewIntent(intent) } catch (e: Exception) { android.util.Log.w("Thazir.win", "forward failed", e) }
+            try {
+                (getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).appTasks
+                    .firstOrNull { it.taskInfo.taskId == live.taskId }?.moveToFront()
+            } catch (e: Exception) { }
+            finish()
+            return
+        }
         FsTemp.wipeIfDue(applicationContext) // 0.0.395: before any WebView exists in this process
         siteWin = SiteWindow.isSite(intent); shared = !siteWin || !SiteWindow.mainUp // 0.0.247 (A7)
-        if (siteWin) { SiteWindow.live++; SiteWindow.used = true } else SiteWindow.mainUp = true
+        if (siteWin) { SiteWindow.live++; SiteWindow.used = true } else { SiteWindow.mainUp = true; mainRef = java.lang.ref.WeakReference(this) }
         UiMode.apply(this) // S20: saved theme (System / Light / Dark), before the Activity is created
         AdBlock.init(this) // S19
         DlRules.init(this) // D2
@@ -901,6 +921,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     }
 
     override fun onDestroy() {
+        if (dup) { super.onDestroy(); return } // forwarded duplicate: nothing was set up, and it must not reset mainUp
+        if (mainRef?.get() === this) mainRef = null
         noisyRx?.let { try { unregisterReceiver(it) } catch (_: Exception) { } }; noisyRx = null // 0.0.310
         if (!siteWin) SiteWindow.mainUp = false else SiteWindow.live-- // 0.0.247 (A7)
         if (!siteWin && isFinishing) { PrivNotify.closer = null; PrivNotify.cancel(this) } // 0.0.302
