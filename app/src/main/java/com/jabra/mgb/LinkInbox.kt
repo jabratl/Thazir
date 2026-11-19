@@ -103,7 +103,7 @@ object LinkInbox {
         })
         val row = LinearLayout(act).apply { gravity = Gravity.END }
         row.addView(btn("Dismiss", dim) { area.removeView(card) })
-        row.addView(btn("Private", dim) { area.removeView(card); tabs.newTab(url, 0, true, true) }) // 0.0.331
+        row.addView(btn("Incognito", dim) { area.removeView(card); tabs.newTab(url, 0, true, true) }) // 0.0.331
         val sup = LinkGrab.supported(url)
         row.addView(btn("Open", if (sup) dim else primary) { area.removeView(card); tabs.newTab(url) })
         // 0.0.405: Download = LinkGrab finds the real file (Facebook / Pinterest / Reddit / Discord / direct link) and starts the app download.

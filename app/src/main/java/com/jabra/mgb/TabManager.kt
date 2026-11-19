@@ -87,6 +87,8 @@ class TabManager(
         var extWide: Boolean = false
         /** S26: private tab: own WebView profile (cookies / storage), no history, not saved in the session. */
         var priv: Boolean = false
+        /** 0.0.478: text size chosen in an Incognito tab (0 = none). Memory only: an Incognito tab never writes a site name to the zoom store. */
+        var privZoom: Int = 0
         /** T3: shows a saved page (.mht from our saved_pages folder): offline flags (PageSave.mark), no ad / https / per-site hooks. */
         var savedPage: Boolean = false
         /** 0.0.296: pinned tab: first in the list, no close X, no swipe-away; saved in the session (key pn). */
@@ -529,6 +531,7 @@ class TabManager(
 
     /** Returns false when there is nothing to restore (caller opens the home page). */
     fun restoreSession(): Boolean {
+        if (tabs.none { it.priv }) purgePrivate() // 0.0.478: the app was closed or killed with Incognito tabs open: their cookies / cache are wiped now, not at the next Incognito tab
         val sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val raw = sp.getString("tabs", null) ?: return false
         val arr = try { JSONArray(raw) } catch (_: Exception) { return false }
@@ -567,6 +570,8 @@ class TabManager(
     @SuppressLint("SetJavaScriptEnabled")
     /** S26: delete the private WebView profile (cookies, storage, cache). No-op when multi profile is not supported. */
     private fun purgePrivate() {
+        BrowserExtras.clearPrivDecisions() // 0.0.478: answers given in an Incognito tab are memory only
+        SitePerms.clearPrivAnswers()
         try {
             if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
                 ProfileStore.getInstance().deleteProfile(PRIVATE_PROFILE)
@@ -574,12 +579,18 @@ class TabManager(
         } catch (e: Exception) { /* profile still in use or missing: ignore */ }
     }
 
+    /** 0.0.478: the Incognito third-party cookie switch changed: apply it to the Incognito tabs that are open now (suspended ones read it when they wake). */
+    fun applyIncognito3p() {
+        val allow = !PrivateTabs.block3pOn(ctx)
+        for (t in tabs) if (t.priv && !t.suspended) try { CookieManager.getInstance().setAcceptThirdPartyCookies(t.web, allow) } catch (_: Throwable) { }
+    }
+
     private fun createWebView(priv: Boolean = false, social: String? = null): WebView {
         val w = WebView(ctx)
         if (priv) { // S26: must happen before settings / first load
             if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
-                try { WebViewCompat.setProfile(w, PRIVATE_PROFILE) } catch (e: Exception) { Util.toast(ctx, "Private tab: cookies are shared with normal tabs") }
-            } else Util.toast(ctx, "Private tab: this WebView shares cookies with normal tabs")
+                try { WebViewCompat.setProfile(w, PRIVATE_PROFILE) } catch (e: Exception) { Util.toast(ctx, "Incognito tab: cookies are shared with normal tabs") }
+            } else Util.toast(ctx, "Incognito tab: this WebView shares cookies with normal tabs")
         } else if (social != null) { // 0.0.234 (P9): own cookies per social site, before settings / first load
             try { WebViewCompat.setProfile(w, social) } catch (e: Exception) { Diag.w("social", "profile $social: " + (e.message ?: ""), "") }
         }
@@ -595,9 +606,11 @@ class TabManager(
             loadWithOverviewMode = true
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         }
+        // 0.0.478: Incognito = the phone's autofill service (Google / password manager) must not read or save what is typed here
+        if (priv && android.os.Build.VERSION.SDK_INT >= 26) try { w.importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS } catch (_: Throwable) { }
         val cm = CookieManager.getInstance()
         cm.setAcceptCookie(true)
-        cm.setAcceptThirdPartyCookies(w, true)
+        cm.setAcceptThirdPartyCookies(w, !(priv && PrivateTabs.block3pOn(ctx))) // 0.0.478: Incognito blocks third-party cookies (Settings switch)
         w.setOnScrollChangeListener { _, _, y, _, oy -> onScroll?.invoke(y - oy) } // S33: hide bar on scroll
         PullRefresh.attach(w, container) { w.reload() } // S45: pull down at the top = reload
         ContentInjector.attach(ctx, w, priv) // S5: V77 content scripts + chrome shim (before first load); 0.0.432: priv for incognito not_allowed
@@ -759,7 +772,7 @@ class TabManager(
                 if (kept == null || (url != null && url != kept)) { tab.home = false; tab.keepUrl = null; tab.homeFwd = false; syncHome() }
             }
             if (!tab.isExt && view != null) { // S41: text size of this site
-                val z = TextZoom.get(ctx, Util.host(url ?: ""))
+                val z = if (tab.priv && tab.privZoom > 0) tab.privZoom else TextZoom.get(ctx, Util.host(url ?: "")) // 0.0.478: Incognito size stays in memory
                 if (view.settings.textZoom != z) view.settings.textZoom = z
             }
             if (!tab.isExt && !tab.savedPage && view != null) { // S29: per-site switches (T3: not for a saved page, JS stays off)
@@ -894,11 +907,11 @@ class TabManager(
         // S14: camera / microphone / location (asks the user first)
         override fun onPermissionRequest(request: PermissionRequest?) {
             if (request == null) return
-            BrowserExtras.webPermission(request)
+            BrowserExtras.webPermission(request, tab.priv)
         }
 
         override fun onGeolocationPermissionsShowPrompt(origin: String?, callback: GeolocationPermissions.Callback?) {
-            BrowserExtras.geoPermission(origin, callback)
+            BrowserExtras.geoPermission(origin, callback, tab.priv)
         }
     }
 
@@ -965,7 +978,7 @@ class TabManager(
             rows.add(MenuSheet.Item("Preview page", R.drawable.ic_search) { PagePreview.show(ctx, l) { newTab(l, tab.id) } }) // S42
             rows.add(MenuSheet.Item("Open in new tab in group", R.drawable.ic_folder) { TabSwitcher.openInGroupHere(ctx, this, l, tab.id) }) // 0.0.379: Chrome way, this tab joins too (0.0.449: private tabs too, the new tab stays private)
             if (!tab.priv && TabSwitcher.hasGroups()) rows.add(MenuSheet.Item("Open in another group...", R.drawable.ic_folder) { TabSwitcher.openInGroup(ctx, this, l, tab.id) }) // 0.0.379: the old chooser
-            rows.add(MenuSheet.Item("Open in New Private Tab", R.drawable.ic_lock) { newTab(l, 0, true, true) })
+            rows.add(MenuSheet.Item("Open in new Incognito tab", R.drawable.ic_incognito) { newTab(l, 0, true, true) })
             if (WebPlay.isMediaUrl(l)) rows.add(MenuSheet.Item("Play in player", R.drawable.ic_play) { WebPlay.play(ctx, l, null, ref, ua) })
             if (!tab.priv) rows.add(MenuSheet.Item(if (Bookmarks.isBookmarked(l)) "Remove bookmark" else "Bookmark link",
                 if (Bookmarks.isBookmarked(l)) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border) {
@@ -1237,7 +1250,7 @@ class TabManager(
     }
 
     private fun titleOf(t: Tab): String =
-        if (t.home) (if (t.priv) "Private home" else "Home") else t.title.ifBlank { Util.host(t.url) }.ifBlank { "New tab" }
+        if (t.home) (if (t.priv) "Incognito home" else "Home") else t.title.ifBlank { Util.host(t.url) }.ifBlank { "New tab" }
 
     private fun row(t: Tab, dlg: BottomSheetDialog, onChanged: () -> Unit): View {
         val row = LinearLayout(ctx).apply {
@@ -1265,7 +1278,7 @@ class TabManager(
             ellipsize = TextUtils.TruncateAt.END
         })
         col.addView(TextView(ctx).apply {
-            text = (if (t.priv) "Private · " else "") + (if (t.home) "Speed dial" else Util.host(t.url)) // S13, S26
+            text = (if (t.priv) "Incognito · " else "") + (if (t.home) "Speed dial" else Util.host(t.url)) // S13, S26
             setTextColor(ctx.getColor(R.color.mg_text_dim))
             textSize = 12f
             maxLines = 1

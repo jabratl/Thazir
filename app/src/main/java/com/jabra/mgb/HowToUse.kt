@@ -30,20 +30,20 @@ object HowToUse {
     private val QUICK = listOf(
         "Type a web address or a search in the bar at the top and press Go.",
         "Tap the 3-dot menu for everything else: bookmarks, downloads, Vault, Settings.",
-        "Tap the tab counter to switch tabs. Menu > New private tab leaves no history."
+        "Tap the tab counter to switch tabs. Menu > New Incognito tab leaves no history."
     )
 
     // Examples that start with "CODE:" are shown in a monospace box. Advanced topics (adv = true) come after the basics.
     private val TOPICS = listOf(
         Topic(R.drawable.ic_screen, "Browse and tabs", "Open, switch and close tabs",
             listOf(
-                "Type a site or a search in the address bar. Thazir uses the search engine you chose in Settings > General. While you type, matching bookmarks and history pages show in a small card by the bar (not in private tabs); tap one to open it. Switch: Settings > General > Address suggestions.",
+                "Type a site or a search in the address bar. Thazir uses the search engine you chose in Settings > General. While you type, matching bookmarks and history pages show in a small card by the bar (not in Incognito tabs); tap one to open it. Switch: Settings > General > Address suggestions.",
                 "Tap the tab counter to see all tabs and groups. Open one by tapping it. On a tab card the menu has Close other tabs and Close tabs after this (pinned tabs stay, Undo comes up); the switcher menu has Reload all tabs.",
                 "Close a tab with its X. If Settings > Tabs and motion has swipe on, swipe the tab card instead.",
                 "Closed one by mistake? Menu > Recently closed tabs brings it back. Tap a row to reopen it; hold a row (or tap Select) to tick several and delete them, or Clear all.",
                 "Menu > Bookmark all tabs saves every open web tab into one folder.",
                 "Hold a tab card, then drag it onto another tab: a group is made at once (name and colour are chosen for you, change them in the group menu). Group menu > Pin group keeps a group first in the list and asks before it is closed or deleted."
-            ), "Menu > New private tab keeps no history and uses separate cookies.",
+            ), "Menu > New Incognito tab keeps no history and uses separate cookies. Third-party cookies are blocked there (Settings > Privacy and security > Incognito tabs). A site permission you allow in an Incognito tab is forgotten when the last Incognito tab closes. Downloads and bookmarks you make stay on the phone.",
             listOf(
                 "Type: weather today - it runs a search. Type: example.com - it opens that site.",
                 "Planning a trip with 8 tabs open: Menu > Bookmark all tabs, name the folder Trip, Save. Close the tabs and open the folder later."
@@ -55,12 +55,12 @@ object HowToUse {
                 "Menu > Command Center: type a few letters to find an action, an open tab or a bookmark.",
                 "Menu > Customise menu lets you hide rows you never use. Hold a row and drag it up or down to change the order, or drop it on one of the 4 quick tiles to put it there (the old tile goes back to its list).",
                 "The round icon bar at the bottom of the menu stays in place while the list scrolls. Hold one icon for 1.5 seconds, tap Edit shortcut and pick what that button does (15 actions, or Reset all 5 buttons). Picking an action that sits in another slot swaps the two. A short tap still runs the action.",
-                "Hub button (3x3 dots at the left of the address bar, ON on a new install, Settings > Appearance > Hub button): tap it for up to 9 tiles such as New tab, Private, Bookmarks, History and Downloads (a tile is hidden while the same button is already on the bar). Hold a tile for 1.5 seconds to choose another action for it (Appearance > Reset Hub tiles puts them back). Hold the Hub button itself = your Home button action. With the Hub button the bar is filled with your accent colour.",
+                "Hub button (3x3 dots at the left of the address bar, ON on a new install, Settings > Appearance > Hub button): tap it for up to 9 tiles such as New tab, Incognito, Bookmarks, History and Downloads (a tile is hidden while the same button is already on the bar). Hold a tile for 1.5 seconds to choose another action for it (Appearance > Reset Hub tiles puts them back). Hold the Hub button itself = your Home button action. With the Hub button the bar is filled with your accent colour.",
                 "Address bar: the shield sits inside the right end of the field, and the small tune icon at the start opens the Site sheet (soft green = https, red open lock = plain http).",
                 "Good to know: on a Social site the shield hides to give the address room, and it may come back only after the next page load or tab switch. On a small landscape screen the menu list is short but scrolls. The old green https lock is now the tune icon. Customise menu > Reset to default also resets the 5 buttons."
             ), "Command Center is the fastest way when you do not remember where something is.",
             listOf(
-                "In Command Center type: private - New private tab appears. Type: dark - Appearance appears. Type: help - this guide appears.",
+                "In Command Center type: private - New Incognito tab appears. Type: dark - Appearance appears. Type: help - this guide appears.",
                 "A mobile page looks cramped? Menu > Desktop site. A long article is hard to read? Menu > Reader view."
             )),
         Topic(R.drawable.ic_bookmark, "Bookmarks and history", "Save pages, find them again",
@@ -89,7 +89,7 @@ object HowToUse {
                 "Open a page, then Menu > Save page. It is stored on your phone.",
                 "Menu > Saved pages lists them. Tap one to open it offline.",
                 "Use the row menu to share, rename or delete a saved page."
-            ), "Private tabs cannot be saved on purpose.",
+            ), "Incognito tabs cannot be saved on purpose.",
             listOf("Before a flight: open the articles you want, Menu > Save page on each. In the air: Menu > Saved pages.")),
         Topic(R.drawable.ic_play, "Video and audio player", "Built-in player with gestures",
             listOf(
@@ -142,7 +142,7 @@ object HowToUse {
                 "Tap Add (paste code) and paste a script. It must start with a header between ==UserScript== lines.",
                 "The header needs an @match (or @include) line. Without it the script would never run and Thazir tells you so.",
                 "Use @exclude to skip pages, @run-at to choose when it runs, @noframes to skip embedded frames.",
-                "Settings > Extensions has Run userscripts (master switch) and Userscripts in private tabs (separate switch)."
+                "Settings > Extensions has Run userscripts (master switch) and Userscripts in Incognito tabs (separate switch)."
             ), "Only paste scripts you trust. A script can read and change the pages it matches.",
             listOf(
                 "CODE:// ==UserScript==\n// @name  Dark example\n// @match https://example.com/*\n// ==/UserScript==\ndocument.body.style.background = '#111';",
@@ -245,8 +245,8 @@ object HowToUse {
                 "An extension that asks to delete browsing data (history, cookies, cache) always shows a confirm box first. Passwords are never deleted this way.",
                 "Report center > Extension API gaps lists chrome.* functions that an extension called and Thazir does not support. The call fails with \"Not supported in Thazir\", the extension keeps running.",
                 "Settings > Extensions > tap an extension > Page width: Auto (the popup or page fits the phone and the popup is only as tall as its content), Phone width, or Desktop width (wide page scaled down). Reopen the popup to see it.",
-                "Settings > Extensions > tap an extension > Allow in private: OFF by default. Off = the extension does not run in private tabs and cannot see them (chrome.tabs, scripting, events). On = it can; Thazir asks first.",
-                "An extension that sets \"incognito\": \"not_allowed\" in its manifest does not run in private tabs. A web page that an extension lists (externally_connectable) can send it messages, never from a private tab. Settings > Extensions > tap an extension > Commands: tap one to run it.",
+                "Settings > Extensions > tap an extension > Allow in Incognito: OFF by default. Off = the extension does not run in Incognito tabs and cannot see them (chrome.tabs, scripting, events). On = it can; Thazir asks first.",
+                "An extension that sets \"incognito\": \"not_allowed\" in its manifest does not run in Incognito tabs. A web page that an extension lists (externally_connectable) can send it messages, never from an Incognito tab. Settings > Extensions > tap an extension > Commands: tap one to run it.",
                 "Menu > Report center helps you collect details when something is wrong, so you can copy or share them. Its Extension compat part shows the WebView version, which modern CSS features it supports and the theme of the page you are on, so an extension that looks wrong can be explained."
             ), "",
             listOf("A page misbehaves: Menu > Report center > copy the report and send it to the developer.")

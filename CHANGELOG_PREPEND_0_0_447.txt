@@ -1,6 +1,0 @@
-0.0.447 (FIX: "The vault index cannot be read" now tries index.tmp too and says which file failed)
-- WHY: owner report: unlock accepts the passphrase, then "The vault index cannot be read". That text only comes when index.enc AND index.bak could not be opened / decrypted / parsed. The old code hid the reason (empty catch).
-- VaultStore.loadIndex: (1) lastError cleared first (no stale text), (2) 3rd try = index.tmp (flush verifies it by read-back before the swap, so a tmp that decrypts is complete), (3) when all fail the message names each file (missing / empty / cannot be decrypted + size / exception class) and lists up to 8 file names in the vault folder. New private listNames(). Nothing is written, renamed or deleted.
-- NOT tested: Gradle build (CI), device.
-- DEVICE TEST: unlock the vault that failed: either it opens now (tmp was the good copy) or the message shows the reason; send that message.
-- ROLLBACK: put back VaultStore.kt from 0.0.446, appVersionName 0.0.446.

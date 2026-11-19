@@ -22,6 +22,10 @@ object PrivateTabs {
     fun shotsOn(c: Context): Boolean = ui(c).getBoolean("priv_shots", true)
     fun setShots(c: Context, v: Boolean) { ui(c).edit().putBoolean("priv_shots", v).apply() }
 
+    /** 0.0.478 (priv_3p, mgb_ui, default ON): third-party cookies are blocked in Incognito tabs, like Chrome. TabManager.createWebView reads it; TabManager.applyIncognito3p re-applies it to the open tabs. */
+    fun block3pOn(c: Context): Boolean = ui(c).getBoolean("priv_3p", true)
+    fun setBlock3p(c: Context, v: Boolean) { ui(c).edit().putBoolean("priv_3p", v).apply() }
+
     fun lockOn(c: Context): Boolean = lk(c).getBoolean("priv_lock", false)
 
     /** Turn the lock ON (asks the user to prove it is them first, so it cannot lock them out) or OFF. */
@@ -35,10 +39,10 @@ object PrivateTabs {
             Util.toast(act, if (Build.VERSION.SDK_INT >= 30) "Set a screen lock or fingerprint in phone Settings first" else "Add a fingerprint / face in phone Settings first")
             return
         }
-        AppLock.ask(act, "Turn on private tabs lock") { ok ->
+        AppLock.ask(act, "Turn on Incognito tabs lock") { ok ->
             if (ok) {
                 lk(act).edit().putBoolean("priv_lock", true).apply()
-                Util.toast(act, "Private tabs lock ON")
+                Util.toast(act, "Incognito tabs lock ON")
                 done()
             }
         }

@@ -51,7 +51,7 @@ class HomeView(
     private var cols = 0
     private var editing = false
     private var folder: String? = null // S26: folder open on the home screen (null = top level)
-    /** S26: private tab: small "Private tab" note under the wordmark. */
+    /** S26: private tab: small "Incognito tab" note under the wordmark. */
     var priv = false
     /** S28: tap on the search pill (MainActivity focuses the address bar). */
     var onSearch: (() -> Unit)? = null
@@ -144,7 +144,7 @@ class HomeView(
         if (cur == null) {
             // Signature start-page header: compact, left aligned, and clear of the edit control.
             content.addView(TextView(context).apply {
-                text = if (priv) "PRIVATE BROWSING" else greeting().uppercase()
+                text = if (priv) "INCOGNITO" else greeting().uppercase()
                 setTextColor(context.getColor(R.color.mg_primary))
                 textSize = 11f
                 letterSpacing = 0.18f
@@ -164,12 +164,26 @@ class HomeView(
                 setPadding(0, 0, dp(52), dp(2))
             }, LinearLayout.LayoutParams(MATCH, WRAP))
             content.addView(TextView(context).apply {
-                text = if (priv) "Your private session starts here." else "A calmer place to start browsing."
+                text = if (priv) "You’ve gone Incognito" else "A calmer place to start browsing."
                 setTextColor(context.getColor(R.color.mg_text_dim))
                 textSize = 13f
                 gravity = Gravity.START
                 setPadding(dp(2), 0, dp(52), dp(18))
             }, LinearLayout.LayoutParams(MATCH, WRAP))
+            if (priv) { // 0.0.478: what Incognito does and does not do (same facts Chrome lists)
+                content.addView(LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(16), dp(14), dp(16), dp(14))
+                    background = GradientDrawable().apply { cornerRadius = dp(16).toFloat(); setColor(context.getColor(R.color.mg_surface)); setStroke(dp(1), context.getColor(R.color.mg_outline)) }
+                    fun line(head: String, body: String) {
+                        addView(TextView(context).apply { text = head; textSize = 13f; setTextColor(context.getColor(R.color.mg_text)); typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL); setPadding(0, dp(6), 0, dp(2)) }, LinearLayout.LayoutParams(MATCH, WRAP))
+                        addView(TextView(context).apply { text = body; textSize = 12f; setTextColor(context.getColor(R.color.mg_text_dim)) }, LinearLayout.LayoutParams(MATCH, WRAP))
+                    }
+                    line("Thazir will not save", "Your browsing history, cookies and site data, or anything you type into forms in Incognito tabs. Cookies of other sites (third-party) are blocked.")
+                    line("Your activity might still be visible to", "The websites you visit, your employer or school, and your internet provider.")
+                    line("Kept on this phone", "Files you download and bookmarks you add. Close all Incognito tabs to wipe the rest.")
+                }, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(18) })
+            }
             content.addView(searchPill(), LinearLayout.LayoutParams(MATCH, dp(52)).apply {
                 bottomMargin = dp(26)
             })

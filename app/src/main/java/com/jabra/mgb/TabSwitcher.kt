@@ -697,7 +697,7 @@ object TabSwitcher {
                 setPadding(dp(4), dp(4), dp(4), dp(4))
             }
             seg.addView(segItem(all.count { !it.priv }.toString(), R.drawable.ic_list, mode == 0) { go(0) }, LinearLayout.LayoutParams(WRAP, dp(40)))
-            seg.addView(segItem(all.count { it.priv }.toString(), R.drawable.ic_lock, mode == 1) { go(1) }, LinearLayout.LayoutParams(WRAP, dp(40)))
+            seg.addView(segItem(all.count { it.priv }.toString(), R.drawable.ic_incognito, mode == 1) { go(1) }, LinearLayout.LayoutParams(WRAP, dp(40)))
             seg.addView(segItem(groups.keys.count { kindOf(it) == gp() }.toString(), R.drawable.ic_folder, mode == 2) { go(2) }, LinearLayout.LayoutParams(WRAP, dp(40)))
             top.addView(seg, FrameLayout.LayoutParams(WRAP, dp(48), Gravity.CENTER))
             top.addView(icon(R.drawable.ic_more, "Menu") { menu(it) }, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.END or Gravity.CENTER_VERTICAL).apply { marginEnd = dp(8) })
@@ -835,7 +835,7 @@ object TabSwitcher {
             older.forEach { t -> val v = if (listV) row(t) else card(t); oldCards.add(v); targets.add(v to t) }
             empty.text = when {
                 query.isNotBlank() -> "No tab matches."
-                mode == 1 -> "No private tabs.\nTap + to open one."
+                mode == 1 -> "No Incognito tabs.\nTap + to open one."
                 else -> "No tabs here."
             }
             empty.visibility = if (cards.isEmpty() && oldCards.isEmpty()) View.VISIBLE else View.GONE
@@ -1050,8 +1050,8 @@ object TabSwitcher {
             val items = ArrayList<MI>()
             val onList = !(mode == 2 && openGroup == null)
             if (!gp()) items.add(MI("New tab", R.drawable.ic_add) { newTab(false) })
-            items.add(MI("New private tab", R.drawable.ic_lock) { newTab(true) })
-            items.add(MI(if (gp()) "New private tab group" else "New tab group", R.drawable.ic_folder) { newGroup() }) // S75 (0.0.449: private too)
+            items.add(MI("New Incognito tab", R.drawable.ic_incognito) { newTab(true) })
+            items.add(MI(if (gp()) "New Incognito tab group" else "New tab group", R.drawable.ic_folder) { newGroup() }) // S75 (0.0.449: private too)
             if (onList) items.add(MI("Select tabs", R.drawable.ic_check) { startSelect(null) })
             if (!gp() && onList) items.add(MI("Bookmark all tabs", R.drawable.ic_bookmark_border) { TabBookmarks.dialog(act, tm) }) // S40
             if (!gp() && onList) items.add(MI("Share all tabs", R.drawable.ic_share) { TabBookmarks.shareAll(act, tm) }) // S41
@@ -1067,7 +1067,7 @@ object TabSwitcher {
             })
             if (onList) items.add(MI("Reload all tabs", R.drawable.ic_reload) { reloadAll() }) // 0.0.378
             if (onList) dupTabs().let { d -> if (d.isNotEmpty()) items.add(MI("Close duplicates (" + d.size + ")", R.drawable.ic_close) { doCloseList(d) }) } // 0.0.287: Undo comes from doCloseList
-            if (onList) items.add(MI(if (mode == 1) "Close all private tabs" else "Close all tabs", R.drawable.ic_trash) { closeAll() })
+            if (onList) items.add(MI(if (mode == 1) "Close all Incognito tabs" else "Close all tabs", R.drawable.ic_trash) { closeAll() })
             items.add(MI("Delete browsing data", R.drawable.ic_trash) { deleteData() }) // S76
             items.add(MI("Settings", R.drawable.ic_settings) { dismiss(); SettingsScreen.open(act) }) // S76
             popup(anchor, items)
@@ -1849,7 +1849,7 @@ object TabSwitcher {
 
         private fun card(t: TabManager.Tab): View {
             val host = if (t.home) "" else Util.host(t.url)
-            val title = if (t.home) (if (t.priv) "Private home" else "Home") else t.title.ifBlank { host }.ifBlank { "New tab" }
+            val title = if (t.home) (if (t.priv) "Incognito home" else "Home") else t.title.ifBlank { host }.ifBlank { "New tab" }
             val isCur = t === tm.active
             val hi = isCur && !selecting
             val on = selecting && t.id in picked
@@ -1925,7 +1925,7 @@ object TabSwitcher {
         /** 0.0.281: list view row. Same click / drag / close behaviour as card(); adds the Thazir rail, host + lock cue, asleep / age text. */
         private fun row(t: TabManager.Tab): View {
             val host = if (t.home) "" else Util.host(t.url)
-            val title = if (t.home) (if (t.priv) "Private home" else "Home") else t.title.ifBlank { host }.ifBlank { "New tab" }
+            val title = if (t.home) (if (t.priv) "Incognito home" else "Home") else t.title.ifBlank { host }.ifBlank { "New tab" }
             val hi = t === tm.active && !selecting
             val on = selecting && t.id in picked
             val fill = if (on || hi) tonal() else c(R.color.mg_surface_variant) // 0.0.295

@@ -1,9 +1,0 @@
-0.0.462 (MODIFY: borderless centred address field + left-padding fix)
-- Base = 0.0.461. Changed files: app/src/main/res/drawable/bg_url_field.xml, app/src/main/res/layout/activity_main.xml, app/src/main/java/com/jabra/mgb/MainActivity.kt, app/src/main/java/com/jabra/mgb/AppearanceScreen.kt, app/build.gradle.kts
-1. Address field has no boundary (no capsule, no outline) at rest: flat bar, text centred (Quetta / Vivaldi style). Typing = left aligned text + faint fill. Private tab keeps the plum capsule so it is still recognisable. Hub style too.
-2. FIX: text rubbed the left edge of the field (setBackground resets view padding to 0). New MainActivity.fixUrlPad() puts 18dp / 16dp (40dp with shield) back after every background change.
-3. Settings > Appearance preview centres the address text.
-HOW: bg_url_field = transparent / focused mgSurfaceVariant; gravity = center unless focused (refreshShield + fixUrlPad).
-COULD BREAK: private tab look on Classic bar unchanged; long URLs ellipsize in the centre area.
-NOT tested: Gradle build (CI), device.
-Rollback: restore the 5 files from 0.0.461.

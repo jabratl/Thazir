@@ -1,9 +1,0 @@
-0.0.467 (FIX: Bookmarks / History / Downloads window look + switching)
-- Base = 0.0.466. Changed files: app/build.gradle.kts, BookmarksScreen.kt, DownloadsScreen.kt
-From the owner's screen recording (0.0.466):
-1. Status bar of the three screens was a light lavender strip over the dark page, icons hard to read. New BookmarksScreen.styleBars(act, window): status + navigation bar = mg_bg, icon colour by luminance. Called in both windows.
-2. Bookmarks <> History: two lists were on screen at once (old fading out while the new one faded in). Now the old list fades out alone in 110 ms (no slide), the new list comes in after it (110 ms delay, 220 ms). enter() got delay / startAlpha / dur parameters.
-3. Hand-over Bookmarks / History <> Downloads: the new window started fully transparent (one blank frame) and the pill lagged the body. The body now starts at 40 % and takes 200 ms; the pill slide is 200 ms (was 280).
-COULD BREAK: status bar colour on the three screens now follows mg_bg (accent / true-black surfaces included).
-NOT tested: Gradle build (CI), device. Brace / paren balance of both files checked.
-Rollback: restore BookmarksScreen.kt and DownloadsScreen.kt from 0.0.466.

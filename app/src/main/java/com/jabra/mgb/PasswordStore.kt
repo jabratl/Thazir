@@ -451,7 +451,7 @@ return 'n'+n;
     /** Menu: Fill password for the page in the active tab. */
     fun fill(act: FragmentActivity, tabs: TabManager) {
         val t = tabs.active ?: return
-        if (t.priv && !PwScreen.privFill(act)) { Util.toast(act, "Not available in a private tab"); return }
+        if (t.priv && !PwScreen.privFill(act)) { Util.toast(act, "Not available in an Incognito tab"); return }
         val host = Util.host(t.url)
         val es = try { PwSmart.forHostSmart(act, host) } catch (e: Exception) { forHost(act, host) } // 0.0.388
         if (es.isEmpty()) { Util.toast(act, "No saved login for $host"); return }

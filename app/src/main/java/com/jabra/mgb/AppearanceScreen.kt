@@ -488,7 +488,7 @@ object AppearanceScreen {
                 HubSheet.reset(act)
                 android.widget.Toast.makeText(act, "Hub tiles are back to default", android.widget.Toast.LENGTH_SHORT).show()
             }
-            toggleRow(behCard, R.drawable.ic_add, "New tab button", "Show a + next to the address bar: tap = new tab, hold = new private tab. With the Hub button it stays hidden until you turn it on; then New tab leaves the Hub",
+            toggleRow(behCard, R.drawable.ic_add, "New tab button", "Show a + next to the address bar: tap = new tab, hold = new Incognito tab. With the Hub button it stays hidden until you turn it on; then New tab leaves the Hub",
                 { AppearancePrefs.newTabBtn(act) }) { on -> AppearancePrefs.setNewTabBtn(act, on); AppearanceScreen.onChange?.invoke() }
             toggleRow(behCard, R.drawable.ic_screen, "Swipe for fullscreen", "Swipe the bar " + (if (up) "up" else "down") + " to hide the bar and system bars",
                 { AppearancePrefs.swipeFs(act) }) { on -> AppearancePrefs.setSwipeFs(act, on) }

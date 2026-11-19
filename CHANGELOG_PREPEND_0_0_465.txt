@@ -1,9 +1,0 @@
-0.0.465 (FIX: WebView native crash hardening)
-- Base = 0.0.464. Changed files: app/build.gradle.kts, UiMode.kt, TabManager.kt
-CRASH (0.0.460 report): SIGSEGV null deref on the main thread inside the WebView native library, no app / Java frame, WebView 157.0.8103.38. Same class as 0.0.415 / 0.0.451: cannot be fixed at one line; this release removes the remaining app-side risks and adds a breadcrumb.
-1. UiMode.applyPage: algorithmic darkening is written only when the value changes (was written on every onPageStarted).
-2. HttpsOnly upgrade: view.loadUrl moved out of shouldOverrideUrlLoading (container.post), same rule as the 0.0.415 SocialMode fix.
-3. Diag breadcrumb "page start <host>" for non-private web tabs, so the next crash report names the last site.
-COULD BREAK: HTTPS-only upgrade starts one message later (not noticeable).
-NOT tested: Gradle build (CI), device.
-Rollback: restore the 3 files from 0.0.464.

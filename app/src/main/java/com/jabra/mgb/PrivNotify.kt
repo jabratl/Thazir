@@ -13,7 +13,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 
 /**
- * 0.0.302: Chrome-style notification while private (incognito) tabs are open: "Close all private tabs".
+ * 0.0.302: Chrome-style notification while private (incognito) tabs are open: "Close all Incognito tabs".
  * MainActivity.onTabsChanged calls update(); the button sends a broadcast to Receiver, which runs [closer] (set by the main window).
  * Needs the notification permission (asked on the first download); without it nothing is shown. No foreground service.
  */
@@ -31,16 +31,16 @@ object PrivNotify {
         try {
             val nm = c.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel(CH) == null)
-                nm.createNotificationChannel(NotificationChannel(CH, "Private tabs", NotificationManager.IMPORTANCE_LOW))
+                nm.createNotificationChannel(NotificationChannel(CH, "Incognito tabs", NotificationManager.IMPORTANCE_LOW))
             val open = PendingIntent.getActivity(c, 3, Intent(c, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             val close = PendingIntent.getBroadcast(c, 4, Intent(c, Receiver::class.java).setAction(ACT), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             val b = NotificationCompat.Builder(c, CH)
-                .setSmallIcon(R.drawable.ic_lock)
-                .setContentTitle(if (n == 1) "1 private tab open" else "$n private tabs open")
+                .setSmallIcon(R.drawable.ic_incognito)
+                .setContentTitle(if (n == 1) "1 Incognito tab open" else "$n Incognito tabs open")
                 .setContentText("Tap to open Thazir")
                 .setContentIntent(open).setOngoing(true).setSilent(true).setOnlyAlertOnce(true)
                 .setVisibility(NotificationCompat.VISIBILITY_SECRET)
-                .addAction(0, "Close all private tabs", close)
+                .addAction(0, "Close all Incognito tabs", close)
             nm.notify(ID, b.build())
         } catch (_: Exception) { }
     }

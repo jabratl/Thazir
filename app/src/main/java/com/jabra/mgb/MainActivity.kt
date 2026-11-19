@@ -345,7 +345,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         return when (id) {
             "home" -> { val (i, l) = AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(this)); HubSheet.Tile(id, l, i) }
             "newtab" -> HubSheet.Tile(id, "New tab", R.drawable.ic_add)
-            "private" -> HubSheet.Tile(id, "Private", R.drawable.ic_lock)
+            "private" -> HubSheet.Tile(id, "Incognito", R.drawable.ic_incognito)
             "back" -> HubSheet.Tile(id, "Back", R.drawable.ic_back, cur != null && tabs.canBack(cur))
             "forward" -> HubSheet.Tile(id, "Forward", R.drawable.ic_forward, cur != null && tabs.canFwd(cur))
             "reload" -> HubSheet.Tile(id, if (cur?.loading == true) "Stop" else "Reload", if (cur?.loading == true) R.drawable.ic_close else R.drawable.ic_reload, cur != null)
@@ -446,7 +446,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             "history" -> MenuSheet.Act(R.drawable.ic_history, true) { BookmarksScreen.open(this, BookmarksScreen.Mode.HISTORY, tabs) }
             "bookmarks" -> MenuSheet.Act(R.drawable.ic_bookmark, true) { BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs) }
             "newtab" -> MenuSheet.Act(R.drawable.ic_add, true) { newTabHere() } // 0.0.452
-            "private" -> MenuSheet.Act(R.drawable.ic_lock, true) { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }
+            "private" -> MenuSheet.Act(R.drawable.ic_incognito, true) { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }
             "find" -> MenuSheet.Act(R.drawable.ic_search, canMark) { FindBar.open(this, tabs.active?.web) }
             "desktop" -> MenuSheet.Act(R.drawable.ic_desktop, canPage) { tabs.active?.let { tabs.setDesktop(it, !it.desktop) } }
             "settings" -> MenuSheet.Act(R.drawable.ic_settings, true) { SettingsScreen.open(this) }
@@ -457,7 +457,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         val generalTop = listOf(
             MenuSheet.Item("Command Center", R.drawable.ic_search, true, "Actions · tabs · bookmarks") { CommandCenter.show(this, tabs) }, // S7
             MenuSheet.Item("Media Library", R.drawable.ic_play, true, "Detected · downloads · saved") { MediaLibrary.show(this, tabs) }, // S10
-            MenuSheet.Item("New private tab", R.drawable.ic_lock) { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }, // S26
+            MenuSheet.Item("New Incognito tab", R.drawable.ic_incognito, key = "New private tab") { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }, // S26
             MenuSheet.Item("Bookmark all tabs", R.drawable.ic_bookmark_border) { TabBookmarks.dialog(this, tabs) }, // S40
             MenuSheet.Item("Passwords", R.drawable.ic_lock) { PasswordStore.screen(this) }, // S40
             MenuSheet.Item("Vault", R.drawable.ic_vault, true, VaultScreen.summary(this)) { VaultScreen.open(this) }, // V3
@@ -771,7 +771,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         refreshTabRing() // 0.0.380
         GroupStrip.refresh() // S13
         SocialDock.refresh() // 0.0.272 (C1)
-        if (!siteWin) { // 0.0.302: "Close all private tabs" notification
+        if (!siteWin) { // 0.0.302: "Close all Incognito tabs" notification
             PrivNotify.closer = { runOnUiThread { tabs.allTabs().filter { it.priv }.forEach { tabs.close(it) } } }
             PrivNotify.update(this, tabs)
         }

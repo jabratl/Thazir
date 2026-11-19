@@ -52,6 +52,9 @@ object BrowserExtras {
 
     /** Remembered Allow / Block answers for this run: "origin|kinds" -> answer. */
     private val decided = HashMap<String, Boolean>()
+    /** 0.0.478: same for Incognito tabs, kept apart so a normal tab never reuses an Incognito answer; wiped with the Incognito data (TabManager.purgePrivate). */
+    private val decidedPriv = HashMap<String, Boolean>()
+    fun clearPrivDecisions() { decidedPriv.clear() }
 
     /** Viewport script used by desktop mode (runs when a page has finished loading). */
     const val DESKTOP_JS = "(function(){var m=document.querySelector('meta[name=viewport]');" +
@@ -314,7 +317,7 @@ object BrowserExtras {
 
     // ---------- web permissions ----------
 
-    fun webPermission(req: PermissionRequest) {
+    fun webPermission(req: PermissionRequest, priv: Boolean = false) {
         val a = act
         val origin = req.origin.toString()
         if (a == null || origin.startsWith(ContentInjector.EXT_ORIGIN)) { req.deny(); return }
@@ -330,7 +333,7 @@ object BrowserExtras {
         val drm = MediaPrefs.drm(a) && req.resources.contains(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID) // 0.0.296: Widevine, no prompt (it is not camera / mic); the downloader skips DRM items by itself
         if (web.isEmpty()) { if (drm) req.grant(arrayOf(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)) else req.deny(); return }
         val what = names.joinToString(" and ")
-        ask(a, origin, what) { ok ->
+        ask(a, origin, what, priv) { ok ->
             if (!ok) req.deny()
             else withAndroidPermission(a, needed) { granted ->
                 if (granted) req.grant((if (drm) web + PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID else web).toTypedArray()) else req.deny()
@@ -338,14 +341,14 @@ object BrowserExtras {
         }
     }
 
-    fun geoPermission(origin: String?, cb: GeolocationPermissions.Callback?) {
+    fun geoPermission(origin: String?, cb: GeolocationPermissions.Callback?, priv: Boolean = false) {
         if (cb == null) return
         val a = act
         if (origin == null || a == null || origin.startsWith(ContentInjector.EXT_ORIGIN)) {
             if (origin != null) cb.invoke(origin, false, false)
             return
         }
-        ask(a, origin, "location") { ok ->
+        ask(a, origin, "location", priv) { ok ->
             if (!ok) cb.invoke(origin, false, false)
             else withAndroidPermission(a, listOf(Manifest.permission.ACCESS_FINE_LOCATION)) { granted ->
                 cb.invoke(origin, granted, false)
@@ -353,25 +356,26 @@ object BrowserExtras {
         }
     }
 
-    private fun ask(a: ComponentActivity, origin: String, what: String, answer: (Boolean) -> Unit) {
+    private fun ask(a: ComponentActivity, origin: String, what: String, priv: Boolean = false, answer: (Boolean) -> Unit) {
         val key = "$origin|$what"
         val host = Util.host(origin)
-        SitePerms.get(a, host, what)?.let { answer(it); return } // S45: remembered for this site
+        SitePerms.getFor(a, host, what, priv)?.let { answer(it); return } // S45: remembered for this site (0.0.478: an Incognito tab also sees its own memory-only answers)
         if (SitePerms.blockedByDefault(a, what)) { answer(false); return } // 0.0.282: default = Blocked
-        decided[key]?.let { answer(it); return }
+        val dec = if (priv) decidedPriv else decided // 0.0.478
+        dec[key]?.let { answer(it); return }
         if (a.isFinishing || a.isDestroyed) { answer(false); return }
         var done = false
         var remember = true
         fun finish(ok: Boolean) {
             if (done) return
             done = true
-            decided[key] = ok
-            if (remember) SitePerms.set(a, host, what, ok) // S45
+            dec[key] = ok
+            if (remember) SitePerms.setFor(a, host, what, ok, priv) // S45 (0.0.478: in Incognito this stays in memory)
             answer(ok)
         }
         MaterialAlertDialogBuilder(a)
             .setTitle("Allow $host to use your $what?")
-            .setMultiChoiceItems(arrayOf("Remember for this site"), booleanArrayOf(true)) { _, _, on -> remember = on }
+            .setMultiChoiceItems(arrayOf(if (priv) "Remember until Incognito tabs close" else "Remember for this site"), booleanArrayOf(true)) { _, _, on -> remember = on }
             .setPositiveButton("Allow") { _, _ -> finish(true) }
             .setNegativeButton("Block") { _, _ -> finish(false) }
             .setOnCancelListener { done = true; answer(false) } // dismissed: refuse this time, ask again next time

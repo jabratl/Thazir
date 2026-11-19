@@ -122,7 +122,7 @@ object AppLock {
         if (on(act) || !PrivateTabs.lockOn(act) || privLeftAt == 0L) return
         if (dialog?.isShowing == true) return
         privLeftAt = 0L
-        if (privFront) show(act, "Private tabs are locked")
+        if (privFront) show(act, "Incognito tabs are locked")
     }
 
     fun onDestroy() {
@@ -135,7 +135,7 @@ object AppLock {
 
     /** 0.0.330: true while a private tab is open; MainActivity keeps FLAG_SECURE on (blank app preview) and the lock must not clear it. */
     @Volatile var privateOpen = false
-    /** 0.0.342: true while MainActivity keeps FLAG_SECURE on (private tab + "Allow screenshots in private tabs" OFF); previewHidden must not clear it. */
+    /** 0.0.342: true while MainActivity keeps FLAG_SECURE on (private tab + "Allow screenshots in Incognito tabs" OFF); previewHidden must not clear it. */
     @Volatile var blockShots = false
 
     private fun secure(act: FragmentActivity, on: Boolean) = previewHidden(act, on || privateOpen)

@@ -1,8 +1,0 @@
-0.0.280 (FIX + MODIFY: browser rotates, Settings press feel)
-- FIX: the browser did not rotate on phones and Android showed no rotate arrow. Cause: the browser was locked to portrait by default. "Rotate browser with phone" is now ON by default (Orient.kt, 1 line). If you ever tapped that setting, switch it ON once.
-- NEW (Settings): a row / category header gets 2 % smaller while touched, and a value text that just changed slides up and fades in once. Reduce motion = none. Touch is never consumed. Files: SettingsScreen.kt.
-- NOT in this version yet (written, waiting for a merge into the real 0.0.279 player files): hold-speed smart slide, subtitle delay.
-- Could break: a phone that wants the browser portrait-only must switch Rotate browser with phone OFF; the 2 % scale could look odd on a row inside a clipped card (report it).
-- NOT tested: Gradle build (CI), device.
-(paste this on top of CHANGELOG.txt, then delete this file)
-

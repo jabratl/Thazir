@@ -400,7 +400,7 @@ object ExtListScreen {
             })
             // 0.0.438: ALLOW IN PRIVATE row (tap = on / off; off = no scripts in private tabs and no private tab through chrome.tabs)
             col.addView(TextView(act).apply {
-                text = "ALLOW IN PRIVATE"
+                text = "ALLOW IN INCOGNITO"
                 textSize = 11f
                 letterSpacing = 0.08f
                 setTextColor(act.getColor(R.color.mg_primary))
@@ -413,20 +413,20 @@ object ExtListScreen {
                 isClickable = true
                 isFocusable = true
                 val blocked = ExtPriv.manifestBlocks(act, e.id)
-                fun upd() { text = if (blocked) "Off (the extension does not allow private tabs)" else if (ExtPriv.userAllows(act, e.id)) "On  (tap to change)" else "Off  (tap to change)" }
+                fun upd() { text = if (blocked) "Off (the extension does not allow Incognito tabs)" else if (ExtPriv.userAllows(act, e.id)) "On  (tap to change)" else "Off  (tap to change)" }
                 upd()
                 setOnClickListener {
-                    if (blocked) { Util.toast(act, "This extension does not allow private tabs"); return@setOnClickListener }
+                    if (blocked) { Util.toast(act, "This extension does not allow Incognito tabs"); return@setOnClickListener }
                     if (ExtPriv.userAllows(act, e.id)) { ExtPriv.set(act, e.id, false); upd(); ContentInjector.refresh(act) }
                     else MaterialAlertDialogBuilder(act)
-                        .setMessage("Let " + e.name + " run in private tabs? It can then see the pages you open there.")
+                        .setMessage("Let " + e.name + " run in Incognito tabs? It can then see the pages you open there.")
                         .setPositiveButton("Allow") { _, _ -> ExtPriv.set(act, e.id, true); upd(); ContentInjector.refresh(act) }
                         .setNegativeButton("Cancel", null)
                         .show()
                 }
             })
             col.addView(TextView(act).apply {
-                text = "Off (default): the extension does not run in private tabs and cannot see them. Open private tabs get the change when the page loads again."
+                text = "Off (default): the extension does not run in Incognito tabs and cannot see them. Open Incognito tabs get the change when the page loads again."
                 textSize = 12f
                 setTextColor(act.getColor(R.color.mg_text_dim))
             })
@@ -469,7 +469,7 @@ object ExtListScreen {
                 })
                 val wvm = ExtProbe.webViewMajor()
                 val head = StringBuilder("Dark mode: " + ExtDark.label(ExtDark.mode(act, e.id)) + "\nPage width: " + ExtFit.label(ExtFit.mode(act, e.id)) +
-                    "\nAllow in private: " + (if (ExtPriv.manifestBlocks(act, e.id)) "Off (manifest)" else if (ExtPriv.userAllows(act, e.id)) "On" else "Off") + "\nMatch page theme: " + ExtTheme.label(ExtTheme.mode(act)) + " (all extensions)\nCSS compatibility: " + ExtCssCompat.label(ExtCssCompat.mode(act)) + " (all extensions)")
+                    "\nAllow in Incognito: " + (if (ExtPriv.manifestBlocks(act, e.id)) "Off (manifest)" else if (ExtPriv.userAllows(act, e.id)) "On" else "Off") + "\nMatch page theme: " + ExtTheme.label(ExtTheme.mode(act)) + " (all extensions)\nCSS compatibility: " + ExtCssCompat.label(ExtCssCompat.mode(act)) + " (all extensions)")
                 if (wvm in 1..119) head.append("\n\nAndroid System WebView is old (version " + wvm + "). This extension may look wrong. Update Android System WebView in Play Store.")
                 col.addView(TextView(act).apply {
                     text = head.toString()

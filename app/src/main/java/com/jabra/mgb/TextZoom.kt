@@ -44,7 +44,7 @@ object TextZoom {
         val t = tabs.active
         if (t == null || t.isExt || !t.url.startsWith("http")) { Util.toast(act, "Open a web page first"); return }
         val host = Util.host(t.url)
-        val old = get(act, host)
+        val old = if (t.priv && t.privZoom > 0) t.privZoom else get(act, host) // 0.0.478
         val tv = TextView(act).apply { textSize = 18f; setTextColor(act.getColor(R.color.mg_text)); text = "$old%" }
         val bar = SeekBar(act).apply { max = 20; progress = ((old - 50) / 10).coerceIn(0, 20) }
         bar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -65,8 +65,11 @@ object TextZoom {
         MaterialAlertDialogBuilder(act)
             .setTitle("Text size · $host")
             .setView(col)
-            .setPositiveButton("Save") { _, _ -> set(act, host, 50 + bar.progress * 10); Util.toast(act, "Saved for $host") }
-            .setNeutralButton("Reset") { _, _ -> reset(act, host); t.web.settings.textZoom = get(act, host) } // A2: back to the default zoom
+            .setPositiveButton("Save") { _, _ ->
+                if (t.priv) { t.privZoom = 50 + bar.progress * 10; Util.toast(act, "Applied to this Incognito tab only") } // 0.0.478: nothing is saved
+                else { set(act, host, 50 + bar.progress * 10); Util.toast(act, "Saved for $host") }
+            }
+            .setNeutralButton("Reset") { _, _ -> if (t.priv) t.privZoom = 0 else reset(act, host); t.web.settings.textZoom = get(act, host) } // A2: back to the default zoom
             .setNegativeButton("Cancel") { _, _ -> t.web.settings.textZoom = old }
             .setOnCancelListener { t.web.settings.textZoom = old }
             .show()

@@ -1,0 +1,500 @@
+# CHANGELOG_ARCHIVE.txt - the text of every pruned CHANGELOG_PREPEND_<ver>.txt, newest first (tools/handoff_prune.py).
+
+=== CHANGELOG_PREPEND_0_0_467.txt ===
+0.0.467 (FIX: Bookmarks / History / Downloads window look + switching)
+- Base = 0.0.466. Changed files: app/build.gradle.kts, BookmarksScreen.kt, DownloadsScreen.kt
+From the owner's screen recording (0.0.466):
+1. Status bar of the three screens was a light lavender strip over the dark page, icons hard to read. New BookmarksScreen.styleBars(act, window): status + navigation bar = mg_bg, icon colour by luminance. Called in both windows.
+2. Bookmarks <> History: two lists were on screen at once (old fading out while the new one faded in). Now the old list fades out alone in 110 ms (no slide), the new list comes in after it (110 ms delay, 220 ms). enter() got delay / startAlpha / dur parameters.
+3. Hand-over Bookmarks / History <> Downloads: the new window started fully transparent (one blank frame) and the pill lagged the body. The body now starts at 40 % and takes 200 ms; the pill slide is 200 ms (was 280).
+COULD BREAK: status bar colour on the three screens now follows mg_bg (accent / true-black surfaces included).
+NOT tested: Gradle build (CI), device. Brace / paren balance of both files checked.
+Rollback: restore BookmarksScreen.kt and DownloadsScreen.kt from 0.0.466.
+
+=== CHANGELOG_PREPEND_0_0_466.txt ===
+0.0.466 (FIX: build error in BookmarksScreen.kt from 0.0.464)
+- Base = 0.0.465. Changed files: app/build.gradle.kts, BookmarksScreen.kt
+1. 0.0.464 put a // comment before the "{" of BookmarksScreen.fillChunked, so the brace was commented out (Kotlin: "Expecting member declaration"). The brace is back before the comment. No other change.
+Checked: brace / paren balance of every file changed in 0.0.462 - 0.0.465 (same as the original; no other swallowed brace).
+NOT tested: Gradle build (CI), device.
+Rollback: restore BookmarksScreen.kt from 0.0.463 (then 0.0.464 smoothing is gone).
+
+=== CHANGELOG_PREPEND_0_0_465.txt ===
+0.0.465 (FIX: WebView native crash hardening)
+- Base = 0.0.464. Changed files: app/build.gradle.kts, UiMode.kt, TabManager.kt
+CRASH (0.0.460 report): SIGSEGV null deref on the main thread inside the WebView native library, no app / Java frame, WebView 157.0.8103.38. Same class as 0.0.415 / 0.0.451: cannot be fixed at one line; this release removes the remaining app-side risks and adds a breadcrumb.
+1. UiMode.applyPage: algorithmic darkening is written only when the value changes (was written on every onPageStarted).
+2. HttpsOnly upgrade: view.loadUrl moved out of shouldOverrideUrlLoading (container.post), same rule as the 0.0.415 SocialMode fix.
+3. Diag breadcrumb "page start <host>" for non-private web tabs, so the next crash report names the last site.
+COULD BREAK: HTTPS-only upgrade starts one message later (not noticeable).
+NOT tested: Gradle build (CI), device.
+Rollback: restore the 3 files from 0.0.464.
+
+=== CHANGELOG_PREPEND_0_0_463.txt ===
+0.0.463 (MODIFY: minimal Hub + no duplicates)
+- Base = 0.0.461 (includes 0.0.462 = borderless centred address field + padding fix). Changed files: app/build.gradle.kts, res/drawable/bg_url_field.xml, res/drawable/ic_hub.xml, res/layout/activity_main.xml, MainActivity.kt, AppearanceScreen.kt, HubSheet.kt, SettingsIndex.kt, HowToUse.kt
+1. Hub bar = the same flat minimal bar as Classic (no accent fill, no chip behind the dots). MainActivity.hubStyle() now returns false, so every Hub look branch is off.
+2. Hub button icon: smaller dots (lighter).
+3. Hub popup: minimal, plain icon + small label (no chips), active tile = accent icon, softer card (radius 22, elevation 4). Rows follow the tile count.
+4. NO DUPLICATES: a tile is hidden while the same thing is on the bar: Back / Forward (arrows ON), New tab ("+" shown), Privacy Guard (shield in field), Engine (badge shown). Hold-to-edit still edits the right slot (Tile.slot).
+5. New default tiles: home, new tab, private, bookmarks, history, downloads, extensions, engine, find (back / forward / reload stay in the 3-dot menu + edge swipe). A saved custom set is kept.
+6. Help texts (Appearance row, SettingsIndex, HowToUse) updated.
+COULD BREAK: a custom Hub set with back / forward + arrows ON shows fewer tiles (intended).
+NOT tested: Gradle build (CI), device.
+Rollback: restore the listed files from 0.0.461.
+
+=== CHANGELOG_PREPEND_0_0_462.txt ===
+0.0.462 (MODIFY: borderless centred address field + left-padding fix)
+- Base = 0.0.461. Changed files: app/src/main/res/drawable/bg_url_field.xml, app/src/main/res/layout/activity_main.xml, app/src/main/java/com/jabra/mgb/MainActivity.kt, app/src/main/java/com/jabra/mgb/AppearanceScreen.kt, app/build.gradle.kts
+1. Address field has no boundary (no capsule, no outline) at rest: flat bar, text centred (Quetta / Vivaldi style). Typing = left aligned text + faint fill. Private tab keeps the plum capsule so it is still recognisable. Hub style too.
+2. FIX: text rubbed the left edge of the field (setBackground resets view padding to 0). New MainActivity.fixUrlPad() puts 18dp / 16dp (40dp with shield) back after every background change.
+3. Settings > Appearance preview centres the address text.
+HOW: bg_url_field = transparent / focused mgSurfaceVariant; gravity = center unless focused (refreshShield + fixUrlPad).
+COULD BREAK: private tab look on Classic bar unchanged; long URLs ellipsize in the centre area.
+NOT tested: Gradle build (CI), device.
+Rollback: restore the 5 files from 0.0.461.
+
+=== CHANGELOG_PREPEND_0_0_461.txt ===
+0.0.461 (NEW: select + delete in Recently closed tabs, shared ListEditor for the home page "Recently visited")
+- Base = 0.0.460. NEW file: ListEditor.kt. Changed files: Backup.kt, HowToUse.kt, app/build.gradle.kts. No new permission, no new pref key.
+- 1) Menu / Settings > Recently closed tabs is now a sheet: tap a row = reopen it, hold a row (or tap Select) = select mode with ticks, then Delete (n) / All / Done. Clear all stays. Delete removes only the ticked tabs from the list (ClosedTabs.remove).
+- 2) ListEditor.show(act, title, rows, emptyMsg, onOpen, onDelete, onClear) is generic: callbacks get the index in the list that was passed in, the caller maps it to its own item. The home page "Recently visited" is meant to use it (one call), but its code is not in the context zip, so it is NOT wired yet.
+- CHANGED BEHAVIOUR: Recently closed tabs looks different (sheet, not a plain dialog); reopen still removes that entry from the list.
+- COULD BREAK: the sheet is code-built (no new layout), long lists scroll inside one NestedScrollView (rows are rebuilt on every tick, fine for a few dozen).
+- NOT tested: Gradle build (CI), device. Only Kotlin bracket check. DEVICE TEST: 1) close 3 tabs, open Menu > Recently closed tabs: 3 rows. 2) tap one: it reopens and leaves the list. 3) hold one: tick boxes appear, tick another, Delete (2): both gone, the rest stays. 4) All then Delete: sheet closes. 5) Clear all works. 6) empty list: toast "No recently closed tabs".
+- NEXT: wire "Recently visited" on the home page: needs the file that draws that section and the history store API (remove one / remove several).
+- Rollback: delete ListEditor.kt; Backup.closedTabs back to the MaterialAlertDialogBuilder list (setItems, Clear list); HowToUse line back; appVersionName 0.0.460.
+- Files: ListEditor.kt, Backup.kt, HowToUse.kt, app/build.gradle.kts, CHANGELOG_PREPEND_0_0_461.txt, HANDOFF.txt, HANDOFF+Thazir-BarUI+0.0.461.txt
+
+=== CHANGELOG_PREPEND_0_0_460.txt ===
+0.0.460 (MODIFY: Hub button ON by default for NEW installs + integration checks. Address bar redesign step S6)
+- Base = 0.0.459. No new file, no new permission. NEW pref key: ap_hub_default (mgb_ui, Boolean, written once). Changed files: AppearancePrefs.kt, AppearanceScreen.kt, Backup.kt, DiagMore.kt, HowToUse.kt, app/build.gradle.kts.
+- 1) Hub button default: AppearancePrefs.hubOn = saved ap_bar_hub, else hubDefault(). hubDefault() = true on a fresh install (last update less than 5 s after the first install), false otherwise; the answer is saved once in ap_hub_default, so a later update never flips it and an existing owner who updates keeps the Classic bar. Explicit choice (ap_bar_hub) always wins; Settings Reset removes only ap_bar_hub, so a new install goes back to Hub ON, an old install to Classic.
+- 2) Backup restore: after the settings are written, AppearanceScreen.onChange runs (when no restart is needed), so a restored Hub button / tiles / bar look show at once (applyBarStyle).
+- 3) HowToUse: one new step in "Menu and Command Center" describes the Hub button, hold-a-tile and Reset Hub tiles.
+- 4) Appearance preview bar uses the same contrast rule as the real bar (mg_on_primary if >= 3:1, else white / black).
+- 5) DiagMore "Hub button" is compared with hubDefault(), so a new install with the Hub ON is not listed as changed.
+- CHECKED, NO CHANGE NEEDED (read the code): GroupStrip / SocialDock / UndoBar / UrlSuggest / EdgeSwipe anchor to the bar view only (no bar background, bar size and margins are the same in Hub style); hide-on-scroll only toggles the bar visibility; BarGestures: btn_hub is a clickable child like btn_home, so taps and the 1.5 s hold work and a swipe that starts on the bar itself or the field still counts; Hub popup on a TOP bar opens below the bar and slides from the top (S4); private tab look = plum ring (S4); Backup carries ap_bar_hub / ap_hub_slots / ap_hub_default (mgb_ui).
+- NOT CHECKED (files are not in the context zip, grep the full project): PwScreen.kt and SiteWindow.kt anchors to R.id.bottom_bar; the first-run tutorial / offer text outside HowToUse.kt that names the bar buttons.
+- CHANGED BEHAVIOUR: NEW installs start with the Hub bar (accent-filled, no "+"). Updates: nothing changes.
+- COULD BREAK: a backup made before 0.0.456 restored on a new phone has no ap_hub_default, so that phone starts with the Hub bar (the owner can switch it OFF); a reinstall counts as a new install; a manual "install over" (adb -r) counts as an update (Classic).
+- NOT tested: Gradle build (CI), device. Only Kotlin bracket check. DEVICE TEST: 1) uninstall, install fresh: Hub bar ON, "+" hidden, Hub tiles work. 2) install this build over 0.0.459 / older: bar stays as it was. 3) Settings > Appearance > Hub button OFF then Reset (general): fresh install = Hub ON again. 4) Backup > restore a backup with Hub OFF while the Hub is ON: bar turns Classic at once. 5) bar top: Hub opens below the bar. 6) swipe on the bar (fullscreen / tabs / next tab) still works with the Hub bar.
+- NEXT: nothing is required. S5 (Quiet bar) stays optional. Open items: PwScreen / SiteWindow anchors and tutorial text (see NOT CHECKED).
+- Rollback: AppearancePrefs.hubOn back to sp(c).getBoolean(K_BAR_HUB, false) (delete hubDefault + K_HUB_DEF); DiagMore chk default false; remove the Backup onChange line, the HowToUse step, the preview contrast lines; appVersionName 0.0.459.
+- Files: AppearancePrefs.kt, AppearanceScreen.kt, Backup.kt, DiagMore.kt, HowToUse.kt, app/build.gradle.kts, CHANGELOG_PREPEND_0_0_460.txt, HANDOFF.txt, HANDOFF+Thazir-BarUI+0.0.460.txt
+
+=== CHANGELOG_PREPEND_0_0_459.txt ===
+0.0.459 (MODIFY: Hub style = accent-filled bar like the reference screenshot + Hub popup polish. Address bar redesign step S4)
+- Base = 0.0.458. NEW file: res/drawable/bg_bar_hub.xml. Changed files: MainActivity.kt, HubSheet.kt, AppearanceScreen.kt, app/build.gradle.kts. No new permission, no new pref key.
+- 1) With Appearance > Hub button ON the bar is filled with the accent colour (?attr/colorPrimary, radius 26 dp, no outline). Icons, address text, tab count + ring, shield, engine badge, Social chip and lock all use "ink" on it. Hub OFF = the Classic bar exactly as before (bg_bar_pill, bg_url_field, mg_text).
+- 2) Address field on the Hub bar: resting = ink 20 % capsule (radius 20 dp, 2 dp inset), text = ink (hint 85 %); focused = mgSurface fill + 2 dp ring + mg_text text (colour state lists). Private tab = plum ring (2 dp) on the field, also while typing. The Hub button has a rounded translucent chip behind the dots.
+- 3) Ink = mg_on_primary when its contrast against the real bar fill is >= 3:1, else white / black (whichever reads better), checked at run time, so every accent in light + dark stays readable.
+- 4) Hub popup: short fade + slide from the bar side (skipped with Reduce motion), the chip dips to 92 % while pressed.
+- HOW: MainActivity.applyBarStyle() (called from applyHomeIcon, so it runs at start and live from the Appearance switch) sets the drawables and static colours; hubStyle() / barFill() / barInk() / barIcon() / tabInk() / hubFieldBg() feed the dynamic places: applyNavArrows, refreshShield (shield, "+", engine badge, Social chip), refreshAll (tab count), refreshTabRing, tintUrlBar (Hub branch), setUrlLock, refreshUrlField (dim part of a full URL). AppearanceScreen preview bar is filled too when Hub is ON.
+- DEVIATION FROM PLAN: no bg_url_field_hub.xml. A theme colour cannot get an alpha in XML, so the field drawable is built in code (hubFieldBg). The 44 dp compact bar needs no extra file (radius 26 dp works on 44 dp).
+- CHANGED BEHAVIOUR: only with the Hub button ON: filled bar. Everyone else: nothing changes.
+- COULD BREAK: a tab-group ring colour can look weak on an accent of a similar hue (the group colour still wins, as before); the Appearance preview uses mg_on_primary without the contrast fallback; the http open-lock is ink (not red) on the Hub bar.
+- NOT tested: Gradle build (CI), device. Only Kotlin bracket check + xmllint. DEVICE TEST: 1) Hub ON: bar = accent fill, every icon readable, light + dark. 2) all 10 accents + 3 surfaces (Soft / Classic white / True black). 3) tap the field: surface fill + ring, text dark / readable, hint ok. 4) private tab: plum ring on the field, tab count readable. 5) Hub OFF: Classic bar back at once, no leftover colour. 6) bar top + compact bar.
+- NEXT: S5 (optional Quiet bar) or S6 integration.
+- Rollback: delete bg_bar_hub.xml; MainActivity: remove applyBarStyle + helpers and the hubStyle() / barIcon() / tabInk() branches (colours back to getColor(R.color.mg_text) / old lines); HubSheet: remove the animation block; AppearanceScreen: remove the preview recolour; appVersionName 0.0.458.
+- Files: MainActivity.kt, HubSheet.kt, AppearanceScreen.kt, res/drawable/bg_bar_hub.xml, app/build.gradle.kts, CHANGELOG_PREPEND_0_0_459.txt, HANDOFF.txt, HANDOFF+Thazir-BarUI+0.0.459.txt
+
+0.0.458 (MODIFY: customisable Hub tiles. Address bar redesign step S3)
+- Base = 0.0.457. Changed files: HubSheet.kt, MainActivity.kt, AppearanceScreen.kt, SettingsScreen.kt, DiagMore.kt, SettingsIndex.kt, app/build.gradle.kts. No new file, no new permission. NEW pref key: ap_hub_slots (mgb_ui, 9 ids joined by "|", so Backup carries it).
+- 1) The 9 Hub tiles are the owner's choice. Hold a tile 1.5 s -> picker with 17 actions (the 9 old + history downloads ext share find desktop settings bookmark). An action already in another tile swaps places. "Reset all 9 tiles" in the picker, and a "Reset Hub tiles" row in Appearance. After a pick the Hub opens again with the change.
+- 2) Invalid / missing saved list = the default 9 (same rule as MenuBar.ids).
+- HOW: HubSheet got CATALOG, DEFAULT, ids / set / reset / isCustom, attachHold (the MenuBar.attachEdit pattern copied, MenuBar untouched) and a picker (BottomSheetDialog, same look as the 3-dot menu picker). MainActivity.showHub builds tiles from HubSheet.ids through hubTile(id); hubRun(id) got the 8 new ids with the same calls as showMenu.barAct. Disabled tiles can still be held and replaced.
+- Settings hooks: SettingsScreen RESET "general" + ap_hub_slots; DiagMore.changed + "Hub button" and "Hub tiles changed"; SettingsIndex.HELP + "Hub button", "Reset Hub tiles".
+- CHANGED BEHAVIOUR: only with the Hub button ON. Default tiles = exactly 0.0.457.
+- COULD BREAK: a hold of 1.5 s on a tile opens the picker instead of a tap; the picker is a sheet over the closed Hub; Reset in Appearance has no confirm (re-edit by hand).
+- NOT tested: Gradle build (CI), device. DEVICE TEST: 1) hold a tile 1.5 s -> picker, pick History -> Hub reopens with History in that tile. 2) pick an action that is used elsewhere -> the two tiles swap. 3) short tap still runs the action. 4) disabled tile (Back on a new tab) can be held and changed. 5) Appearance > Reset Hub tiles -> default tiles. 6) Backup + restore keeps the tiles.
+- Rollback: HubSheet back to fixed tiles (drop CATALOG / ids / attachHold / picker); MainActivity.showHub back to the 9 fixed tiles; remove the Appearance row, the RESET / chk() / HELP entries; appVersionName 0.0.457.
+- Files: as 0.0.459 (same delivery zip).
+
+=== CHANGELOG_PREPEND_0_0_457.txt ===
+0.0.457 (MODIFY: Hub style bar is less crowded - the "+" button is hidden until turned on. Address bar redesign step S2)
+- Base = 0.0.456. Changed: AppearancePrefs.kt, AppearanceScreen.kt, app/build.gradle.kts. No new file, no new permission, no new pref key.
+- 1) With Appearance > Hub button ON, the "+" next to the address bar is hidden (New tab and Private tab are Hub tiles). It shows again when the owner turns "New tab button" ON by hand while the Hub button is ON. Hub OFF = exactly as before (default ON).
+- HOW: AppearancePrefs.newTabBtn(c) = if (hubOn && key ap_bar_newtab was never set) false else the saved value (default true). Its only two callers (MainActivity.refreshShield and the Appearance "New tab button" row) follow it, so the row shows OFF and the bar hides the "+" together; AppearanceScreen.onChange already calls refreshShield, so it is live. The row hint says it.
+- 2) WIDTH CHECK (no code needed): the Hub button (44 dp) replaces the Home-action button (44 dp, hidden), so the bar is as wide as before MINUS the "+" (34 dp). At 360 dp: 360 - 20 margin - 8 padding = 332; Hub 44 + tab ring 34 + menu 40 + field margins 8 = 126 -> the address field gets about 206 dp (>= 140 dp shield rule). Both arrows ON: 206 - 72 = 134 dp, handled by the existing navTight() (< 400 dp: smaller arrows, no engine badge, minWidth 96 dp). Back / Forward arrows still follow ap_nav_back / ap_nav_fwd / ap_nav_hide, unchanged.
+- CHANGED BEHAVIOUR: only with the Hub button ON and the New tab button never touched: no "+". Everyone else: nothing changes.
+- COULD BREAK: an owner who toggled "New tab button" before (key exists) and then turns the Hub ON keeps the "+" (their saved value wins); a Reset (Settings > general) does not clear ap_bar_newtab, so the "+" follows the saved value afterwards.
+- NOT tested: Gradle build (CI), device. Only a Kotlin bracket check. DEVICE TEST: 1) Hub ON (fresh): no "+" on the bar, Appearance row "New tab button" = OFF. 2) turn that row ON: the "+" shows, tap = new tab, hold = private tab. 3) Hub OFF: "+" back as before. 4) both arrows ON at 360 dp: field >= 96 dp, no overlap, no engine badge. 5) type in the field: "+" hides as before. 6) light + dark.
+- NEXT: S3 customisable Hub tiles.
+- Rollback: AppearancePrefs.newTabBtn back to sp(c).getBoolean(K_NEWTAB, true); AppearanceScreen hint text back; appVersionName 0.0.456.
+- Files: AppearancePrefs.kt, AppearanceScreen.kt, app/build.gradle.kts, CHANGELOG_PREPEND_0_0_457.txt, HANDOFF.txt, HANDOFF+Thazir-BarUI+0.0.457.txt
+
+=== CHANGELOG_PREPEND_0_0_456.txt ===
+0.0.456 (NEW: Hub button - 3x3 popup at the left of the address bar, Appearance switch, default OFF. Address bar redesign step S1)
+- Base = 0.0.455. NEW files: HubSheet.kt, res/drawable/ic_hub.xml. Changed: res/layout/activity_main.xml, AppearancePrefs.kt, AppearanceScreen.kt, MainActivity.kt, SettingsScreen.kt, app/build.gradle.kts. No new permission.
+- 1) HUB BUTTON (Settings > Appearance > Bars > "Hub button", pref ap_bar_hub in mgb_ui, OFF by default): ON = a 3x3 dots button (btn_hub) takes the place of the left Home-action button (btn_home is hidden). Tap = the Hub, hold = the Home-button action (homeClick, same as before).
+- 2) HUB = floating card (PopupWindow) with 9 tiles, as wide as the bar, above a bottom bar / below a top bar: Home action (icon + label follow Appearance > Address bar action), New tab (a private tab opens a private tab), Private tab, Back, Forward (dim when impossible), Reload / Stop, Search engine (EnginePicker), Privacy Guard (accent chip while it guards the page, dim on pages without it), Bookmarks. Tap = close, then run.
+- HOW: HubSheet.show(act, bar, tiles, run) = look + layout only. MainActivity.showHub() builds the tiles, hubRun(id) runs the action with the same calls as the 3-dot menu and the bar buttons. MainActivity.applyHomeIcon() (already called at start and on AppearanceScreen.onChange) now also switches btn_hub / btn_home visibility, so the switch works live. Appearance preview shows the Hub button (prevHub). Settings Reset card "general" also clears ap_bar_hub.
+- CHANGED BEHAVIOUR: nothing until the switch is turned ON (default OFF, bar identical to 0.0.455).
+- COULD BREAK: (1) with Hub ON the "+" button and the arrows still show as before (S2 handles the bar width and hides "+"); (2) popup position on a device with a display cutout / split screen (uses getLocationOnScreen of the bar); (3) Home action "New tab" gives two similar tiles (Home action + New tab), only a cosmetic duplicate.
+- NOT tested: Gradle build (CI), device. Only a Kotlin bracket check, XML well-formed, no duplicate ids, resource names exist. DEVICE TEST: 1) Appearance > Bars > Hub button ON: the bar shows 3x3 at the left, Home button gone, preview shows it too. 2) tap Hub: 9 tiles, tap each one. 3) hold Hub = Home action. 4) bar at the top (Appearance > Bar position): the Hub opens BELOW the bar. 5) private tab: New tab tile opens a private tab. 6) light + dark, 360 dp phone, compact bar. 7) switch OFF = old bar back. 8) Settings > Reset (general) puts the switch OFF.
+- NEXT (not done here): DiagMore.changed and SettingsIndex.HELP do not list any ap_* appearance key today, so none was added for ap_bar_hub (would be the first one). S2 = bar de-clutter in Hub style.
+- Rollback: delete HubSheet.kt and ic_hub.xml; activity_main.xml remove the btn_hub ImageView; AppearancePrefs remove K_BAR_HUB, hubOn, setHubOn; MainActivity remove btnHub (field, findViewById, 2 listeners), the 3 lines at the end of applyHomeIcon, showHub, hubRun; AppearanceScreen remove prevHub (field, the 2 lines in updatePreview, the hub view in barPreview) and the "Hub button" toggleRow; SettingsScreen remove "ap_bar_hub" from RESET general; appVersionName back to 0.0.455.
+- Files: HubSheet.kt (new), ic_hub.xml (new), activity_main.xml, AppearancePrefs.kt, AppearanceScreen.kt, MainActivity.kt, SettingsScreen.kt, app/build.gradle.kts, CHANGELOG_PREPEND_0_0_456.txt, HANDOFF.txt, HANDOFF+Thazir-BarUI+0.0.456.txt
+
+=== CHANGELOG_PREPEND_0_0_455.txt ===
+0.0.455 (crash report that shows itself)
+- Why: a crash at app open (site reload) could only be read from the Report center; a native crash (WebView SIGSEGV) left nothing on screen, and CrashLog.showLast ran AFTER the tabs loaded.
+- NEW CrashReport.kt. showIfNeeded() runs right after CrashGuard.begin() (BEFORE restoreSession): if mgb_crash.txt exists (Java crash) or Android 11+ exit record of the main process (crash / native crash / ANR / start failure) is newer than the last handled one, ONE dialog: time, reason, signal, Android's description, app / Android / WebView versions, Java stack, native stack (DiagExtra.nativeCrashLines), last 15 Diag events (masked). Buttons Copy / Full report / Close. Handled (and mgb_crash.txt deleted) only when the dialog is dismissed, so a death before that shows it again. Exit record not ready: re-check after 2.5 s and 5 s when CrashGuard.safe. Android < 11: only "last run ended unexpectedly" (also fires after a force stop).
+- notifyCrash(): the uncaught-exception handler (CrashLog.install) posts a notification "Thazir crashed" (tap = app opens = dialog). Needs the notification permission on Android 13+. Native crashes: no notification (no code runs).
+- Switch: SettingsScreen "Crash report popup" (prefs mgb_crashrep on, default ON). OFF = old CrashLog.showLast dialog; ON = showLast returns at once.
+- DiagExtra.kt: fmtTime / nativeCrashLines / reasonName / importanceName private -> internal (no other change).
+- Test: Report center > crash test is not part of this. Device test = open a page that crashes the WebView, or throw in a debug build; start again; dialog must show once, Copy works, second start shows nothing.
+- Rollback: restore CrashLog.kt, MainActivity.kt, DiagExtra.kt, SettingsScreen.kt, app/build.gradle.kts from 0.0.452 (0.0.454 for build.gradle.kts) and delete CrashReport.kt.
+
+=== CHANGELOG_PREPEND_0_0_454.txt ===
+0.0.454 (vault: forgotten passphrase + recovery key; includes 0.0.453)
+- Why: index.enc + index.bak gone, passphrase and recovery key forgotten. Quick-unlock key (Keystore wrap of the DEK) is still on the phone.
+- 0.0.453 part: VaultStore.rebuildIndexQuick(key) + unlock page link "Index lost? Rebuild with fingerprint / screen lock" (VaultScreen.kt). Refuses if index.enc / index.bak exist, blobs only read, read-back verified, wrong tries not counted.
+- 0.0.454 part: VaultStore.resetSecrets(newPass): new passphrase wrap + new recovery wrap in ONE vault.hdr write, read back and opened with BOTH new secrets, else old header restored. VaultSettings.kt: link "Forgot passphrase and recovery key? Reset with fingerprint / screen lock" on Change passphrase page -> resetPage() (asks fingerprint / screen lock first, then shows the new recovery key once).
+- Only when quick unlock is on and available. Old passphrase and old recovery key stop working. Files untouched.
+- Cannot come back: bookmarks, history, titles, folders (lived only in the lost index).
+- Rollback: restore VaultStore.kt, VaultScreen.kt, VaultSettings.kt, app/build.gradle.kts from 0.0.452.
+
+=== CHANGELOG_PREPEND_0_0_453.txt ===
+0.0.453 (vault: rebuild index with fingerprint / screen lock)
+- Why: index.enc + index.bak gone, passphrase and recovery key forgotten. Quick-unlock key (Keystore wrap of the DEK) is still on the phone.
+- VaultStore.kt: rebuildIndex(pass) now calls shared rebuildWith(); NEW rebuildIndexQuick(key). Same rules: refuses if index.enc / index.bak exist, blobs only read, new index verified by read-back. Quick path does not count wrong tries.
+- VaultScreen.kt: unlock page link "Index lost? Rebuild with fingerprint / screen lock" (only when quick unlock is on and available).
+- Cannot come back: bookmarks, history, titles, folders.
+- Rollback: restore VaultStore.kt, VaultScreen.kt, app/build.gradle.kts from 0.0.452.
+
+=== CHANGELOG_PREPEND_0_0_452.txt ===
+0.0.452 (FIX: "New tab" from a private tab opened a NORMAL tab; every "New tab" entry point now keeps the private mode)
+- WHY: owner report + screen recording: private tab (Home, plum address field), tap the "+" at the left of the address bar = a normal Home ("GOOD AFTERNOON") opens, the normal tab count goes 3 -> 4 and the private count stays 1.
+- ROOT CAUSE (code + video): that left "+" is the LEFT BAR BUTTON (btn_home) with Appearance > Address bar action "New tab" (icon ic_add), not btn_newtab. MainActivity.homeClick() "newtab" called tabs.newTab(HOME_PAGE) with no private flag. The same missing flag was in the 3-dot menu bar slot "newtab" (MainActivity.barAct), Command Center "New tab" and the old sheet_tabs "tabs_new" (TabManager). The separate "+" (btn_newtab, 0.0.319) was already right.
+- FIX: MainActivity.newTabHere() = tabs.newTab(HOME_PAGE, 0, true, tabs.active?.priv == true), the ONE helper for the main window; used by homeClick "newtab", barAct "newtab" and btn_newtab tap (long press = private tab, unchanged). CommandCenter "New tab" and TabManager sheet_tabs tabs_new pass tabs.active?.priv. Result: a private tab in front = every New tab entry opens a private tab with the private profile, the private Home, the plum field and the private count; a normal tab in front = normal tab as before. Explicit "New private tab" rows unchanged.
+- Tab functions in private mode (same as normal mode, kept private): switcher + / group + / strip + (0.0.449), link menu "Open in new tab" and window.open (opener id keeps private), Duplicate tab, bar swipe between private tabs only, Home / Go home keeps private (TabManager.goHome t.priv).
+- NOT changed on purpose: close of the active tab picks a neighbour / opener (can be a normal tab); links from other apps, Link inbox "Open", extensions (tabs.create) and Site windows open normal tabs (the person did not do it from a private tab).
+- NOT tested: Gradle build (CI), device. Brackets / parens counted, equal to the 0.0.451 files.
+- DEVICE TEST: (1) Appearance > Address bar > left button = New tab; open a private tab, tap the left "+": a PRIVATE Home opens (PRIVATE BROWSING, plum field, tab switcher Private count +1, Tabs count same). (2) Same from a normal tab: normal tab. (3) 3-dot menu bar slot "New tab" (Customise menu bar) from a private tab: private. (4) Command Center > New tab from a private tab: private. (5) the separate "+" (New tab button switch) and hold = private: as before. (6) close the private tabs: the private profile is wiped as before.
+- ROLLBACK: MainActivity.kt: delete newTabHere(), put "tabs.newTab(TabManager.HOME_PAGE)" back in homeClick and barAct and the old one-liner in btn_newtab; CommandCenter.kt line 191 and TabManager.kt (tabs_new) back to the 1-argument newTab; appVersionName 0.0.451.
+
+=== CHANGELOG_PREPEND_0_0_451.txt ===
+0.0.451 (FIX: crash loop from a native WebView crash; vault patch 0.0.447 / 0.0.448 is IN again) (includes 0.0.449 tab features)
+- WHY: owner crash report (Xiaomi / POCO, Android 16): SIGSEGV, null pointer (fault addr 0x18) inside libwebviewchromium.so on the MAIN thread, in Looper.pollOnce; no com.jabra.mgb frame, no Java stack. A web address (missav.live) is readable in the registers = a page that was loading. So this is a Chromium bug hit by a page, NOT the vault code and NOT the tab patch (the vault patch was wrongly suspected: 0.0.450 had it out and the same kind of crash is reported). The same family as 0.0.415 (native crash in WebView). CrashLog cannot record it (native), and the saved session reloads the same page at every start = crash loop ("crashes 2 s after start").
+- NEW CrashGuard.kt: MainActivity.onCreate (before restoreSession) CrashGuard.begin: run = true (commit). onStop: CrashGuard.end: run = false. A start that finds run = true = the last run ended in the foreground without onStop (crash / force stop) -> CrashGuard.safe = true for this run.
+- TabManager.restoreSession: when CrashGuard.safe the tabs are restored (kept, still lazy) but NONE is loaded; a fresh Home tab is selected and a toast says why. MainActivity: the "start page" extra Home tab is skipped in a safe run. Next normal start (after a clean onStop) = normal restore.
+- Vault: VaultStore.kt / VaultScreen.kt = the 0.0.448 versions again (loadIndex reasons + index.tmp, rebuildIndex, "Index lost? Rebuild list from files").
+- NOT tested: Gradle build (CI), device. Braces / parens counted.
+- DEVICE TEST: (1) normal use: app opens with the old tabs as before. (2) open the page that crashed, crash it (or: Settings > Apps > Thazir > Force stop while the app is in front), start again: Home tab, toast, your tabs are in the tab list, tap one = it loads. (3) press Home button, start again: normal restore (no safe run). (4) rotate the phone: no safe run.
+- ADVICE for the owner: update "Android System WebView" and Chrome in the Play Store (the crash is inside Chromium); if one site keeps crashing, test it with Settings > site settings (JavaScript off / desktop site) or without the ad blocker / extension.
+- ROLLBACK: delete CrashGuard.kt, the 3 lines marked 0.0.451 (MainActivity: begin, onStop end, startPage condition) and the safe block in TabManager.restoreSession; vault files back to 0.0.446 if needed; appVersionName 0.0.450.
+
+=== CHANGELOG_PREPEND_0_0_450.txt ===
+0.0.450 (SAFE BUILD: = 0.0.446 + 0.0.449 private tab groups; the vault patch 0.0.447 / 0.0.448 is taken OUT)
+- WHY: owner report: the app crashes about 2 s after start, right after the vault fix was installed. No stack trace yet.
+- VaultStore.kt and VaultScreen.kt are back to the 0.0.446 files. The 0.0.447 (loadIndex reasons + index.tmp) and 0.0.448 (Rebuild index) code is parked in Thazir_vault_447_448_PARKED.zip, NOT lost, NOT built.
+- Kept: everything of 0.0.449 (TabSwitcher.kt, TabBookmarks.kt, GroupStrip.kt, TabManager.kt: private tab groups, + in the private view, copy links).
+- NOT tested: Gradle build (CI), device.
+- If this build opens normally: the crash came from the vault patch. If it still crashes at start: it is NOT the vault patch (0.0.446 or 0.0.449 tab code); send the "Last crash" dialog text (next start, Copy) or adb logcat -b crash -d.
+- ROLLBACK: put TabSwitcher.kt / TabBookmarks.kt / GroupStrip.kt / TabManager.kt back from 0.0.446, appVersionName 0.0.446.
+
+=== CHANGELOG_PREPEND_0_0_449.txt ===
+0.0.449 (NEW: tab groups + new-tab features also in the private view)
+- WHY: owner request: in private mode the + must open a private tab, and the tab / group features must work there too.
+- TabSwitcher.Screen: gp() = the private side is shown (private view, or a group of private tabs); privG remembers it for the Groups page; kindOf(group) = a group holds ONLY private or ONLY normal tabs (never mixed). Private view: private groups sit on top of the private tabs like in the normal view, tap one = group panel, back returns to the private view. + button and menu "New tab group" / group "+" make PRIVATE tabs there (menu shows only "New private tab" in the private view). "Add to group" / "Move to group" / "Remove from group" / "Group" bar button / Ungroup work for private tabs; the picker lists only groups of the same kind; a name used by a group of the other kind is refused. "Copy all tab links" / "Copy links" / "Open links from clipboard" work in the private view (copy only: TabBookmarks.linkOf / copyLinks got allowPriv, default false). Groups tab counter counts the groups of the side you are on.
+- GroupStrip: the bottom group strip also shows for a private tab in a group; its + opens a private tab. TabManager link menu: "Open in new tab in group" also on private tabs (new tab stays private).
+- LEFT OUT ON PURPOSE (privacy): Add Favorite, Bookmark all tabs, Share tabs from private tabs; Undo after closing a private tab; pin; drag and drop in the private view (use the menu). Groups are in memory only and are NOT saved with the session (private tabs are never saved), they vanish with the last private tab.
+- Main bar + was already private in a private tab (0.0.319), long press = private tab: unchanged.
+- NOT tested: Gradle build (CI), device. Only brace / paren counts (TabSwitcher, GroupStrip equal; TabBookmarks -1 / -1 as in 0.0.448 = regex string).
+- DEVICE TEST: (1) private tab open > tab switcher > Private: + opens a private tab; 3-dot > "New private tab group" makes a group + a private tab; (2) select 2 private tabs > Group: group card on top, tap = panel, + inside = private tab, back = private view; (3) Tabs segment shows no private group, Groups segment from the private view shows only private groups, from the normal view only normal ones; (4) normal tab can not be put in a private group (picker); (5) bottom strip appears in a private group tab; (6) Copy all tab links in private view; (7) close app: private groups gone, normal groups restored as before.
+- ROLLBACK: put back TabSwitcher.kt, TabBookmarks.kt, GroupStrip.kt, TabManager.kt from 0.0.448 (VaultStore.kt / VaultScreen.kt belong to 0.0.447 / 0.0.448), appVersionName 0.0.448.
+
+=== CHANGELOG_PREPEND_0_0_448.txt ===
+0.0.448 (NEW: "Index lost? Rebuild list from files" on the vault unlock screen) (includes 0.0.447)
+- WHY: owner report: vault.hdr and d/ are in the folder but index.enc and index.bak are gone (also not in any trash). The passphrase is right, the list is not.
+- VaultStore.rebuildIndex(ctx, pass) (new, BLOCKING): passphrase -> key; REFUSES (writes nothing) when index.enc or index.bak exists; reads every d/<id>.bin with the key (read only), guesses type from the first 4 KB: MIME archive = page (title from Subject, address from Snapshot-Content-Location / Content-Location when the header has them, else "Recovered page N"), else file by magic bytes (png jpg gif webp pdf mp4 mp3 zip rar ogg mkv, else bin) named "Recovered file N.ext"; item id = blob id, time = file modified time, size = plain size. Writes a NEW index.enc, reads it back and compares, only then opens the vault. A blob that cannot be read is skipped and counted.
+- VaultScreen.unlockView: link "Index lost? Rebuild list from files" under "Use recovery key instead". It uses the passphrase typed in the field above (empty = asks to type it). Success = vault opens + toast with the counts.
+- CANNOT come back: bookmarks and history in the vault, folders, original file names / titles of files (they lived only in the old index). Blobs are never changed or deleted.
+- NOT tested: Gradle build (CI), device. Kotlin only brace / paren counted.
+- DEVICE TEST: on the lock screen type the passphrase, tap the link: vault opens, Saved pages / Files show the recovered items; open a page, Export a file and check it. Then lock + unlock normally (the new index.enc is used). Wrong passphrase = "Wrong passphrase.".
+- ROLLBACK: delete rebuildIndex in VaultStore.kt and the link block marked 0.0.448 in VaultScreen.kt, appVersionName 0.0.447.
+
+=== CHANGELOG_PREPEND_0_0_447.txt ===
+0.0.447 (FIX: "The vault index cannot be read" now tries index.tmp too and says which file failed)
+- WHY: owner report: unlock accepts the passphrase, then "The vault index cannot be read". That text only comes when index.enc AND index.bak could not be opened / decrypted / parsed. The old code hid the reason (empty catch).
+- VaultStore.loadIndex: (1) lastError cleared first (no stale text), (2) 3rd try = index.tmp (flush verifies it by read-back before the swap, so a tmp that decrypts is complete), (3) when all fail the message names each file (missing / empty / cannot be decrypted + size / exception class) and lists up to 8 file names in the vault folder. New private listNames(). Nothing is written, renamed or deleted.
+- NOT tested: Gradle build (CI), device.
+- DEVICE TEST: unlock the vault that failed: either it opens now (tmp was the good copy) or the message shows the reason; send that message.
+- ROLLBACK: put back VaultStore.kt from 0.0.446, appVersionName 0.0.446.
+
+=== CHANGELOG_PREPEND_0_0_446.txt ===
+0.0.446 (FIX: stutter when switching Bookmarks / History / Downloads)
+- WHY: owner report: switching between the three pages freezes the UI for a moment (a few ms to tens of ms), not smooth; Quetta does not. CAUSE (code read, not profiled): (a) BookmarksScreen.favTile called Favicons.get(host) for EVERY row on the UI thread; get() = BitmapFactory.decodeFile from disk when the icon is not in the 80 entry memory cache, so a History page of up to 300 rows did up to 300 disk reads + decodes before the slide even started. (b) switchMode / open built ALL rows (History up to 300, Bookmarks and Downloads unlimited, each Downloads saved file row has 2 MaterialButtons) in one go on the UI thread, before the animation start. (c) the Bookmarks <> Downloads hand over builds a whole new Dialog, so (a) and (b) hit the first frame of the slide.
+- 1) Favicons.kt: NEW peek(host) = memory cache only (no disk) and NEW lookup(host, done) = decode of the saved icon on one worker thread (decodePool), then done(bitmap) on the main thread; no saved icon = fetch() as before. get() and fetch() are unchanged.
+- 2) BookmarksScreen.favTile: Favicons.peek(host) first (shows the icon at once when cached), else the letter tile and Favicons.lookup (icon appears a moment later). No disk read on the UI thread any more.
+- 3) NEW BookmarksScreen.fillChunked(box, jobs, alive): the rows are first collected as small lambdas, the first 10 are added at once, the rest 8 per frame (box.post). BookmarksScreen.render() and DownloadsScreen.render() use it ONLY when the list is empty (new page / mode switch / filter change / first open); a refresh of a filled list (select, sort, folder change, download progress every second) stays synchronous, so the scroll position is kept. A newer render() stops the older batches (renderGen). `visible` (select all) is still filled completely at once.
+- Nothing else changed: same rows, same order, same texts, same keys, no setting, no new permission, no new dependency. Visible difference: a row icon of a host that is not in the memory cache shows the letter tile for a moment, then the icon.
+- NOT tested: Gradle build (CI), device. The cause is from reading the code; no profiler run.
+- DEVICE TEST: 1) Bookmarks > History > Downloads > Bookmarks, 10 times quickly: the slide and the pill stay smooth, no hitch at the start. 2) History with a long list: scroll to the bottom at once after opening: all rows are there (the rest arrives within a few frames). 3) Select mode in History at row 100 + tap rows: the scroll position stays, check marks work, Select all counts every row. 4) Type in the search box: list filters. 5) Downloads with a running download: progress moves, scroll position stays. 6) Icons: first open shows letters then icons; second open shows icons at once.
+- Rollback: Favicons.kt remove peek / decodePool / lookup; BookmarksScreen: favTile back to Favicons.get + fetch, render() back to box.addView per row (remove fillChunked + renderGen); DownloadsScreen: render() back to box.addView per row (remove jobs / renderGen).
+- Files: app/build.gradle.kts, Favicons.kt, BookmarksScreen.kt, DownloadsScreen.kt, CHANGELOG_PREPEND_0_0_446.txt, HANDOFF_Thazir_EXT_PLAN_0.0.446.txt
+
+=== CHANGELOG_PREPEND_0_0_445.txt ===
+0.0.445 (DIAG: native crash stack in the Diagnose report)
+- WHY: Diagnose report 2026-11-15 (Xiaomi 2412DPC0AI, Android 16, WebView 156.0.8078.47, app 0.0.444): "App exits" shows CRASH_NATIVE (signal 11, was foreground, process main) twice in 24 h (11-14 18:25:36 and 11-15 00:26:19), and the owner says an extension was running. The report had no stack, so the place of the crash was unknown. The StackOverflowError shown under "Last crash" in that report is from 0.0.410 (already fixed in 0.0.413), not a new crash.
+- 1) NEW in the report, section "App exits": a block "Native crash stack (newest main process crash, <time>)". DiagExtra.nativeCrashLines reads ApplicationExitInfo.traceInputStream of the newest CRASH_NATIVE of the MAIN process (max 2 MB). Android 12+ = protobuf tombstone: a small built-in protobuf reader (pbFields / tombstoneLines) prints the signal + code name (field 10), abort message (14), causes (15) and the frames of the crashing thread (thread whose id = tid, field 6 / 16 / 4: lib file name + relative pc + function name when the library has symbols). Older = text tombstone: textTombstoneLines keeps the signal, "Abort message", "pid:" and "#NN pc" lines. Result max 70 lines, each cut to 200 chars and passed through Diag.mask. Nothing readable = one line ("Android kept no stack for this crash" / "stack could not be read (N bytes, format not recognised)"). Every part is in try / catch: the report can not crash because of it.
+- Read only. No setting, key, permission, network call or stored value changed. The field numbers come from AOSP tombstone.proto (Tombstone: tid 6, signal_info 10, abort_message 14, causes 15, threads 16; Thread: id 1, name 2, current_backtrace 4; BacktraceFrame: rel_pc 1, function_name 4, file_name 5). If a future Android changes them the text fallback / "format not recognised" line shows it.
+- NOT tested: Gradle build (CI), device.
+- DEVICE TEST: 1) Install, open Settings > Report center (Diagnose) > make a report: no crash, the "App exits" section looks as before. 2) After the next native crash (signal 11) make the report again: under "App exits" a block "Native crash stack" with signal, crashing thread name and frames (libwebviewchromium.so +0x...). Send it. 3) With an extension running when it crashes, check the thread name and the frames: they say if the crash is in WebView (CrBrowserMain / Chrome_IOThread) or in the app.
+- Rollback: remove nativeCrashLines / textTombstoneLines / tombstoneLines / pbFields / Fld from DiagExtra.kt and restore the line "return Triple(sec(level, head + rows), low, anr)" in exits30.
+- Files: app/build.gradle.kts, app/src/main/java/com/jabra/mgb/DiagExtra.kt, CHANGELOG_PREPEND_0_0_445.txt, HANDOFF_Thazir_EXT_PLAN_0.0.445.txt
+
+=== CHANGELOG_PREPEND_0_0_444.txt ===
+0.0.444 (UI: "Changed from default" row, typo-friendly search, "?" help on 13 complex rows)
+- 3) Settings top: a slim row "Changed from default" (not while searching). Tap = dialog: the main settings that differ from default (existing DiagMore.changed list, about 17 settings), then the cards that hold saved choices ("Browser (3), Player (2)"; a saved choice can equal the default), and a note that the first list covers the main settings only, Reset to default inside a card restores that card. Read-only, changes nothing.
+- 6) Settings search forgives one wrong / missing letter per word of 4+ letters ("dwnload" finds Download, "pasword" finds Passwords). Exact text match works as before and is checked first. Applies to card titles, row names (old and new), hints and search words. Command Center search is unchanged.
+- 8) Small "?" button on 13 rows: File downloads, Stream downloads, Download rules, Hosts and filters, Use old V82 Grabber, Ask before download, Preferred video format, Leftover download files, Grabber temporary files, CSS compatibility, Match page theme, Compatibility self-test, Smarter login detection. Tap = short dialog (2-3 lines, OK). The row itself still works as before. Texts: SettingsIndex.HELP.
+- No setting, key or stored value changed. NOT tested: Gradle build (CI), device.
+- DEVICE TEST: 1) Settings top: "Changed from default" row, tap, read, OK. 2) Search "dwnload" and "pasword": rows appear. 3) Downloads and player > Download rules: tap "?" = dialog, tap the row = its normal dialog. 4) Rows without "?" look the same.
+- Rollback: remove changedRow(), hitQ / lev (use contains again), the "?" block in rowView, SettingsIndex.HELP.
+- Files: app/build.gradle.kts, SettingsIndex.kt, SettingsScreen.kt, CHANGELOG_PREPEND_0_0_444.txt, HANDOFF_Thazir_EXT_PLAN_0.0.444.txt
+
+=== CHANGELOG_PREPEND_0_0_443.txt ===
+0.0.443 (UI: search dead end, restart bar, Undo for plain switches)
+- 5) Settings search with no result: "No setting found for "<text>"" plus two buttons: "Search in Command Center" (closes Settings, opens Command Center) and "Open How to use".
+- 9) Restart bar ("Restart needed to apply this fully" + Apply now) already existed for Rotate browser, Extra native download button (Theme and Reset recreate by themselves). Now it stays 8 s (was about 3 s) and uses the app colours.
+- 10) Undo bar after a plain switch changes ("<Setting> turned OFF  Undo", 6 s, BmUndo). Undo runs the same toggle once more. Only for 21 rows whose tap is just one flip (list UNDO_OK): Hide bar while scrolling, Pull down to refresh, Address suggestions, Reddit 18+, Block auto app-open, Swipe a tab card, Ask before Close all, Auto Diagnose pill, Sub-folders, Link inbox, built-in player links, HTTPS-only, Hide ad spaces, Hide cookie banners, Smarter login detection, New password screens, Fill chip, Password health card, Player gestures, Slide while holding, Keep speed. Rows with a dialog, sign-in, restart or service (App lock, Lock private tabs, Ad blocker, Theme, Rotate, Background audio, userscripts, Grabber buttons) get NO undo on purpose.
+- No setting, key or stored value changed. NOT tested: Gradle build (CI), device.
+- DEVICE TEST: 1) Settings > search "zzzz": text + 2 buttons, both work. 2) Browser > Pull down to refresh: bar "turned OFF  Undo", tap Undo: back ON, switch moves. 3) HTTPS-only toggle twice quickly: no crash, last state correct. 4) Rotate browser: restart bar stays about 8 s.
+- Rollback: remove UNDO_OK + the BmUndo block in rowView, the no-result buttons, restore restartBar.
+- Files: app/build.gradle.kts, SettingsScreen.kt, CHANGELOG_PREPEND_0_0_443.txt, HANDOFF_Thazir_EXT_PLAN_0.0.443.txt
+
+=== CHANGELOG_PREPEND_0_0_442.txt ===
+0.0.442 (UI: "OFF = ..." line under switches + Reset dialog names the settings)
+- 2) 21 switch rows now end their grey hint with what OFF does (e.g. App lock: "OFF = app opens without asking", Ad blocker: "OFF = ads and trackers load"). Only added when the hint is short (60 characters or less) and has no "OFF" yet; rows that already explain OFF or have long hints are untouched. Hint area may use 3 lines (was 2).
+- 3) "Reset to default" dialog now says which settings are in the card: "Reset "Browser" to default? Only the settings of this card change, for example: A, B, C, D, E, F and N more. Bookmarks, passwords and files are not touched." Names come from the rows the card shows (rows with a value or switch; friendly names), taken when the card is built without a search.
+- Code: SettingsScreen OFFTXT + hintOf, cardNames, resetCard message, hint maxLines 3. No setting, key or behaviour changed.
+- NOT tested: Gradle build (CI), device.
+- DEVICE TEST: 1) Settings > Privacy: App lock, HTTPS-only, Ad blocker rows show an "OFF = ..." end. 2) Settings > Browser > Reset to default: the question lists some setting names, Cancel closes it. 3) Search "ad": hints still fine, no cut text.
+- Rollback: remove OFFTXT / cardNames and restore hintOf, resetCard text, maxLines 2.
+- Files: app/build.gradle.kts, SettingsScreen.kt, CHANGELOG_PREPEND_0_0_442.txt, HANDOFF_Thazir_EXT_PLAN_0.0.442.txt
+
+=== CHANGELOG_PREPEND_0_0_441.txt ===
+0.0.441 (UI: clearer names for 6 Grabber rows + hint line for 7 rows that had none)
+- Names (display only, the internal label / pref / search keys are unchanged, the old names are still found by search and in Command Center):
+  App downloader -> File downloads (parts, speed); Download engine -> Stream downloads (HLS / DASH); Grabber settings -> Grabber site settings; All V82 options page -> Full Grabber options page (old); V82 Grabber (backup) -> Use old V82 Grabber; Grabber temporary data -> Grabber temporary files.
+- Hints (grey line under the name) added: Hosts and filters, Encrypted backup of passwords, Restore passwords from backup, Sites never saved, Smarter login detection, Run userscripts, Userscripts in private tabs. Rows that already had a hint are untouched.
+- Code: SettingsIndex.DISPLAY + name(); SettingsScreen rowView shows name(label); search also matches the new name; HINTS +7; Command Center shows the new name and still matches the old one.
+- No behaviour, order or setting changed. NOT tested: Gradle build (CI), device.
+- DEVICE TEST: 1) Settings > Downloads and player: the 6 rows show new names, tap each = same screen as before. 2) Search "V82" and "engine": rows are found. 3) Passwords / Userscripts rows show the new grey line. 4) Command Center "V82": finds "Use old V82 Grabber".
+- Rollback: remove SettingsIndex.DISPLAY / name() and the 3 small edits.
+- Files: app/build.gradle.kts, SettingsIndex.kt, SettingsScreen.kt, CommandCenter.kt, CHANGELOG_PREPEND_0_0_441.txt, HANDOFF_Thazir_EXT_PLAN_0.0.441.txt
+
+=== CHANGELOG_PREPEND_0_0_440.txt ===
+0.0.440 (Command Center finds every setting by name)
+- Why: Command Center only had one "Settings" entry; single settings could not be found from it.
+- What: new SettingsIndex.kt (116 setting names + card + group). CommandCenter registers them; typing a name (e.g. "hold speed", "cookies", "app lock") lists "Settings · <card>"; tap opens Settings with that name in its search box (SettingsScreen.open(host, query) + Screen.preSearch). Empty list / ">" without text does not show them. Names that already are an action (Downloads, Extensions, Vault, ...) are not duplicated.
+- Checked by reading (no setting removed): the only rows not drawn in a card list are "Hide bar while scrolling" + "Reduce motion" (they are the quick chips at the top; the search still lists them) and "Lock after" (only while App lock is ON). Rows with a runtime label (social sites, etc.) stay findable in the Settings search box, not in Command Center.
+- NOT tested: Gradle build (CI), device.
+- DEVICE TEST: 1) Command Center: type "hold speed" > row "Settings · Player" > tap > Settings opens filtered. 2) type "cookies" similarly. 3) empty Command Center list unchanged.
+- Rollback: delete SettingsIndex.kt, the 2 lines in CommandCenter, open(query) + preSearch in SettingsScreen.
+- Files: app/build.gradle.kts, SettingsIndex.kt (new), CommandCenter.kt, SettingsScreen.kt, CHANGELOG_PREPEND_0_0_440.txt, HANDOFF_Thazir_EXT_PLAN_0.0.440.txt
+
+=== CHANGELOG_PREPEND_0_0_439.txt ===
+0.0.439 (UI: clearer sub groups in Settings cards, Browser card first)
+- Why: sub groups (LOOK AND FEEL, BROWSING, PAGE AND SCREEN, SITES AND MEDIA, TABS) were tiny "▸ TITLE" text lines; it was not clear they are tappable and all looked closed.
+- What: SettingsScreen.category(): the fold header is now a soft tinted rounded row (48 dp) with the group name, the number of settings in it and a chevron that turns. Opening / closing glides (ChangeBounds + Fade, 220 ms), Reduce motion = instant. TalkBack reads "Title, N settings" + Expanded / Collapsed.
+- Nothing hidden or moved: same rows in the same groups, first group still open, search still lists every match, Reset to default unchanged.
+- Applies to every card that folds (more than 14 rows), Browser included. Cards with plain labels (Privacy) unchanged.
+- NOT tested: Gradle build (CI), device. Kotlin only checked for brace / paren balance.
+- DEVICE TEST: 1) Settings > Browser: 5 tinted group rows with counts. 2) Tap each: opens smoothly, rows inside are the same as before. 3) Search "dark": rows show, no folding. 4) Reduce motion ON: no animation.
+- Rollback: restore the old fold block in SettingsScreen.category().
+- Files: app/build.gradle.kts, SettingsScreen.kt, CHANGELOG_PREPEND_0_0_439.txt, HANDOFF_Thazir_EXT_PLAN_0.0.439.txt
+
+=== CHANGELOG_PREPEND_0_0_438.txt ===
+0.0.438 (FIX: "Allow in private" switch per extension + private tabs hidden from extensions)
+- Why: chrome.tabs.get / query still showed PRIVATE tabs to installed extensions, and there was no per-extension "Allow in private" switch (known leftover of S4+S5 / S7+S8).
+- What: new ExtPriv.kt, pref ext_priv (mgb_ui). Default OFF (like Chrome / Kiwi). Off = the extension has no content scripts in private tabs AND cannot see them: tabs.get / getCurrent / query / sendMessage / connect / update / remove / reload, scripting.executeScript / insertCSS, tabs.onCreated / onUpdated / onActivated / onRemoved, action.onClicked tab argument. tab.incognito is now true for a private tab.
+- UI: Settings > Extensions > tap an extension > ALLOW IN PRIVATE row (tap; turning On asks first). Manifest incognito "not_allowed" still wins (row shows Off, blocked). Compatibility block has one more line. Reset card that holds ext_theme also clears ext_priv. "Changed from default" + How to use updated. Removing an extension forgets its switch.
+- CHANGED BEHAVIOUR: extensions that ran in private tabs before now DO NOT until the owner turns the switch On. Built-in Media Grabber unchanged.
+- COULD BREAK: an extension used in private tabs stops there until allowed. Open private tabs get the change when the page loads again (ContentInjector.refresh is called).
+- NOT tested: Gradle build (CI), device. Kotlin checked for brace / paren balance only.
+- DEVICE TEST: 1) Install ChatGPT Exporter, open a PRIVATE tab on chatgpt.com: extension does not appear. 2) Settings > Extensions > extension > Allow in private > Allow, reload the private tab: it appears. 3) Turn Off, reload: gone. 4) Media Grabber in a private tab: same as before.
+- Rollback: delete ExtPriv.kt and the lines marked 0.0.438 (ContentInjector addExtScripts + Entry id, TabsApi vis() / query / tabJson incognito, ExtApi tabsEvent / actionClicked, ExtListScreen row, SettingsScreen RESET + reset hook, DiagMore, HowToUse).
+- Files: app/build.gradle.kts, ExtPriv.kt (new), ContentInjector.kt, TabsApi.kt, ExtApi.kt, ExtListScreen.kt, SettingsScreen.kt, DiagMore.kt, HowToUse.kt, CHANGELOG_PREPEND_0_0_438.txt, HANDOFF_Thazir_EXT_PLAN_0.0.438.txt
+
+=== CHANGELOG_PREPEND_0_0_437.txt ===
+0.0.437 (S12 BUILD: per-extension compatibility card, reset keys, final regression pass - END OF THE EXTENSION PLAN)
+- What: Settings > Extensions > tap an extension now ends with a COMPATIBILITY block: its Dark mode, Page width, Match page theme and CSS compatibility in one place, a warning when Android System WebView is older than 120, and the chrome.* calls Thazir does not support for THIS extension (5 shown, tap for all). New ExtGaps.forExt(id).
+- Fixed on the way: the per-extension Dark mode key ext_dark was missing in the Settings reset list and in "Changed from default". Now both have it (Reset on the card that holds ext_theme clears ext_dark, ext_fit, ext_fit_w, ext_theme, ext_css; ext_gaps lives in its own prefs file mgb_ext_gaps by design since S4, so Backup / Reset never touch it).
+- Regression review (by reading, no run): injection order on a tab page = theme hint, CSS compat (only old WebView / switch On), extension scripts; popup = attachExt then CSS compat; an extension page opened as a TAB gets CSS compat only through addExtScripts, never twice (the script also guards itself with window.__mgbCssCompat). ExtDark (popup colours) and ExtTheme (matchMedia on normal pages, never on extension pages) do not meet on the same page. ExtFit only touches installed extensions' pages. Built-in Media Grabber: no change in this step.
+- Changed files: app/build.gradle.kts, app/src/main/java/com/jabra/mgb/{ExtListScreen.kt, ExtGaps.kt, SettingsScreen.kt, DiagMore.kt, HowToUse.kt}, CHANGELOG_PREPEND_0_0_437.txt, HANDOFF_Thazir_EXT_PLAN_0.0.437.txt
+- CHANGED BEHAVIOUR: only the new block in the extension details dialog; Reset now also clears per-extension Dark mode.
+- NOT tested: Gradle build (CI), device. Kotlin only checked for brace / paren balance.
+- DEVICE TEST of the whole plan S1-S12 (needed only, plain steps; run once after this build is installed):
+  1) Settings > Extensions > ChatGPT Exporter: the dialog shows Dark mode, Page width, COMPATIBILITY block (no old-WebView warning on a modern phone).
+  2) Open its popup (tray or "Open popup"): readable, fills the width, not tiny.
+  3) chatgpt.com in the dark app, Dark pages ON: Export dialog + Select Messages panel dark and readable. Dark pages OFF: light and readable.
+  4) chatgpt.com: the floating download button is there; a PRIVATE tab with an extension works and shows no private data to it.
+  5) https://chatgptexporter.com with the extension ON: the site sees the extension; in a PRIVATE tab it does not.
+  6) Settings > Extensions > "Compatibility self-test": result list in ~10 s, no FAIL in supported lines (send me the FAIL lines if any); "Thazir Self-Test" is not left in the list.
+  7) Menu > Report center: sections "Extension compat" (WebView + "CSS compat: ..."), "Extension API gaps", "Extension self-test".
+  8) Media Grabber (built-in): popup, queue, one download from a video page, YouTube ad block = same as before.
+  9) Rotate with a popup open; Reduce motion ON; Settings > Extensions card > Reset to default, then Backup export + import: switches go back to Auto.
+- Rollback: remove the COMPATIBILITY block in ExtListScreen.details, ExtGaps.forExt, ExtDark.KEY in the SettingsScreen reset list, the DiagMore line, the HowToUse line.
+
+=== CHANGELOG_PREPEND_0_0_436.txt ===
+0.0.436 (S11 BUILD: compatibility self-test extension + Report center)
+- Why: a one-tap proof of which chrome.* functions Thazir supports on THIS phone, with a copyable list, so no more guessing.
+- How: new ExtSelfTest.kt + assets/selftest/ (manifest.json + background.js, 3 KB). Settings > Extensions > "Compatibility self-test": Thazir adds a small temporary extension "Thazir Self-Test (temporary)" through the normal ExtRegistry path (new ExtRegistry.installAsset), its background calls 23 supported functions once (storage local / session / sync, runtime, alarms, contextMenus, notifications, tabs / windows query, cookies, downloads, declarativeNetRequest dynamic rule, action badge, i18n, commands, permissions, scripting list, webNavigation / offscreen / search / browsingData existence) plus 4 CSS facts of this WebView (nesting, @layer, color-mix, matchMedia), writes the result to its storage, Thazir reads it (max 20 s) and ALWAYS removes the extension + its storage + its gap rows (ExtGaps.forget) afterwards. A dialog shows: "Self-test: N pass, M fail, K not supported (WebView x)" + one line per test (PASS / FAIL: reason / NOT SUPPORTED). Same list in Report center > "Extension self-test" (WARN when something failed). Nothing is called that opens a tab, shows a notification, or deletes data.
+- Own fixed id (from the name), so your installed extensions and their storage are never touched. No private tab involved. Close button; closing the dialog does not stop the run (result still goes to the Report center).
+- Changed files: app/build.gradle.kts, app/src/main/java/com/jabra/mgb/{ExtSelfTest.kt (new), ExtRegistry.kt (installAsset + copyAssetDir), ExtGaps.kt (forget), DiagReport.kt (+1 section), SettingsScreen.kt (+1 row), HowToUse.kt}, app/src/main/assets/selftest/{manifest.json, background.js} (new), CHANGELOG_PREPEND_0_0_436.txt, HANDOFF_Thazir_EXT_PLAN_0.0.436.txt
+- CHANGED BEHAVIOUR: nothing unless you tap the new row. New row + new report section only.
+- COULD BREAK: if the phone kills the hidden background WebView (battery saver) the test ends with "no answer from the test extension" after 20 s (no harm, the extension is removed). If the app is killed in the middle, the temporary extension can stay in the list: remove it by hand (Settings > Extensions > Thazir Self-Test > Remove).
+- NOT covered (left out on purpose, plan leftovers): content script + popup UI checks, tab based calls (scripting.executeScript, tabs.create, captureVisibleTab), ports, externally_connectable page test.
+- NOT tested: Gradle build (CI), device. node mock run of background.js: 27 tests ran, 25 pass (the 2 CSS shadow-DOM tests fail only in the mock, it has no real DOM). Kotlin only checked for brace / paren balance.
+- DEVICE TEST (needed only):
+  1) Settings > Extensions > "Compatibility self-test": the dialog shows "Running...", then the result list in about 10 s. Send me the first line and every FAIL line.
+  2) Settings > Extensions: no "Thazir Self-Test" is left in the list.
+  3) Menu > Report center: section "Extension self-test" shows the same list.
+- Rollback: delete ExtSelfTest.kt and assets/selftest/; remove ExtRegistry.installAsset + copyAssetDir, ExtGaps.forget, the DiagReport section line, the SettingsScreen row, the HowToUse line.
+
+=== CHANGELOG_PREPEND_0_0_435.txt ===
+0.0.435 (S10 BUILD: CSS compat B - colours, units, inset, switch, report)
+- Why: finish the old-WebView fallback of 0.0.434. Modern colour syntax (Tailwind v4 uses oklch + color-mix) and some units are not understood by an old Android System WebView, so extension panels lose their colours / sizes.
+- How: css-compat.js (same script as S9, still added ONLY when needed) now also converts, in declarations only: color-mix(in srgb | oklab, a p%, b), oklch(), oklab(), lab(), lch(), hwb() with literal colours -> rgb() / rgba(); dvh / svh / lvh (and w / i / b / min / max variants) -> vh / vw / vmin / vmax; "inset: a [b [c [d]]]" -> top / right / bottom / left. color-mix with var() / currentcolor stays as it is; if its first colour is literal a static fallback colour is written just before it. "@supports (color: color-mix(...))" blocks are NOT touched, so the old engine gives them the same "false" it would give anyway and the fallback declaration wins. Relative colour syntax (from ...) is left alone. Cheap counters (rewrites + ms, no content) live in window.__mgbCssStats.
+- UI: Settings > Extensions > "CSS compatibility" row (Auto > On > Off, summary hint shows the WebView version, reload the page after changing). Reset on that card clears it (key ext_css was added to RESET in S9). Report center: section "Extension compat" has a line "CSS compat: active (WebView is old) | not needed | on | off" and, when the current tab ran the rewriter, "CSS compat on this page: N rewrites, M ms". New advice rule ext-css-off (WebView below 120 and switch Off). Settings > "Changed from default" already lists the switch (S9).
+- Changed files: app/build.gradle.kts, app/src/main/java/com/jabra/mgb/{ExtCssCompat.kt, ExtProbe.kt, SettingsScreen.kt, DiagRules.kt, DiagReport.kt, HowToUse.kt}, app/src/main/assets/shim/css-compat.js, CHANGELOG_PREPEND_0_0_435.txt, HANDOFF_Thazir_EXT_PLAN_0.0.435.txt
+- CHANGED BEHAVIOUR: on a WebView below 120 (or switch On): colours / units / inset in extension CSS are rewritten. Modern WebView + Auto: nothing added, same as 0.0.434. New Settings row and 1 report line.
+- COULD BREAK: gamut-limited colours are clamped to sRGB (oklch values outside sRGB look slightly different from Chrome); color-mix only for srgb and oklab spaces (other spaces left unchanged); "inset" with var() parts is split by spaces only (a single var() holding several values is left as 4 equal sides).
+- NOT tested: Gradle build (CI), device. node tests passed (_fixture/css-compat-test.js): oklch orange-500 / blue-600 / gray-100 = Tailwind hex values within 1/255, color-mix srgb white+black 50% = 128, oklab = 99, lab / hwb basics, alpha mix, 22 of 22 oklch in the Tailwind sample converted, all literal color-mix converted (the other 39 use var() / currentcolor and stay inside @supports), 0 dvh / inset left, braces balanced, output idempotent, 46 ms. Kotlin only checked for brace / paren balance.
+- DEVICE TEST (needed only):
+  1) Settings > Extensions: row "CSS compatibility" shows Auto; tap cycles Auto > On > Off > Auto; put it back to Auto.
+  2) ChatGPT Exporter on chatgpt.com + its popup look the same as in 0.0.434 (modern WebView = nothing added).
+  3) Menu > Report center > "Extension compat" shows the line "CSS compat: not needed" (or "active" on an old WebView).
+- Rollback: restore 0.0.434 css-compat.js; remove the new row in SettingsScreen, the ExtProbe lines (appCtx, cc stats, CSS compat line), the ext-css-off rule + cssCompatOff fact (DiagRules, DiagReport), ExtCssCompat.cycle, the HowToUse sentence.
+
+=== CHANGELOG_PREPEND_0_0_434.txt ===
+0.0.434 (S9 BUILD: CSS compat for an OLD WebView - nesting, @layer, @property)
+- Why: an extension built with modern CSS (Tailwind v4 style) breaks on a phone whose Android System WebView is old (no CSS nesting before 120, no @layer before 99, no @property before 85): panels lose their layout. Your video phone is NOT affected (its WebView is new); this protects other phones.
+- How: new assets/shim/css-compat.js + ExtCssCompat.kt. When needed, a small script is added at document start and rewrites the style text that scripts add (style.textContent / innerText, appendChild / append of <style>, innerHTML with <style>, CSSStyleSheet.replaceSync / replace / insertRule, shadow roots included): (1) CSS nesting -> flat rules (declaration order kept), (2) @layer -> removed, rules stay in source order, (3) @property -> its initial-value written as a normal declaration. Any error = the original CSS is used (fail-open). Result cache: max 64 entries / 2 MB.
+- When it runs: Auto (default) = Android System WebView version below 120 (or the Report center probe says nesting / @layer / @property is missing). Pref ext_css (absent Auto, 1 Off, 2 On) exists but has NO Settings row yet (S10 adds it). On a modern WebView nothing is added anywhere (same as 0.0.433).
+- Where added: tab pages that match an installed extension's content scripts (before those scripts), extension pages opened as tabs, and the popup / options window of an installed extension. Built-in Media Grabber pages: untouched.
+- Changed files: app/build.gradle.kts, app/src/main/java/com/jabra/mgb/{ExtCssCompat.kt (new), ContentInjector.kt (2 hook lines), ExtScreen.kt (1 hook line), SettingsScreen.kt (RESET key), DiagMore.kt (changed list), HowToUse.kt}, app/src/main/assets/shim/css-compat.js (new), CHANGELOG_PREPEND_0_0_434.txt, HANDOFF_Thazir_EXT_PLAN_0.0.434.txt
+- CHANGED BEHAVIOUR: only on a WebView older than 120: extension CSS is rewritten as above. Nothing else.
+- COULD BREAK: @layer flattening changes priority between layered and unlayered rules of the SAME sheet set (known limit). Page-own styles added by page JS go through the same hook on an old WebView (they could not use nesting / @layer there anyway). Colours (color-mix, oklch), dvh, inset are NOT converted yet (S10).
+- NOT tested: Gradle build (CI), device. node tests passed on _fixture/tailwind-v4-sample.css (50 KB): braces balanced (in 614/614, out 513/513), 0 "@layer" / "@property" left, only escaped class names contain "&", 56 ms, idempotent, cached run 0 ms; unit cases: nested rule, "&" in :where(), nested @media, @layer statement + block, @property, selector lists, braces in custom property, broken CSS = unchanged. Kotlin only checked for brace / paren balance.
+- DEVICE TEST (needed only): 
+  1) Normal phone (modern WebView): ChatGPT Exporter on chatgpt.com + its popup look exactly as in 0.0.433. Menu > Report center > "Changed from default" shows nothing new.
+  2) Only if you have an old phone (WebView below 120): open any extension panel; it must keep its layout. (Skip if you have none.)
+- Rollback: delete ExtCssCompat.kt and css-compat.js; remove the 2 ExtCssCompat lines in ContentInjector.addExtScripts, the 1 line in ExtScreen.kt, the ExtCssCompat.KEY in SettingsScreen RESET, the DiagMore line and the HowToUse line.
+
+=== CHANGELOG_PREPEND_0_0_433.txt ===
+0.0.433 (S8 BUILD: externally_connectable (web page -> extension), commands; S7 + S8 in one patch zip)
+- Why: the test extension (ChatGPT Exporter) lists externally_connectable for chatgptexporter.com; a page of that site calls chrome.runtime.sendMessage(extId, ...) and nothing answered. Manifest "commands" were not shown anywhere and chrome.commands.getAll returned [].
+- How: new ExtWeb.kt. (a) externally_connectable: for the origins of installed extensions' externally_connectable.matches (patterns checked by ExtSafety.externalPatterns: https / http / * scheme, real host, "*" alone / "<all_urls>" / "*.com" are dropped, max 20) every normal tab gets (1) its own WebMessage listener "MGBExt" limited to those origins by the WebView and (2) a small page script (only on those origins) that gives the page chrome.runtime.sendMessage(extId, msg [, cb]) and chrome.runtime.connect(extId [, {name}]) and NOTHING else (no token, no other chrome.* member). Native side checks the origin the WebView reports (never a value from JS) against the extension's patterns, the extension must be installed and on, else the page gets "Could not establish connection. Receiving end does not exist." (same text for every refusal: nothing leaks). The extension receives runtime.onMessageExternal(message, sender, sendResponse) / runtime.onConnectExternal(port); sender = {origin, url, frameId, tab}. A stopped worker is started first (same path as runtime.sendMessage). Ports: page <-> extension pages, closed when either side leaves (page unload, frame gone, extension page gone); an open port keeps the worker alive. Limits: 1 MB per message (both directions), 60 messages / connects per minute per page, 600 port posts per minute, 20 ports per page, 100 in total. NEVER in private tabs. (b) web_accessible_resources: already implemented in 0.0.108 (EngineHost.extPublic); checked, unchanged. (c) commands: chrome.commands.getAll returns the manifest commands ({name, description, shortcut}) for installed extensions; Settings > Extensions > tap an extension shows a COMMANDS block (description + shortcut text); a tap runs it: _execute_action = open the popup (or action.onClicked), any other command = chrome.commands.onCommand(name, tab) (stopped worker is started first). Android has no keyboard shortcuts here: the shortcut text is information only.
+- Shim (chrome-shim.js, additive): deliverMessage / incomingPort take an optional event name; two new lines in onNative for the two external events; one small block at the end (only installed extensions, GAPS): runtime.onMessageExternal / onConnectExternal are announced to Kotlin, so a stopped worker can wake for them. The built-in Media Grabber members are unchanged (node test: not announced, no change).
+- Hooks (additive): ChromeBridge.request + TabsApi.fanOut got an optional "event" parameter (default runtime.onMessage); ExtApi: ExtWeb.register() line, 2 port lines (port.post / port.disconnect check ExtWeb first), 1 ctxGone line; ContentInjector.addExtScripts: ExtWeb.attach for non-private tabs.
+- Changed files (S7 + S8): app/build.gradle.kts, app/src/main/java/com/jabra/mgb/{ExtManifest.kt (new), ExtWeb.kt (new), ContentInjector.kt, ExtRegistry.kt, ExtApi.kt, ExtSafety.kt, ExtListScreen.kt, ExtTray.kt, ChromeBridge.kt, TabsApi.kt, TabManager.kt, HowToUse.kt}, app/src/main/assets/shim/chrome-shim.js, CHANGELOG_PREPEND_0_0_432.txt, CHANGELOG_PREPEND_0_0_433.txt, HANDOFF_Thazir_EXT_PLAN_0.0.433.txt
+- CHANGED BEHAVIOUR: a page of a listed origin now has window.chrome.runtime (sendMessage / connect only), like in Chrome. Extensions without externally_connectable: nothing added anywhere (no listener, no script). Settings > Extensions details shows COMMANDS only when the manifest has commands.
+- COULD BREAK: a site that checks window.chrome to detect "Chrome" sees it on the listed origins only. Adding the "MGBExt" listener per tab happens at tab creation and after an extension change (refresh); an already loaded page gets it on its next load. externally_connectable.ids (other EXTENSIONS as senders) is NOT supported (ignored). frameId of a sub frame sender is 1 (not a real frame id). Message from a page to an extension whose worker listens only for onMessage (not onMessageExternal) gets "Receiving end does not exist" like Chrome.
+- NOT tested: Gradle build (CI), device. node tests passed: page script (sendMessage promise + callback + lastError, bad id, 1 MB cap, port in / out, pagehide, no chrome on non-http pages) and shim (external events routed to the right listeners, reply, ports, built-in unchanged, onMessage unchanged), glob + pattern helpers. Kotlin only checked for brace / paren balance.
+- DEVICE TEST (needed only; S7 + S8 together, plain steps):
+  1) ChatGPT Exporter on chatgpt.com (normal tab, dark and light): the Export dialog and the floating button come up exactly as in 0.0.431.
+  2) Open https://chatgptexporter.com in a normal tab with the extension ON. Use the site's own "sign in / sync / connect extension" button (whatever it offers). Expected: the site sees the extension (before: nothing happened). Then open Menu > Report center and send me the text of "Extension API gaps" and the lines with "ext web" if any.
+  3) Same site in a PRIVATE tab: the site must NOT see the extension.
+  4) Media Grabber (built-in): open its popup, its queue, start one download from a video page = same as before.
+- Rollback: delete ExtWeb.kt and ExtManifest.kt (and the S7 changes of 0.0.432); remove ExtWeb.attach(...) in ContentInjector.addExtScripts; remove the ExtWeb lines in ExtApi.kt (register, ctxGone, 2 port lines); restore the old request / fanOut signatures in ChromeBridge.kt / TabsApi.kt; remove externalPatterns in ExtSafety.kt; remove the COMMANDS block in ExtListScreen.kt; remove the 3 external-event edits and the final GAPS block in chrome-shim.js; HowToUse line.
+
+=== CHANGELOG_PREPEND_0_0_432.txt ===
+0.0.432 (S7 BUILD: manifest fidelity A - include / exclude globs, options_ui open_in_tab, incognito not_allowed, action default_title)
+- Why: installed extensions ignored a few manifest keys that Chrome honours (include_globs / exclude_globs, options_ui.open_in_tab, incognito, action.default_title).
+- How: (1) content_scripts include_globs / exclude_globs: checked inside the injected script after "matches" (new pure helper ExtManifest.globRx: * = any text, ? = one character, everything else literal; a bad / empty / over-long glob is ignored with a log line, max 50). An extension WITHOUT these keys gets exactly the same script text as before. (2) options_ui.open_in_tab = true: Settings > Extensions > Options, the tray fallback and chrome.runtime.openOptionsPage open the page in a TAB; false / options_page keeps the extension window (as before). (3) manifest "incognito": "not_allowed": its content scripts are not injected in PRIVATE tabs (ContentInjector.attach gets a priv flag; the entry list is filtered; refresh keeps the flag). "spanning" / "split" / no key = old behaviour (still runs in private tabs). (4) action.default_title (also __MSG_ text) is the tray / button title until the extension calls action.setTitle.
+- Checked, nothing to change: css of content_scripts is injected before the JS of the same entry (document start); run_at, all_frames, exclude_matches, match_about_blank, match_origin_as_fallback were already complete; web_accessible_resources already exists since 0.0.108 (EngineHost.extPublic). Manifest v2 / MV2 background pages: not applicable, ExtSafety refuses every manifest v2 extension.
+- Changed files: ExtManifest.kt (new), ContentInjector.kt, ExtRegistry.kt (Info: optionsInTab, actionTitle), ExtApi.kt (title), ExtListScreen.kt / ExtTray.kt / ChromeBridge.kt (open options), TabManager.kt (1 line: attach(..., priv)), HowToUse.kt, app/build.gradle.kts.
+- CHANGED BEHAVIOUR: an extension with incognito "not_allowed" stops running in private tabs. An extension with options_ui.open_in_tab true opens its options in a tab. A tray title now shows action.default_title when the manifest has one.
+- COULD BREAK: an extension whose include_globs use a pattern style Chrome does not (regex between slashes): such a glob is treated as plain text and never matches (script does not run). Glob match is on the full address (case sensitive).
+- NOT tested: Gradle build (CI), device. node tests passed (glob matching, escaping, no-key = no change). Kotlin only checked for brace / paren balance.
+- DEVICE TEST: see 0.0.433 entry (one list for S7 + S8).
+- Rollback: delete ExtManifest.kt; remove the include / exclude glob block and the noPriv / privWebs / priv parameters in ContentInjector.kt; remove optionsInTab / actionTitle in ExtRegistry.kt; restore the old openPage / openExtPage / openSibling lines in ExtListScreen.kt, ExtTray.kt, ChromeBridge.kt; restore attach(ctx, w) in TabManager.kt.
+- Files: see 0.0.433 entry.
+
+=== CHANGELOG_PREPEND_0_0_431.txt ===
+0.0.431 (S6 BUILD: webNavigation events, runtime.reload, search.query, browsingData, storage quotas)
+- Why: installed extensions had only a fake webNavigation (built from tab updates, no history / error events), no search.query, no browsingData, a no-op runtime.reload.
+- How: new ExtApi3.kt (handlers "ext.<api>": installed extensions only, the built-in Media Grabber is untouched). (1) webNavigation, main frame only: TabManager hooks (onPageStarted, onPageFinished, doUpdateVisitedHistory, onReceivedError) call ExtApi3 which sends onBeforeNavigate + onCommitted, onDOMContentLoaded + onCompleted, onHistoryStateUpdated / onReferenceFragmentUpdated (in-page changes), onErrorOccurred. Only to extensions that have the "webNavigation" permission (others get nothing and no worker wake); stopped workers wake through the normal ExtApi.emitExt path. Private tabs, Home, extension pages and non-http pages send nothing. addListener(fn, {url:[...]}) filters (host / path / query / url Equals Contains Prefix Suffix, schemes, ports, urlMatches, originAndPathMatches) are applied in the shim. getFrame / getAllFrames answer for the main frame (frameId 0) only. (2) runtime.reload restarts the extension's worker. (3) search.query opens the default search engine in the current tab (default), the tab with tabId, or a new tab (NEW_TAB / NEW_WINDOW); needs the "search" permission; never navigates a private / Home / extension tab (a new tab is opened instead). (4) browsingData.remove / removeHistory / removeCache / removeCookies / removeDownloads / removeLocalStorage / removeIndexedDB / removeServiceWorkers / removeFileSystems / removeWebSQL / settings (permission "browsingData"): always shows a confirm box naming the extension and what will be deleted; Delete runs the same code as Settings > Delete browsing data (ClearData.apply), Cancel answers "The user denied this request.". history follows "since"; cookies / site data / cache are always all-time (Android limit, the box says so). Single-site deletion (origins) and passwords are refused with a clear error; formData / appcache / pluginData do nothing. (5) storage.sync / storage.local quota constants (QUOTA_BYTES, MAX_ITEMS ...) exist like in Chrome.
+- Changed files: ExtApi3.kt (new), ClearData.kt (1 line: apply), ExtApi.kt (register line, allow-list rows, permission rows), TabManager.kt (4 hook lines), assets/shim/chrome-shim.js, HowToUse.kt, app/build.gradle.kts.
+- CHANGED BEHAVIOUR: installed extensions with the webNavigation permission now get real events (before: events built from tab updates, no history / error events). An installed extension WITHOUT the permission that used webNavigation events before gets no events now (Chrome behaves the same). Built-in Media Grabber: unchanged (node check: identical members, old webNavigation kept).
+- COULD BREAK: a stopped worker of an extension with webNavigation listeners now wakes on every page load of a normal tab (more battery; the report shows it). Event order: onCommitted is sent right after onBeforeNavigate (Thazir has no separate commit signal). Sub frames never send events (documented limit). runtime.getBackgroundPage (MV2) stays "not supported" (a WebView cannot hand out another WebView's window). Per-item sync quota (8 KB) is a constant only, not enforced.
+- NOT tested: Gradle build (CI), device. node tests of the shim passed (filters, has / remove listener, bridge calls, built-in unchanged). Kotlin only checked for brace / paren balance.
+- DEVICE TEST (needed only): 1) Extension that uses webNavigation (for example one that reacts to page load): open a normal https site: it reacts once per page, also after a link tap and after a page with in-page navigation (YouTube / Google). No reaction in a private tab. 2) Extension with a "clear data" feature, or the Report center after use: a confirm box appears with the extension name; Cancel = nothing deleted; Delete = deleted. 3) Extension with a search action: the default search opens. 4) Media Grabber (built-in): popup, queue, a download = same as before. 5) Report center > Extension API gaps: send the text.
+- Rollback: delete ExtApi3.kt, ClearData.apply, the ExtApi3.register() line and the new regex / NEEDS rows in ExtApi.kt, the 4 ExtApi3 lines in TabManager.kt, the second "if (GAPS)" block (S6) and the "if (GAPS) return;" line in the WN loop of chrome-shim.js, the HowToUse line.
+- Files: app/build.gradle.kts, app/src/main/java/com/jabra/mgb/{ExtApi3.kt (new), ClearData.kt, ExtApi.kt, TabManager.kt, HowToUse.kt}, app/src/main/assets/shim/chrome-shim.js, CHANGELOG_PREPEND_0_0_431.txt, HANDOFF_Thazir_EXT_PLAN_0.0.431.txt
+
+=== CHANGELOG_PREPEND_0_0_430.txt ===
+0.0.430 (S5 BUILD: chrome.tabs + chrome.windows gaps)
+- Why: installed extensions that call tabs.duplicate / move / goBack / goForward / zoom / highlight / discard / captureVisibleTab or windows.getAll / getLastFocused / remove got "Not supported in MGB" or an undefined function.
+- How: new ExtApi2.kt (handlers named "ext.<api>", so ONLY installed extensions use them; the built-in Media Grabber is untouched). tabs.duplicate = TabManager.cloneTab (not selected). tabs.move = new TabManager.moveTab (pinned tabs stay first, tab.onMoved fires). goBack / goForward use the existing back / fwd. getZoom / setZoom = text size of the tab (1.0 = 100 %, 0 = site default, range 0.25-5, next page load resets it like per-tab zoom); getZoomSettings answers automatic / per-tab; setZoomSettings is accepted, not stored. tabs.highlight = switch to that tab. tabs.discard = same step as Suspend (refused for the tab on screen, Home, extension and private tabs, and non-http pages). captureVisibleTab = draws the WebView of the tab on screen (max 4096 px side, jpeg q 92 default or png, data URL max 14 MB), needs activeTab or a host permission of that page; refused on private / Home / non-http pages. windows.getAll / getLastFocused return Thazir's one window (id 1, populate supported, private tabs left out). windows.remove answers "Cannot close the only browser window." and closes nothing.
+- Changed files: ExtApi2.kt (new), ExtApi.kt (1 register line + allow-list rows), TabsApi.kt (manager() accessor), TabManager.kt (moveTab, zoomOf, setZoomOf, discardTab), assets/shim/chrome-shim.js (real bridge methods for the new names, only when the extension is installed), app/build.gradle.kts.
+- CHANGED BEHAVIOUR: those calls now work for installed extensions. Built-in Media Grabber: no change (checked by node: identical chrome member list when the "gaps" flag is off). Private tabs are invisible to the NEW calls (older calls tabs.get / tabs.query are unchanged, see COULD BREAK).
+- COULD BREAK: zoom is text size, not page zoom (layout zoom of the page is not changed). captureVisibleTab uses WebView.draw: on some phones / WebView versions the picture can be blank or black (then the call still succeeds with that picture). tabs.onZoomChange never fires. Extensions that need windows.remove to really close a window get an error. KNOWN OLD ISSUE, NOT changed here: tabs.get / tabs.query (TabsApi) can still list private tabs to an extension (url / title hidden unless it may see them); fix is planned in S12 regression pass if you want it.
+- NOT tested: Gradle build (CI), device. node checks of the shim passed. Kotlin only checked for brace / paren balance.
+- DEVICE TEST (needed only): 1) Install a test extension that uses these calls, or use the self-test extension later (S11). Without one: open Report center > "Extension API gaps" after using any extension: it must show no tabs.duplicate / move / goBack / captureVisibleTab / windows.getAll lines. 2) Extension with a "screenshot" / "capture page" button (for example a full page screenshot extension): tap it on a normal https page: a picture of the page (not blank) arrives. On a private tab or the Home page: it must fail, no crash. 3) Media Grabber (built-in): popup, queue, one download = same as before.
+- Rollback: delete ExtApi2.kt, remove the ExtApi2.register() line + the new names in the EXT_OK regex (ExtApi.kt), manager() (TabsApi.kt), moveTab / zoomOf / setZoomOf / discardTab (TabManager.kt), the "if (GAPS)" block inside the isExt part of chrome-shim.js.
+- Files: app/build.gradle.kts, app/src/main/java/com/jabra/mgb/{ExtApi2.kt (new), ExtApi.kt, TabsApi.kt, TabManager.kt}, app/src/main/assets/shim/chrome-shim.js, CHANGELOG_PREPEND_0_0_430.txt, HANDOFF_Thazir_EXT_PLAN_0.0.430.txt
+
+=== CHANGELOG_PREPEND_0_0_429.txt ===
+0.0.429 (S4 BUILD: chrome.* safety net + gap log)
+- Why: an extension that touches a chrome.* name Thazir does not have used to stop (undefined is not a function). We also did not know which missing calls matter.
+- How: (1) chrome-shim.js: for INSTALLED extensions only (flag "gaps" in their config) the missing names of Chrome's API are added where the name is still empty: tabGroups, browsingData, search, clipboard, tts, power, privacy.*, proxy, readingList, userScripts, debugger, gcm, system.cpu / memory / storage / display, plus missing members of downloads, notifications, permissions, scripting, runtime. A method rejects (or sets runtime.lastError in callback style) with "Not supported in Thazir: <api>", never fake data; an event object never fires; constants are filled. Real handlers and the older stubs always win. (2) every such call, every "Not supported in MGB" (ExtApi.gate) and every "Not implemented" (ChromeBridge) is counted by ExtGaps.kt: only the api name, per extension, max 200 rows, own prefs file mgb_ext_gaps (not in Backup, not in Reset). (3) Report center: new section "Extension API gaps" (extensions still installed) + 1 verdict line "ext-gaps".
+- Changed files: ExtGaps.kt (new), assets/shim/chrome-shim.js, ChromeBridge.kt (2 hook lines), ExtApi.kt (2 hook lines), ContentInjector.kt (1 flag), DiagReport.kt, DiagRules.kt, HowToUse.kt, app/build.gradle.kts.
+- CHANGED BEHAVIOUR: extension pages / workers of installed extensions now have more (empty or failing) chrome.* names; a feature check like "if (chrome.tabGroups)" is now true and the call then fails with the message above. Built-in Media Grabber and content-script frames: unchanged (node check: identical member lists without the flag).
+- COULD BREAK: an extension that crashed before at load and now runs on may show a feature that does nothing. Shim grew about 4.5 KB.
+- NOT tested: Gradle build (CI), device. node tests of the shim passed (promise + callback style, throttle 1 per 5 s, real members kept, built-in and content kinds unchanged).
+- DEVICE TEST (needed only): 1) Use 2-3 of your extensions for a minute (popup, options, their page buttons), then Menu > Report center: the section "Extension API gaps" shows either "No unsupported chrome.* call recorded" or a short list. Copy that text for the next chat. 2) The extensions must open and work as before (ChatGPT Exporter popup + dialog). 3) Media Grabber (built-in): popup, queue, a download = same as before.
+- Rollback: delete ExtGaps.kt, remove the "if (GAPS)" safety block at the end of chrome-shim.js and the GAPS variable, the 2 ChromeBridge lines, the 2 ExtApi lines (ExtGaps.init, ExtGaps.record), the "gaps" flag in ContentInjector, the section / fact / rule lines in DiagReport / DiagRules, the HowToUse line.
+- Files: app/build.gradle.kts, app/src/main/java/com/jabra/mgb/{ExtGaps.kt (new), ChromeBridge.kt, ExtApi.kt, ContentInjector.kt, DiagReport.kt, DiagRules.kt, HowToUse.kt}, app/src/main/assets/shim/chrome-shim.js, CHANGELOG_PREPEND_0_0_429.txt
+
+=== CHANGELOG_PREPEND_0_0_428.txt ===
+0.0.428 (S3 FIX: Page theme parity for extension panels in a dark app)
+- Why: video 2: the injected "Export to PDF" card was WHITE with invisible text, in Quetta it is dark. Thazir darkens a light page itself, but the page still says prefers-color-scheme = light, so a site that themes itself (ChatGPT "System") stays light and its extension reads "light" once at start.
+- How: new ExtTheme.kt + assets/shim/theme-hint.js. At document start, in the page world, ONLY on the origins of installed extensions' content scripts, matchMedia('(prefers-color-scheme: dark)') answers true (light query false) when the app is dark AND Thazir shows this page dark (Dark pages ON, or the site rule is Dark; a site rule Original = no change). So the site switches to its real dark theme and sets html.dark. Also (app dark only): run_at document_idle waits for the page "load" event or 1.5 s, whichever is first (Chrome idle meaning); document_end stays on DOMContentLoaded.
+- Switch: Settings > Extensions > "Match page theme": Auto (default) > On (always when the app is dark, ignores Dark pages) > Off (0.0.425 behaviour). Reset: key ext_theme is in the Settings "general" Reset list. Report center "Extension compat" shows the choice.
+- Changed files: ExtTheme.kt (new), assets/shim/theme-hint.js (new), ContentInjector.kt (wrap idle param, cache signature, theme hint added first in addExtScripts), TabManager.kt (applyDarkPages refreshes scripts), SettingsScreen.kt (row + RESET), DiagMore.kt, ExtProbe.kt (1 line), HowToUse.kt, app/build.gradle.kts.
+- CHANGED BEHAVIOUR: light app = nothing changes. Dark app + extension with content scripts: pages shown dark by Thazir report dark to the page's JS (only matchMedia JS answers, CSS @media is not changed). Idle content scripts of installed extensions may start up to 1.5 s later than before on slow pages (dark app only). Built-in Media Grabber and pages without extension origins: untouched.
+- COULD BREAK: a site that is already dark by itself and an extension that expects light (use Match page theme Off). The social own dark rule (SocialDark) is not read by the hint. No fix yet for the exporter dialog if its text colour is wrong for another reason: S1 report (Extension compat) shows the real numbers.
+- NOT tested: Gradle build (CI), device. node test of the hint script passed (Dark pages ON / OFF, site rule Dark / Original, On, other site).
+- DEVICE TEST: 1) Dark app, Dark pages ON, open chatgpt.com, reload, open the ChatGPT Exporter dialog (Export to PDF) and "Select Messages": dark card, labels readable. 2) Settings > Extensions > Match page theme = Off, reload chatgpt.com: old white look returns (proves the switch). 3) On, Dark pages OFF: dark. 4) Light app: no change in any page. 5) Open Report center on chatgpt.com: "Extension compat" shows "prefers-dark" and html class; send it if the card is still white. 6) YouTube / other sites with no extension behave as before.
+- Rollback: delete ExtTheme.kt and theme-hint.js and revert the hook lines (ContentInjector: wrap idle, sig, theme hint block, extEntries sync; TabManager 1 line; SettingsScreen row + RESET; DiagMore; ExtProbe; HowToUse).
+
+=== CHANGELOG_PREPEND_0_0_427.txt ===
+0.0.427 (S2 FIX: Extension popup / options / extension tabs fit the phone)
+- Why: video 2: the popup of "ChatGPT Exporter" was a whole desktop page (about 40 % scale) in the top-left of the 480 dp window. The popup has no viewport meta, and Thazir laid it out at about 980 px.
+- How: new ExtFit.kt. A document-start script (only https://appassets.androidplatform.net/ext/<id>/... of an INSTALLED extension) adds a viewport meta at the phone width. After the page loads it is measured up to 3 times in 1.5 s; if the content is wider than the window (fixed desktop popup) the viewport becomes the measured width (max 900), so the page is scaled once. That width is kept per extension version + page (pref ext_fit_w), so the next open has no jump. A page with its own viewport meta is never changed. Popup window height now wraps the content (40 % to 80 % of the screen, never under 240 dp).
+- Same logic for an installed extension page opened as a tab (script added in ContentInjector.addExtScripts, measuring from TabManager.onPageFinished).
+- UI: Settings > Extensions > tap an extension > "Page width": Auto > Phone width > Desktop width (Desktop = old behaviour). Reset: keys ext_fit, ext_fit_w are in the Settings "general" Reset list; removed with the extension.
+- Changed files: ExtFit.kt (new), ExtScreen.kt, TabManager.kt (1 line), ContentInjector.kt (1 hook), ExtListScreen.kt, SettingsScreen.kt (RESET), DiagMore.kt, HowToUse.kt, app/build.gradle.kts.
+- CHANGED BEHAVIOUR: popups / options pages of installed extensions are laid out at phone width (before: 980 px for the popup). Built-in Media Grabber pages untouched (script only matches 32-letter a-p ids of installed extensions; ExtFit ignores everything else). If the document-start script is not supported the popup keeps the old wide page.
+- COULD BREAK: a popup that is wider than the window and has its own tuned CSS (use Desktop width for it); popup that fills with content after 1.5 s may stay smaller than needed (it scrolls; min height 40 %).
+- NOT tested: Gradle build (CI), device. Dynamic viewport change after load is assumed to relayout (Chrome WebView does).
+- DEVICE TEST: 1) Settings > Extensions > ChatGPT Exporter, Page width = Auto. Open its popup from the menu: it must fill the width with readable text, window as high as its content. 2) Close and open it again: no jump in size. 3) Tap Page width to Desktop, reopen: old tiny look (proves the switch). 4) Phone width: full width. 5) Rotate the phone with popup open, then reopen. 6) Open the extension Options (extension tab and window): readable, no tiny page. 7) Media Grabber popup, Queue, Manga, History look exactly as before. 8) Settings > General > Reset to default: Page width choices go back to Auto.
+- Rollback: delete ExtFit.kt and revert the hook lines (ExtScreen: fitOn, isInstPopup, hFit, fitHeight, ExtFit.onLoaded; TabManager 1 line; ContentInjector 1 line; ExtListScreen row; SettingsScreen RESET; DiagMore line).
+
+=== CHANGELOG_PREPEND_0_0_426.txt ===
+0.0.426 (S1 BUILD: Extension compat probe, measures only)
+- Why: Thazir shows some extensions differently than Quetta (tiny popup, white cards). Before changing anything we need facts: WebView version, which modern CSS features it has, and what theme a page tells an extension.
+- How: new ExtProbe.kt. Only when the Report center is built: a throw-away WebView asks CSS.supports for color-mix, oklch, nesting, @layer, @property, :has, dvh, inset, backdrop-filter, container-type (kept for the rest of the process, WebView destroyed at once, 2.5 s time limit). The current web tab is asked for html class, data-theme, prefers-color-scheme, color-scheme, body colours, readyState (1.5 s limit; private tabs, extension tabs and non-web pages are never read). Thazir side: app dark, Dark pages, this page darkened, extensions on Always / Never dark.
+- Report center: new section "Extension compat" (WARN when WebView is older than 120 or a feature is missing). New rule "ext-css-missing" (fix: Open Play Store, same fix id as webview).
+- Changed files: ExtProbe.kt (new), DiagReport.kt, DiagRules.kt, HowToUse.kt, app/build.gradle.kts.
+- CHANGED BEHAVIOUR: none outside the Report center (it waits up to about 4 s longer in the worst case, normally under 1 s).
+- COULD BREAK: Report center build on a phone where a temporary WebView cannot be created (caught, section says "not measured").
+- NOT tested: Gradle build (CI), device.
+- DEVICE TEST: 1) Menu > Report center on chatgpt.com in a dark app. 2) Open the "Extension compat" part. 3) Copy the report and send it: it holds WebView version, CSS yes / NO list and "Page theme" line (html class, prefers-dark). 4) Repeat on a light page with Dark pages OFF and ON.
+- Rollback: delete ExtProbe.kt and revert the 3 hook lines in DiagReport.kt / DiagRules.kt.
+
+=== CHANGELOG_PREPEND_0_0_280.txt ===
+0.0.280 (FIX + MODIFY: browser rotates, Settings press feel)
+- FIX: the browser did not rotate on phones and Android showed no rotate arrow. Cause: the browser was locked to portrait by default. "Rotate browser with phone" is now ON by default (Orient.kt, 1 line). If you ever tapped that setting, switch it ON once.
+- NEW (Settings): a row / category header gets 2 % smaller while touched, and a value text that just changed slides up and fades in once. Reduce motion = none. Touch is never consumed. Files: SettingsScreen.kt.
+- NOT in this version yet (written, waiting for a merge into the real 0.0.279 player files): hold-speed smart slide, subtitle delay.
+- Could break: a phone that wants the browser portrait-only must switch Rotate browser with phone OFF; the 2 % scale could look odd on a row inside a clipped card (report it).
+- NOT tested: Gradle build (CI), device.
+(paste this on top of CHANGELOG.txt, then delete this file)
+

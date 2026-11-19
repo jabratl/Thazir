@@ -96,7 +96,7 @@ object SettingsScreen {
             "grabber" to listOf("web_play", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),
             "player" to listOf("pl_gestures", "pl_hold_speed", "pl_hold_slide", "pl_dtap_sec", "pl_seek_sens", "pl_vol_boost", "pl_bright", "pl_fit_default",
                 "pl_speed_keep", "pl_speed_last", "pl_speeds", "pl_quality_cap", "pl_repeat", "pl_sub_size", "pl_sub_bg", "pl_sub_pos", "sub_size", "sub_color", "bg_audio"),
-            "privacy" to listOf("https_only", "hide_ad_space", "hide_cookie", "priv_secure"),
+            "privacy" to listOf("https_only", "hide_ad_space", "hide_cookie", "priv_secure", "priv_3p"),
             "data" to listOf("auto_backup")
         )
         private val RESTART = setOf("Theme", "Rotate browser with phone", "Extra native download button") // Step C: restart icon
@@ -135,9 +135,10 @@ object SettingsScreen {
             "Extra native download button" to "Second button, native downloader",
             "App lock" to "Ask for fingerprint or PIN",
             "Lock after" to "Time before the app locks",
-            "Hide private tabs in app preview" to "Blank Recents picture, no screenshots",
-            "Lock private tabs" to "Fingerprint or PIN for private tabs",
-            "Close all private tabs" to "Closes every private tab now",
+            "Hide Incognito tabs in app preview" to "Blank Recents picture, no screenshots",
+            "Block third-party cookies in Incognito" to "Stops cross-site cookies in Incognito",
+            "Lock Incognito tabs" to "Fingerprint or PIN for Incognito tabs",
+            "Close all Incognito tabs" to "Closes every Incognito tab now",
             "Site permissions" to "Camera, mic, location per site",
             "Site settings" to "Permissions, JS, desktop, text size per site",
             "HTTPS-only mode" to "Prefer secure https pages",
@@ -169,7 +170,7 @@ object SettingsScreen {
             "Sites never saved" to "Sites where no login is offered",
             "Smarter login detection" to "Finds login forms on more sites",
             "Run userscripts" to "Master switch for all userscripts",
-            "Userscripts in private tabs" to "Let userscripts run in private tabs"
+            "Userscripts in Incognito tabs" to "Let userscripts run in Incognito tabs"
         )
         /** S21f: hidden search words per row label (the row is found by these too). */
         private val KW = mapOf(
@@ -204,9 +205,10 @@ object SettingsScreen {
             "Keep speed" to "remember playback speed next video player",
             "Default quality" to "resolution height 1080 720 480 video player",
             "App lock" to "fingerprint biometric pin password security",
-            "Hide private tabs in app preview" to "incognito recents screenshot blank preview secure",
-            "Lock private tabs" to "incognito biometric fingerprint pin unlock return",
-            "Close all private tabs" to "incognito close wipe clear",
+            "Hide Incognito tabs in app preview" to "incognito recents screenshot blank preview secure",
+            "Block third-party cookies in Incognito" to "incognito private cookies third party cross-site tracking block",
+            "Lock Incognito tabs" to "incognito biometric fingerprint pin unlock return",
+            "Close all Incognito tabs" to "incognito close wipe clear",
             "Site permissions" to "camera microphone location mic",
             "Suspend background tabs" to "memory ram free sleep inactive tabs unload",
             "Site settings" to "site host website per-site javascript desktop zoom text size permissions reset",
@@ -215,7 +217,7 @@ object SettingsScreen {
             "Ad blocker" to "ads popup pop-up tracker adblock block",
             "Userscripts" to "tampermonkey greasemonkey script userscript js inject add paste match include",
             "Run userscripts" to "userscripts master switch off on",
-            "Userscripts in private tabs" to "incognito private userscript",
+            "Userscripts in Incognito tabs" to "incognito private userscript",
             "Hide ad spaces on pages" to "ads empty space cosmetic",
             "Hide cookie banners" to "consent gdpr popup cookies",
             "Auto backup (daily)" to "save restore",
@@ -447,14 +449,15 @@ object SettingsScreen {
             "Keep speed" to "OFF = speed resets for each video",
             "App lock" to "OFF = app opens without asking",
             "HTTPS-only mode" to "OFF = http pages open as they are",
-            "Hide private tabs in app preview" to "OFF = Recents shows the page",
-            "Lock private tabs" to "OFF = private tabs open freely",
+            "Hide Incognito tabs in app preview" to "OFF = Recents shows the page",
+            "Block third-party cookies in Incognito" to "OFF = Incognito sites may set cross-site cookies",
+            "Lock Incognito tabs" to "OFF = Incognito tabs open freely",
             "Ad blocker" to "OFF = ads and trackers load",
             "Hide ad spaces on pages" to "OFF = empty ad boxes stay",
             "Hide cookie banners" to "OFF = cookie popups show",
             "Auto backup (daily)" to "OFF = no daily file",
             "Run userscripts" to "OFF = no userscript runs",
-            "Userscripts in private tabs" to "OFF = not in private tabs",
+            "Userscripts in Incognito tabs" to "OFF = not in Incognito tabs",
             "Smarter login detection" to "OFF = basic detection",
             "Sub-folders in the chosen folder" to "OFF = all files in one folder"
         )
@@ -1194,7 +1197,7 @@ object SettingsScreen {
                     PullRefresh.setEnabled(act, !PullRefresh.enabled(act))
                     fill()
                 },
-                Row(R.drawable.ic_search, "Address suggestions", if (UrlSuggest.enabled(act)) "ON" else "OFF", "Matching bookmarks and history while you type (not in private tabs)") { // 0.0.377
+                Row(R.drawable.ic_search, "Address suggestions", if (UrlSuggest.enabled(act)) "ON" else "OFF", "Matching bookmarks and history while you type (not in Incognito tabs)") { // 0.0.377
                     UrlSuggest.setEnabled(act, !UrlSuggest.enabled(act))
                     fill()
                 },
@@ -1385,21 +1388,26 @@ object SettingsScreen {
                     HttpsOnly.set(act, !HttpsOnly.on(act))
                     fill()
                 },
-                Sub("Private tabs"), // 0.0.331
-                Row(R.drawable.ic_lock, "Hide private tabs in app preview", if (PrivateTabs.secureOn(act)) "ON" else "OFF", "Blank picture in Recents while a private tab is open (Android 12 and older: after you leave the app)") {
+                Sub("Incognito tabs"), // 0.0.331
+                Row(R.drawable.ic_lock, "Hide Incognito tabs in app preview", if (PrivateTabs.secureOn(act)) "ON" else "OFF", "Blank picture in Recents while an Incognito tab is open (Android 12 and older: after you leave the app)") {
                     PrivateTabs.setSecure(act, !PrivateTabs.secureOn(act))
                     (act as? MainActivity)?.syncPrivateSecure()
                     fill()
                 },
-                Row(R.drawable.ic_lock, "Allow screenshots in private tabs", if (PrivateTabs.shotsOn(act)) "ON" else "OFF", "Screenshots and screen recording work in private tabs. OFF = blocked. WhatsApp Web always allows them") { // 0.0.342
+                Row(R.drawable.ic_lock, "Allow screenshots in Incognito tabs", if (PrivateTabs.shotsOn(act)) "ON" else "OFF", "Screenshots and screen recording work in Incognito tabs. OFF = blocked. WhatsApp Web always allows them") { // 0.0.342
                     PrivateTabs.setShots(act, !PrivateTabs.shotsOn(act))
                     (act as? MainActivity)?.syncPrivateSecure()
                     fill()
                 },
-                Row(R.drawable.ic_lock, "Lock private tabs", if (PrivateTabs.lockOn(act)) "ON" else "OFF", "Fingerprint or PIN when you come back to a private tab") {
+                Row(R.drawable.ic_incognito, "Block third-party cookies in Incognito", if (PrivateTabs.block3pOn(act)) "ON" else "OFF", "Like Chrome: a site in an Incognito tab cannot set cookies for other sites. Some embedded logins and players may stop working. OFF = allowed") { // 0.0.478
+                    PrivateTabs.setBlock3p(act, !PrivateTabs.block3pOn(act))
+                    tabs?.applyIncognito3p()
+                    fill()
+                },
+                Row(R.drawable.ic_lock, "Lock Incognito tabs", if (PrivateTabs.lockOn(act)) "ON" else "OFF", "Fingerprint or PIN when you come back to an Incognito tab") {
                     fa?.let { PrivateTabs.toggleLock(it) { fill() } }
                 },
-                Row(R.drawable.ic_trash, "Close all private tabs", "${tabs?.allTabs()?.count { it.priv } ?: 0} open") {
+                Row(R.drawable.ic_trash, "Close all Incognito tabs", "${tabs?.allTabs()?.count { it.priv } ?: 0} open") {
                     tabs?.let { t -> t.allTabs().filter { it.priv }.forEach { t.close(it) } }
                     fill()
                 },
@@ -1451,9 +1459,9 @@ object SettingsScreen {
                     PwScreen.flip(act, "chip", true)
                     fill()
                 },
-                Row(R.drawable.ic_lock, "Fill in private tabs", if (PwScreen.privFill(act)) "ON" else "OFF", "Fills saved logins in private tabs opened from now on. Nothing is ever saved from a private tab") { // 0.0.389
+                Row(R.drawable.ic_lock, "Fill in Incognito tabs", if (PwScreen.privFill(act)) "ON" else "OFF", "Fills saved logins in Incognito tabs opened from now on. Nothing is ever saved from an Incognito tab") { // 0.0.389
                     PwScreen.flip(act, "privfill", false)
-                    Util.toast(act, "Applies to private tabs opened from now on")
+                    Util.toast(act, "Applies to Incognito tabs opened from now on")
                     fill()
                 },
                 Row(R.drawable.ic_lock, "Password health card", if (PwHealth.on(act)) "ON" else "OFF", "Weak and reused password check on the Passwords screen. Works only on this phone. OFF = no card") { // 0.0.390
@@ -1526,7 +1534,7 @@ object SettingsScreen {
                     Util.toast(act, "Reload the page")
                     fill()
                 },
-                Row(R.drawable.ic_code, "Userscripts in private tabs", if (Userscripts.privOn(act)) "ON" else "OFF") { // T7
+                Row(R.drawable.ic_code, "Userscripts in Incognito tabs", if (Userscripts.privOn(act)) "ON" else "OFF") { // T7
                     Userscripts.setPriv(act, !Userscripts.privOn(act)); Userscripts.refreshAll(act)
                     Util.toast(act, "Reload the page")
                     fill()

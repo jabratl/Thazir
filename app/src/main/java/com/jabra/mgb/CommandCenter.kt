@@ -189,7 +189,7 @@ object CommandCenter {
         val actions = ArrayList<Cmd>()
         fun reg(icon: Int, title: String, sub: String, kw: String, f: () -> Unit) { actions.add(Cmd(icon, title, sub, kw, f)) }
         reg(R.drawable.ic_add, "New tab", "Open the speed dial in a new tab", "open create blank", { tabs.newTab(TabManager.HOME_PAGE, 0, true, tabs.active?.priv == true) }) // 0.0.452
-        reg(R.drawable.ic_lock, "New private tab", "No history, separate cookies", "incognito secret", { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) })
+        reg(R.drawable.ic_incognito, "New Incognito tab", "No history, separate cookies", "incognito private secret", { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) })
         reg(R.drawable.ic_screen, "Tab switcher", "See all open tabs and groups", "tabs overview grid", { tabs.showSwitcher() })
         reg(R.drawable.ic_home, "Home", "Go to the speed dial", "start page", { tabs.goHome() })
         reg(R.drawable.ic_desktop, "Facebook", "Mobile feed, no Desktop site needed", "fb social lite", { SocialMode.open(act, tabs, SocialMode.FB_HOME) }) // 0.0.224
@@ -290,7 +290,7 @@ object CommandCenter {
                         val name = if (t.home) "Home" else t.title.ifBlank { Util.host(t.url).ifBlank { "New tab" } }
                         val where = if (t.home) "Speed dial" else Util.host(t.url)
                         Cmd(if (t.priv) R.drawable.ic_lock else R.drawable.ic_screen, name,
-                            if (t.priv) "Private tab" + (if (where.isNotBlank()) " · $where" else "") else where, "", { tabs.switchTo(t) })
+                            if (t.priv) "Incognito tab" + (if (where.isNotBlank()) " · $where" else "") else where, "", { tabs.switchTo(t) })
                     }
                 if (hits.isNotEmpty()) sections.add("Open tabs" to hits)
             }

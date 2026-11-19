@@ -42,7 +42,7 @@ object MenuBar {
         Entry("reload", "Reload / Stop", R.drawable.ic_reload), Entry("home", "Home", R.drawable.ic_home),
         Entry("share", "Share page", R.drawable.ic_share), Entry("downloads", "Downloads", R.drawable.ic_download),
         Entry("history", "History", R.drawable.ic_history), Entry("bookmarks", "Bookmarks", R.drawable.ic_bookmark),
-        Entry("newtab", "New tab", R.drawable.ic_add), Entry("private", "New private tab", R.drawable.ic_lock),
+        Entry("newtab", "New tab", R.drawable.ic_add), Entry("private", "New Incognito tab", R.drawable.ic_incognito),
         Entry("find", "Find on page", R.drawable.ic_search), Entry("desktop", "Desktop site", R.drawable.ic_desktop),
         Entry("settings", "Settings", R.drawable.ic_settings)
     )

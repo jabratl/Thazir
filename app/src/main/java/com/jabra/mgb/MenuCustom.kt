@@ -51,7 +51,7 @@ object MenuCustom {
     )
     val GENERAL = listOf(
         Entry("Command Center", R.drawable.ic_search), Entry("Media Library", R.drawable.ic_play), // 0.0.343: part of the order; 0.0.344: switchable like the other rows
-        Entry("New private tab", R.drawable.ic_lock), Entry("Bookmark all tabs", R.drawable.ic_bookmark_border),
+        Entry("New private tab", R.drawable.ic_incognito, false, "New Incognito tab"), Entry("Bookmark all tabs", R.drawable.ic_bookmark_border),
         Entry("Passwords", R.drawable.ic_lock), Entry("Vault", R.drawable.ic_vault), Entry("Recently closed tabs", R.drawable.ic_history), Entry("Saved pages", R.drawable.ic_folder), // T3
         Entry("Novel grabber", R.drawable.ic_book), Entry("Queue", R.drawable.ic_list),
         Entry("How to use", R.drawable.ic_info), Entry("Report center", R.drawable.ic_info), Entry("Settings", R.drawable.ic_settings),

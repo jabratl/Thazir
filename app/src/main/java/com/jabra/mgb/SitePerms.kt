@@ -28,6 +28,20 @@ object SitePerms {
         e.apply()
     }
 
+    /** 0.0.478: answers given in an Incognito tab. Memory only (nothing is written to mgb_perm), gone when the last Incognito tab closes. host|what -> allowed. */
+    private val privAns = HashMap<String, Boolean>()
+
+    /** Incognito reads its own answers first, then the normal saved ones (like Chrome: Incognito starts with the normal site settings). */
+    fun getFor(c: Context, host: String, what: String, priv: Boolean): Boolean? =
+        if (priv) (privAns[key(host, what)] ?: get(c, host, what)) else get(c, host, what)
+
+    fun setFor(c: Context, host: String, what: String, ok: Boolean?, priv: Boolean) {
+        if (!priv) { set(c, host, what, ok); return }
+        if (ok == null) privAns.remove(key(host, what)) else privAns[key(host, what)] = ok
+    }
+
+    fun clearPrivAnswers() { privAns.clear() }
+
     private class Entry(val host: String, val what: String, val ok: Boolean)
 
     private fun all(c: Context): List<Entry> {

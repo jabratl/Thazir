@@ -50,7 +50,7 @@ object HubSheet {
 
     val CATALOG = listOf(
         Entry("home", "Home action", R.drawable.ic_home), Entry("newtab", "New tab", R.drawable.ic_add),
-        Entry("private", "New private tab", R.drawable.ic_lock), Entry("back", "Back", R.drawable.ic_back),
+        Entry("private", "New Incognito tab", R.drawable.ic_incognito), Entry("back", "Back", R.drawable.ic_back),
         Entry("forward", "Forward", R.drawable.ic_forward), Entry("reload", "Reload / Stop", R.drawable.ic_reload),
         Entry("engine", "Search engine", R.drawable.ic_search), Entry("shield", "Privacy Guard", R.drawable.ic_shield),
         Entry("bookmarks", "Bookmarks", R.drawable.ic_bookmark), Entry("history", "History", R.drawable.ic_history),

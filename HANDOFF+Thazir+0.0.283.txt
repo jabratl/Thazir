@@ -1,8 +1,0 @@
-HANDOFF Thazir 0.0.283
-Done: MODIFY, version 0.0.283 (from 0.0.282).
-Changes:
-- SitePermsUi.kt: "All sites" card in the overview + allSites() view (per site card, chip flip, Forget site).
-- build.gradle.kts 0.0.283, CHANGELOG, HANDOFF.
-Checks: brace/paren balance, single-match patch audit (3).
-NOT tested: Gradle build (CI; watch destructuring in allSites), device.
-Next step + goal: device test of everything from 0.0.281-0.0.283 and report what looks wrong.

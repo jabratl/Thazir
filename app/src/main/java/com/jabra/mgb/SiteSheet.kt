@@ -58,17 +58,17 @@ object SiteSheet {
         return downOnLock
     }
 
-    private fun cur(a: FragmentActivity, host: String, key: String): Boolean? =
-        SitePerms.get(a, host, key) ?: (if (key == "camera" || key == "microphone") SitePerms.get(a, host, "camera and microphone") else null)
+    private fun cur(a: FragmentActivity, host: String, key: String, priv: Boolean = false): Boolean? =
+        SitePerms.getFor(a, host, key, priv) ?: (if (key == "camera" || key == "microphone") SitePerms.getFor(a, host, "camera and microphone", priv) else null)
 
-    private fun put(a: FragmentActivity, host: String, key: String, v: Boolean?) {
+    private fun put(a: FragmentActivity, host: String, key: String, v: Boolean?, priv: Boolean = false) {
         if (key == "camera" || key == "microphone") { // a saved combined answer is split first, so the other half is kept
-            SitePerms.get(a, host, "camera and microphone")?.let { both ->
-                SitePerms.set(a, host, "camera and microphone", null)
-                SitePerms.set(a, host, if (key == "camera") "microphone" else "camera", both)
+            SitePerms.getFor(a, host, "camera and microphone", priv)?.let { both ->
+                SitePerms.setFor(a, host, "camera and microphone", null, priv)
+                SitePerms.setFor(a, host, if (key == "camera") "microphone" else "camera", both, priv)
             }
         }
-        SitePerms.set(a, host, key, v)
+        SitePerms.setFor(a, host, key, v, priv) // 0.0.478: an Incognito tab never writes a site name to disk
     }
 
     fun show(a: FragmentActivity, t: TabManager.Tab) {
@@ -103,7 +103,7 @@ object SiteSheet {
             col.addView(tv(if (sec) "Connection is secure" else "Connection is not secure", 12f, c(if (sec) R.color.mg_success else R.color.mg_error)).apply { setPadding(0, dp(2), 0, dp(12)) })
             col.addView(tv("PERMISSIONS FOR THIS SITE", 11f, c(R.color.mg_primary), true).apply { letterSpacing = 0.08f; setPadding(dp(4), 0, 0, dp(6)) })
             for ((key, label, ic) in CATS) {
-                val v = cur(act, host, key)
+                val v = cur(act, host, key, tab.priv)
                 val def = SitePerms.blockedByDefault(act, key)
                 val blocked = v == false || (v == null && def)
                 val word = when { v == true -> "Allowed"; v == false -> "Blocked"; def -> "Blocked" else -> "Ask first" }
@@ -126,7 +126,7 @@ object SiteSheet {
                     setPadding(dp(12), 0, dp(12), 0); minimumHeight = dp(36)
                     contentDescription = "$label $word. Tap to change"
                     setOnClickListener {
-                        put(act, host, key, when (v) { null -> true; true -> false; false -> null })
+                        put(act, host, key, when (v) { null -> true; true -> false; false -> null }, tab.priv)
                         changed = true; render()
                     }
                 }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)))

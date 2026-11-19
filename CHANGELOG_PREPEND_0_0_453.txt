@@ -1,6 +1,0 @@
-0.0.453 (vault: rebuild index with fingerprint / screen lock)
-- Why: index.enc + index.bak gone, passphrase and recovery key forgotten. Quick-unlock key (Keystore wrap of the DEK) is still on the phone.
-- VaultStore.kt: rebuildIndex(pass) now calls shared rebuildWith(); NEW rebuildIndexQuick(key). Same rules: refuses if index.enc / index.bak exist, blobs only read, new index verified by read-back. Quick path does not count wrong tries.
-- VaultScreen.kt: unlock page link "Index lost? Rebuild with fingerprint / screen lock" (only when quick unlock is on and available).
-- Cannot come back: bookmarks, history, titles, folders.
-- Rollback: restore VaultStore.kt, VaultScreen.kt, app/build.gradle.kts from 0.0.452.
