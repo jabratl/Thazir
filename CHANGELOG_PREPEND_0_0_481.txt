@@ -1,0 +1,10 @@
+0.0.481 (NEW: stronger ad filter rules - $important, $denyallow / $to / $from, safe regex rules, #@# cosmetic exceptions)
+- Base = 0.0.480. Changed files: FilterList.kt, app/build.gradle.kts (this zip also carries MainActivity.kt, AppNag.kt, TabManager.kt, AdBlock.kt of 0.0.479 / 0.0.480). No new permission, no new dependency, no native code.
+- 1. $important block rules now win over @@ exception rules.
+- 2. Rule options $denyallow, $to and $from are used (before, a rule with one of them was skipped).
+- 3. Regex rules (/.../) of EasyList / uBlock filters are used when they are short and safe: at most 250, no risky patterns, and a time budget per match so a page can never hang. Anything the parser does not trust is skipped like before.
+- 4. #@# exceptions: a site can switch off a generic hide rule (example.com#@#.banner), so fewer pages lose real content.
+- Nothing to download: the saved lists are read again at every app start.
+- COULD BREAK: (1) a page loads a little slower if many regex rules match slowly (budget limits it; lower MAX_RE if you notice); (2) a regex rule that is too broad can block a file of a normal site: add an @@ line in \"my rules\".
+- NOT tested: Gradle build (CI), device. Written without a Kotlin compiler. If CI shows an error: FilterList.kt (opts, Rule, cosmeticCss, Budget, network()).
+- ROLLBACK: restore FilterList.kt and app/build.gradle.kts from 0.0.480.

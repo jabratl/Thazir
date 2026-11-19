@@ -11,7 +11,8 @@ import java.net.URL
  *  - network rules: ||domain^path, |start, plain text with * and ^, @@ exceptions, options $third-party / ~third-party,
  *    $script $image $stylesheet $xmlhttprequest $subdocument $media $font $other (and ~type), $domain=a.com|~b.com
  *  - cosmetic rules: ##selector and domain##selector (simple CSS only), each selector as its own CSS rule
- *  - skipped on purpose: regex rules, scriptlets (+js), extended selectors (:has-text, :xpath ...), $csp / $redirect / $removeparam (0.0.480: $popup rules ARE used now, for pop-up tabs only, see AdBlock.blocksPage)
+ *  - 0.0.481: also $important (beats @@), $denyallow, $to, $from, short safe regex rules (time budget), #@# cosmetic exceptions
+ *  - skipped on purpose: unsafe / long regex rules, scriptlets (+js), extended selectors (:has-text, :xpath ...), $csp / $redirect / $removeparam (0.0.480: $popup rules ARE used now, for pop-up tabs only, see AdBlock.blocksPage)
  *  Domain rules are indexed by domain, so a request only looks at the rules of its own host (and parents).
  * Loads on a background thread; until it is ready (or if it fails) AdBlock keeps working with its built-in host list.
  */
@@ -89,14 +90,30 @@ object FilterList {
 
     private class Rule(
         val pat: String, val domainAnchored: Boolean, val startAnchor: Boolean, val lit: String,
-        val third: Int, val types: Int, val inc: Array<String>?, val exc: Array<String>?
+        val third: Int, val types: Int, val inc: Array<String>?, val exc: Array<String>?,
+        // 0.0.481: $denyallow (request host in the list = rule does not apply), $to (request host must / must not match), regex rule
+        val deny: Array<String>? = null, val toInc: Array<String>? = null, val toExc: Array<String>? = null,
+        val re: java.util.regex.Pattern? = null
     )
 
     private class Index(
         val net: HashMap<String, ArrayList<Rule>>, val netExc: HashMap<String, ArrayList<Rule>>,
         val gen: ArrayList<Rule>, val genExc: ArrayList<Rule>,
-        val cosGen: String, val cosDom: HashMap<String, ArrayList<String>>, val count: Int
+        val cosGen: String, val cosDom: HashMap<String, ArrayList<String>>, val count: Int,
+        // 0.0.481: $important block rules (beat @@ exceptions), regex rules, #@# cosmetic exceptions
+        val netImp: HashMap<String, ArrayList<Rule>>, val genImp: ArrayList<Rule>,
+        val reg: ArrayList<Rule>, val regExc: ArrayList<Rule>, val regImp: ArrayList<Rule>,
+        val cosGenList: ArrayList<String>, val cosExc: HashMap<String, HashSet<String>>
     )
+
+    /** 0.0.481: a regex rule may never hang the network thread: every character read costs 1 and the match is dropped after [left] reads. */
+    private class Budget(private val s: CharSequence, private var left: Int) : CharSequence {
+        override val length: Int get() = s.length
+        override fun get(index: Int): Char { if (--left < 0) throw IllegalStateException("regex budget"); return s[index] }
+        override fun subSequence(startIndex: Int, endIndex: Int): CharSequence = s.subSequence(startIndex, endIndex)
+        override fun toString(): String = s.toString()
+    }
+    private const val MAX_RE = 250
 
     @Volatile private var idx: Index? = null
     @Volatile var loading = false
@@ -253,21 +270,34 @@ object FilterList {
         val third = ph == null || base(h) != base(ph)
         val se = u.indexOf("://")
         val hostEnd = if (se >= 0) { val i = u.indexOf(h, se + 3); if (i >= 0) i + h.length else -1 } else -1
-        if (hit(ix.netExc, ix.genExc, u, h, hostEnd, ph, third, type)) return 2
-        return if (hit(ix.net, ix.gen, u, h, hostEnd, ph, third, type)) 1 else 0
+        // 0.0.481: $important block rules beat @@ exceptions
+        if ((ix.netImp.isNotEmpty() || ix.genImp.isNotEmpty() || ix.regImp.isNotEmpty()) &&
+            (hit(ix.netImp, ix.genImp, u, h, hostEnd, ph, third, type) || regHit(ix.regImp, u, h, ph, third, type))) return 1
+        if (hit(ix.netExc, ix.genExc, u, h, hostEnd, ph, third, type) || regHit(ix.regExc, u, h, ph, third, type)) return 2
+        return if (hit(ix.net, ix.gen, u, h, hostEnd, ph, third, type) || regHit(ix.reg, u, h, ph, third, type)) 1 else 0
+    }
+
+    /** 0.0.481: regex rules (only short, safe ones are kept by the parser). Any error / budget overrun = no match. */
+    private fun regHit(list: ArrayList<Rule>, u: String, h: String, ph: String?, third: Boolean, type: Int): Boolean {
+        if (list.isEmpty() || u.length > 1000) return false
+        for (r in list) {
+            if (!opts(r, ph, third, type, h)) continue
+            try { if (r.re!!.matcher(Budget(u, 20_000)).find()) return true } catch (_: Throwable) { }
+        }
+        return false
     }
 
     private fun hit(map: HashMap<String, ArrayList<Rule>>, gen: ArrayList<Rule>, u: String, h: String, hostEnd: Int, ph: String?, third: Boolean, type: Int): Boolean {
         var d = h
         while (true) {
             val l = map[d]
-            if (l != null && hostEnd >= 0) for (r in l) if (opts(r, ph, third, type) && m(r.pat, 0, r.pat.length - (if (r.pat.endsWith("|")) 1 else 0), u, hostEnd, r.pat.endsWith("|"))) return true
+            if (l != null && hostEnd >= 0) for (r in l) if (opts(r, ph, third, type, h) && m(r.pat, 0, r.pat.length - (if (r.pat.endsWith("|")) 1 else 0), u, hostEnd, r.pat.endsWith("|"))) return true
             val i = d.indexOf('.')
             if (i < 0 || i == d.length - 1) break
             d = d.substring(i + 1)
         }
         for (r in gen) {
-            if (!opts(r, ph, third, type)) continue
+            if (!opts(r, ph, third, type, h)) continue
             val endA = r.pat.endsWith("|")
             val plen = r.pat.length - (if (endA) 1 else 0)
             if (r.startAnchor) { if (m(r.pat, 0, plen, u, 0, endA)) return true; continue }
@@ -280,8 +310,13 @@ object FilterList {
         return false
     }
 
-    private fun opts(r: Rule, ph: String?, third: Boolean, type: Int): Boolean {
+    private fun hostIn(h: String, a: Array<String>): Boolean = a.any { h == it || h.endsWith(".$it") }
+
+    private fun opts(r: Rule, ph: String?, third: Boolean, type: Int, h: String): Boolean {
         if ((r.types and type) == 0) return false
+        if (r.deny != null && hostIn(h, r.deny)) return false // 0.0.481: $denyallow
+        if (r.toInc != null && !hostIn(h, r.toInc)) return false // 0.0.481: $to
+        if (r.toExc != null && hostIn(h, r.toExc)) return false
         if (r.third == 1 && !third) return false
         if (r.third == 2 && third) return false
         if (r.inc != null || r.exc != null) {
@@ -328,10 +363,24 @@ object FilterList {
     /** CSS rules (each selector alone, so one bad selector cannot break the others) for this page host, or "". */
     fun cosmeticCss(host: String): String {
         val ix = idx ?: return ""
-        val sb = StringBuilder(ix.cosGen)
-        var d = host.lowercase().removePrefix("www.")
+        val h0 = host.lowercase().removePrefix("www.")
+        // 0.0.481: #@# exceptions of this host (and its parent domains)
+        var ex: HashSet<String>? = null
+        if (ix.cosExc.isNotEmpty()) {
+            var e = h0
+            while (true) {
+                ix.cosExc[e]?.let { if (ex == null) ex = HashSet(); ex!!.addAll(it) }
+                val i = e.indexOf('.')
+                if (i < 0 || i == e.length - 1) break
+                e = e.substring(i + 1)
+            }
+        }
+        val sb = StringBuilder()
+        if (ex == null) sb.append(ix.cosGen)
+        else for (sel in ix.cosGenList) if (sel !in ex!!) sb.append(sel).append("{display:none!important}")
+        var d = h0
         while (true) {
-            ix.cosDom[d]?.forEach { sb.append(it).append("{display:none!important}") }
+            ix.cosDom[d]?.forEach { if (ex == null || it !in ex!!) sb.append(it).append("{display:none!important}") }
             val i = d.indexOf('.')
             if (i < 0 || i == d.length - 1) break
             d = d.substring(i + 1)
@@ -346,16 +395,34 @@ object FilterList {
         val gen = ArrayList<Rule>(); val genExc = ArrayList<Rule>()
         val cosGen = ArrayList<String>(); val cosDom = HashMap<String, ArrayList<String>>()
         var count = 0; var cosDomN = 0
+        // 0.0.481
+        val netImp = HashMap<String, ArrayList<Rule>>(); val genImp = ArrayList<Rule>()
+        val reg = ArrayList<Rule>(); val regExc = ArrayList<Rule>(); val regImp = ArrayList<Rule>()
+        val cosExc = HashMap<String, HashSet<String>>(); val cosGenExc = HashSet<String>(); var cosExcN = 0
+        private val BAD_RE = Regex("""\\[1-9]|\([^)]*[*+}][^)]*\)[*+{]""") // back references and a quantified group that holds a quantifier (catastrophic backtracking)
 
         private val BAD_SEL = listOf(":has-text", ":-abp-", ":xpath", ":matches-", ":upward", ":contains(", ":remove(", ":style(", ":min-text", ":watch-attr", ":others", ":nth-ancestor", "{", "}")
 
         fun add(raw: String) {
             val line = raw.trim()
             if (line.isEmpty() || line[0] == '!' || line[0] == '[') return
+            val ce = line.indexOf("#@#")
+            if (ce >= 0 && !line.contains("#?#") && !line.contains("+js(")) { cosmeticExc(line.substring(0, ce), line.substring(ce + 3)); return } // 0.0.481
             if (line.contains("#@#") || line.contains("#?#") || line.contains("#$#") || line.contains("#%#") || line.contains("+js(")) return
             val c = line.indexOf("##")
             if (c >= 0) { cosmetic(line.substring(0, c), line.substring(c + 2)); return }
             network(line)
+        }
+
+        /** 0.0.481: example.com#@#.banner = the generic / domain hide rule ".banner" does not apply on example.com (empty domain = nowhere). */
+        private fun cosmeticExc(domains: String, sel: String) {
+            if (sel.isEmpty() || sel.length > 80 || sel.startsWith("+") || BAD_SEL.any { sel.contains(it) }) return
+            if (domains.isEmpty()) { cosGenExc.add(sel); return }
+            for (d in domains.split(',')) {
+                val dd = d.trim().lowercase()
+                if (dd.isEmpty() || dd.startsWith("~") || dd.contains('*') || dd.contains('/') || cosExcN >= 20_000) continue
+                cosExc.getOrPut(dd) { HashSet() }.add(sel); cosExcN++
+            }
         }
 
         private fun cosmetic(domains: String, sel: String) {
@@ -374,6 +441,7 @@ object FilterList {
             if (l.startsWith("@@")) { exception = true; l = l.substring(2) }
             var third = 0; var types = T_ALL; var neg = 0; var pos = 0
             var inc: Array<String>? = null; var exc: Array<String>? = null
+            var imp = false; var deny: Array<String>? = null; var toInc: Array<String>? = null; var toExc: Array<String>? = null // 0.0.481
             val d = l.lastIndexOf('$')
             if (d >= 0 && !l.substring(d).contains('/') ) {
                 val o = l.substring(d + 1); l = l.substring(0, d)
@@ -382,11 +450,22 @@ object FilterList {
                     when {
                         op == "third-party" || op == "3p" -> third = 1
                         op == "~third-party" || op == "first-party" || op == "1p" -> third = 2
-                        op == "important" || op == "match-case" || op == "all" -> { }
-                        op.startsWith("domain=") -> {
+                        op == "important" -> imp = true // 0.0.481
+                        op == "match-case" || op == "all" -> { }
+                        op.startsWith("domain=") || op.startsWith("from=") -> { // 0.0.481: from= is the same as domain=
                             val inl = ArrayList<String>(); val ex = ArrayList<String>()
-                            for (x in op.substring(7).split('|')) if (x.startsWith("~")) ex.add(x.substring(1)) else if (x.isNotEmpty()) inl.add(x)
+                            for (x in op.substring(op.indexOf('=') + 1).split('|')) if (x.startsWith("~")) ex.add(x.substring(1)) else if (x.isNotEmpty()) inl.add(x)
                             inc = if (inl.isEmpty()) null else inl.toTypedArray(); exc = if (ex.isEmpty()) null else ex.toTypedArray()
+                        }
+                        op.startsWith("denyallow=") -> { // 0.0.481
+                            val dl = op.substring(10).split('|').filter { it.isNotEmpty() && !it.startsWith("~") && !it.contains('*') }
+                            deny = if (dl.isEmpty()) return else dl.toTypedArray()
+                        }
+                        op.startsWith("to=") -> { // 0.0.481
+                            val inl = ArrayList<String>(); val ex = ArrayList<String>()
+                            for (x in op.substring(3).split('|')) if (x.startsWith("~")) ex.add(x.substring(1)) else if (x.isNotEmpty() && !x.contains('*')) inl.add(x)
+                            toInc = if (inl.isEmpty()) null else inl.toTypedArray(); toExc = if (ex.isEmpty()) null else ex.toTypedArray()
+                            if (toInc == null && toExc == null) return
                         }
                         else -> {
                             val neg1 = op.startsWith("~"); val n = if (neg1) op.substring(1) else op
@@ -404,8 +483,16 @@ object FilterList {
                 if (pos != 0) types = pos
                 if (neg != 0) types = types and neg.inv()
             }
+            if (l.length > 8 && l.startsWith("/") && l.endsWith("/")) { // 0.0.481: regex rule (short, safe ones only; a rule the parser does not trust is skipped as before)
+                val body = l.substring(1, l.length - 1)
+                if (body.length < 8 || body.length > 180 || reg.size + regExc.size + regImp.size >= MAX_RE || count >= MAX_NET || BAD_RE.containsMatchIn(body)) return
+                val p = try { java.util.regex.Pattern.compile(body, java.util.regex.Pattern.CASE_INSENSITIVE) } catch (_: Throwable) { return }
+                val rr = Rule(body, false, false, "", third, types, inc, exc, deny, toInc, toExc, p)
+                (if (exception) regExc else if (imp) regImp else reg).add(rr); count++
+                return
+            }
             l = l.lowercase()
-            if (l.length < 3 || (l.startsWith("/") && l.endsWith("/"))) return // regex rule
+            if (l.length < 3 || (l.startsWith("/") && l.endsWith("/"))) return // regex rule too short
             if (count >= MAX_NET) return
             if (l.startsWith("||")) {
                 var e = 2
@@ -413,8 +500,8 @@ object FilterList {
                 val dom = l.substring(2, e)
                 if (dom.isEmpty() || dom.contains('*') || !dom.contains('.')) return
                 val rest = l.substring(e)
-                val r = Rule(rest, true, false, "", third, types, inc, exc)
-                (if (exception) netExc else net).getOrPut(dom) { ArrayList() }.add(r); count++
+                val r = Rule(rest, true, false, "", third, types, inc, exc, deny, toInc, toExc)
+                (if (exception) netExc else if (imp) netImp else net).getOrPut(dom) { ArrayList() }.add(r); count++
                 return
             }
             var start = false
@@ -422,15 +509,16 @@ object FilterList {
             var lit = ""
             run { var e = 0; while (e < l.length && l[e] != '*' && l[e] != '^' && l[e] != '|') e++; lit = l.substring(0, e) }
             if (!start && lit.length < 5) return
-            val target = if (exception) genExc else gen
+            val target = if (exception) genExc else if (imp) genImp else gen
             if (target.size >= MAX_GEN) return
-            target.add(Rule(l, false, start, lit, third, types, inc, exc)); count++
+            target.add(Rule(l, false, start, lit, third, types, inc, exc, deny, toInc, toExc)); count++
         }
 
         fun build(): Index {
             val sb = StringBuilder()
+            if (cosGenExc.isNotEmpty()) cosGen.removeAll(cosGenExc) // 0.0.481: "#@#sel" without a domain
             for (s in cosGen) sb.append(s).append("{display:none!important}")
-            return Index(net, netExc, gen, genExc, sb.toString(), cosDom, count)
+            return Index(net, netExc, gen, genExc, sb.toString(), cosDom, count, netImp, genImp, reg, regExc, regImp, cosGen, cosExc)
         }
     }
 }

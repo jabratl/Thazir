@@ -1,5 +1,29 @@
 # CHANGELOG_ARCHIVE.txt - the text of every pruned CHANGELOG_PREPEND_<ver>.txt, newest first (tools/handoff_prune.py).
 
+=== CHANGELOG_PREPEND_0_0_470_included.txt ===
+0.0.470 (Report center: native crash report with library names, crash-time data kept, Crash guard section)
+- Base = 0.0.469 (0.0.468 + 0.0.469 are in). Changed files: app/build.gradle.kts, Diag.kt, DiagExtra.kt, CrashGuard.kt, TabManager.kt, DiagReport.kt, DiagScreen.kt
+1. BUG FIX DiagExtra.tombstoneLines: a native crash frame lost its library name. Field 5 of BacktraceFrame (tombstone.proto) is function_offset (a number), the file name is field 6, the build id field 8. Frames now read "#0 libwebviewchromium.so +0x5daa678 [build-id ...]" (build id once per library), function names get "+0x<offset>". Also: "fault addr 0x..." (signal_info.fault_address) and "process uptime: N s" (tombstone.process_uptime). Field numbers are from AOSP tombstone.proto (from memory, not checked against a real tombstone): if a line looks wrong, send the report.
+2. Diag.keep(level, tag, msg, extra): like Diag.log but the file is written within 150 ms (coalesced) instead of 1.5 s. Used by "page: start" and "popup: opened / refused", so a native crash 1 s later still finds them in "Last events".
+3. CrashGuard.note(host, state): besides the host it saves one line of app state at the page start (tabs, pop-ups, adblock, desktop, extensions, free RAM). A start after a crash copies host + state + time to "last crash" (prefs lc_*). Normal stop clears the pending values. Never for private tabs.
+4. Report center: new section Browser > "Crash guard" (last crash host + time + app state, list of risky sites). New line under the buttons "Crash-risky sites: n (tap to clear)" (only when the list is not empty) = CrashGuard.clearRisky().
+- COULD BREAK: one more small disk write at each page start of a NEW host (a few KB prefs + the diag file, off the main thread). If the field numbers of item 1 are wrong, the frame lines show odd names (nothing else is affected).
+- NOT tested: Gradle build (CI), device. Brackets: same balance as the 0.0.467 files.
+- DEVICE TEST: (1) open a few sites, Report center > Browser > Crash guard shows "No crash ...". (2) force stop while a page loads, start: Crash guard shows host + state line; Report center top shows "Crash-risky sites: 1 (tap to clear)", tap = gone. (3) a native crash report shows library names with +0x offsets.
+- ROLLBACK: restore the 6 files from 0.0.469.
+
+=== CHANGELOG_PREPEND_0_0_470.txt ===
+0.0.470 (Report center: native crash report with library names, crash-time data kept, Crash guard section)
+- Base = 0.0.469 (0.0.468 + 0.0.469 are in). Changed files: app/build.gradle.kts, Diag.kt, DiagExtra.kt, CrashGuard.kt, TabManager.kt, DiagReport.kt, DiagScreen.kt
+1. BUG FIX DiagExtra.tombstoneLines: a native crash frame lost its library name. Field 5 of BacktraceFrame (tombstone.proto) is function_offset (a number), the file name is field 6, the build id field 8. Frames now read "#0 libwebviewchromium.so +0x5daa678 [build-id ...]" (build id once per library), function names get "+0x<offset>". Also: "fault addr 0x..." (signal_info.fault_address) and "process uptime: N s" (tombstone.process_uptime). Field numbers are from AOSP tombstone.proto (from memory, not checked against a real tombstone): if a line looks wrong, send the report.
+2. Diag.keep(level, tag, msg, extra): like Diag.log but the file is written within 150 ms (coalesced) instead of 1.5 s. Used by "page: start" and "popup: opened / refused", so a native crash 1 s later still finds them in "Last events".
+3. CrashGuard.note(host, state): besides the host it saves one line of app state at the page start (tabs, pop-ups, adblock, desktop, extensions, free RAM). A start after a crash copies host + state + time to "last crash" (prefs lc_*). Normal stop clears the pending values. Never for private tabs.
+4. Report center: new section Browser > "Crash guard" (last crash host + time + app state, list of risky sites). New line under the buttons "Crash-risky sites: n (tap to clear)" (only when the list is not empty) = CrashGuard.clearRisky().
+- COULD BREAK: one more small disk write at each page start of a NEW host (a few KB prefs + the diag file, off the main thread). If the field numbers of item 1 are wrong, the frame lines show odd names (nothing else is affected).
+- NOT tested: Gradle build (CI), device. Brackets: same balance as the 0.0.467 files.
+- DEVICE TEST: (1) open a few sites, Report center > Browser > Crash guard shows "No crash ...". (2) force stop while a page loads, start: Crash guard shows host + state line; Report center top shows "Crash-risky sites: 1 (tap to clear)", tap = gone. (3) a native crash report shows library names with +0x offsets.
+- ROLLBACK: restore the 6 files from 0.0.469.
+
 === CHANGELOG_PREPEND_0_0_469.txt ===
 0.0.469 (NEW: edit "Recently visited" on the Home page)
 - Base = 0.0.468. Changed files: app/build.gradle.kts (0.0.469), HomeView.kt
