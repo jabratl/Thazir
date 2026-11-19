@@ -11,7 +11,7 @@ import java.net.URL
  *  - network rules: ||domain^path, |start, plain text with * and ^, @@ exceptions, options $third-party / ~third-party,
  *    $script $image $stylesheet $xmlhttprequest $subdocument $media $font $other (and ~type), $domain=a.com|~b.com
  *  - cosmetic rules: ##selector and domain##selector (simple CSS only), each selector as its own CSS rule
- *  - skipped on purpose: regex rules, scriptlets (+js), extended selectors (:has-text, :xpath ...), $csp / $redirect / $removeparam / $popup
+ *  - skipped on purpose: regex rules, scriptlets (+js), extended selectors (:has-text, :xpath ...), $csp / $redirect / $removeparam (0.0.480: $popup rules ARE used now, for pop-up tabs only, see AdBlock.blocksPage)
  *  Domain rules are indexed by domain, so a request only looks at the rules of its own host (and parents).
  * Loads on a background thread; until it is ready (or if it fails) AdBlock keeps working with its built-in host list.
  */
@@ -84,6 +84,7 @@ object FilterList {
 
     const val T_SCRIPT = 1; const val T_IMAGE = 2; const val T_STYLE = 4; const val T_XHR = 8
     const val T_SUBDOC = 16; const val T_MEDIA = 32; const val T_FONT = 64; const val T_OTHER = 128
+    const val T_POPUP = 256 // 0.0.480: $popup rules. NOT part of T_ALL, so a normal rule never matches a pop-up check and a $popup rule never blocks a normal request
     private const val T_ALL = 255
 
     private class Rule(
@@ -393,6 +394,7 @@ object FilterList {
                                 "script" -> T_SCRIPT; "image" -> T_IMAGE; "stylesheet", "css" -> T_STYLE; "xmlhttprequest", "xhr" -> T_XHR
                                 "subdocument", "frame" -> T_SUBDOC; "media" -> T_MEDIA; "font" -> T_FONT
                                 "other", "ping", "object", "websocket" -> T_OTHER
+                                "popup" -> T_POPUP // 0.0.480
                                 else -> return // unsupported option: skip the whole rule
                             }
                             if (neg1) neg = neg or t else pos = pos or t

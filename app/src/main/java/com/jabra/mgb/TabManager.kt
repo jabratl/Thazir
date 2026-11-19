@@ -642,7 +642,7 @@ class TabManager(
             if (u.toString().startsWith(ContentInjector.EXT_ORIGIN) && !tab.isExt) return true
             // 0.0.106: a script / server redirect (no tap) to an ad host is cancelled; an ad pop-up tab is closed
             if (!tab.isExt && request.isForMainFrame && !request.hasGesture() &&
-                AdBlock.blocksPage(u.toString(), if (tab.popup) tab.openerUrl else tab.url)) {
+                AdBlock.blocksPage(u.toString(), if (tab.popup) tab.openerUrl else tab.url, tab.popup)) { // 0.0.480: popup flag
                 Util.toast(ctx, "Redirect blocked")
                 if (tab.popup) container.post { close(tab) }
                 return true
@@ -768,7 +768,7 @@ class TabManager(
 
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
             if (!tab.isExt) ExtBackground.pageTouch() // 0.0.477: extension workers / script refresh wait until the browser is calm
-            if (tab.popup && !tab.isExt && url != null && AdBlock.blocksPage(url, tab.openerUrl)) { // 0.0.106: ad pop-up
+            if (tab.popup && !tab.isExt && url != null && AdBlock.blocksPage(url, tab.openerUrl, true)) { // 0.0.106: ad pop-up (0.0.480: $popup rules count here)
                 Util.toast(ctx, "Pop-up blocked")
                 container.post { close(tab) }
                 return

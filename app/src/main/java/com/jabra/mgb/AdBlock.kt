@@ -104,14 +104,19 @@ object AdBlock {
      * 0.0.106: a page navigation (pop-up window, script / server redirect) to an ad host or a filter hit.
      * Never the same site as the opener, never when ads are allowed on the opener. Main thread.
      */
-    fun blocksPage(url: String, openerUrl: String?): Boolean {
+    fun blocksPage(url: String, openerUrl: String?, popup: Boolean = false): Boolean { // 0.0.480: popup = the address is loaded by a pop-up tab (then $popup rules count too)
         if (!enabled || !url.startsWith("http")) return false
         if (SiteConfig.has(openerUrl, SiteConfig.ADS_OK)) return false
         val host = try { android.net.Uri.parse(url).host?.lowercase() } catch (e: Exception) { null } ?: return false
         val ph = try { android.net.Uri.parse(openerUrl ?: "").host?.lowercase() } catch (e: Exception) { null }
         if (isAllowed(host) || isAllowed(ph)) return false // T5
         if (ph != null && (ph == host || ph.endsWith(".$host") || host.endsWith(".$ph"))) return false
-        val v = FilterList.verdict(url, host, ph, FilterList.T_SUBDOC)
+        var v = FilterList.verdict(url, host, ph, FilterList.T_SUBDOC)
+        if (popup) { // 0.0.480: $popup rules (EasyList / uBlock filters have thousands); an @@ ...$popup exception wins
+            val vp = FilterList.verdict(url, host, ph, FilterList.T_POPUP)
+            if (vp == 2) return false
+            if (vp == 1) v = 1
+        }
         if (v == 2) return false
         if (!listed(host) && v != 1) return false
         count.incrementAndGet()

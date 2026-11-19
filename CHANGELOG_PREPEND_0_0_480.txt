@@ -1,0 +1,7 @@
+0.0.480 (NEW: $popup filter rules are used - ad pop-up / pop-under hosts of EasyList and uBlock filters)
+- Base = 0.0.479. Changed files: FilterList.kt, AdBlock.kt, TabManager.kt, app/build.gradle.kts (this zip also carries MainActivity.kt and AppNag.kt of 0.0.479). No new permission, no new dependency, no native code.
+- 1. Before, every filter rule with the $popup option was skipped when the lists were read. Now they are read and used for POP-UP tabs only: a pop-up tab (window.open / target=_blank) that goes to an address a $popup rule blocks is closed at once (toast \"Pop-up blocked\"). @@ ...$popup exceptions are honoured. Normal tabs, normal requests and links you open yourself are not affected.
+- 2. Nothing to download: the saved lists are read again at every app start. Turning on \"uBlock filters\" gives more $popup rules.
+- COULD BREAK: a site whose real pop-up (for example a payment or login window) goes to an address that a list marks $popup would be closed: allow ads for that site (Page info > Site configuration) or add an @@ rule in \"my rules\".
+- NOT tested: Gradle build (CI), device. Written without a Kotlin compiler. If CI shows an error: FilterList.kt (T_POPUP, option popup), AdBlock.kt (blocksPage), TabManager.kt (two blocksPage calls).
+- ROLLBACK: restore FilterList.kt, AdBlock.kt, TabManager.kt and app/build.gradle.kts from 0.0.479.
