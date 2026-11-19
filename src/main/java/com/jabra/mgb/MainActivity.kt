@@ -25,16 +25,23 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     private lateinit var tabs: TabManager
     private lateinit var urlBar: EditText
     private lateinit var btnHome: ImageView // S22
+    private lateinit var btnHub: ImageView // 0.0.456: Hub button (3x3)
     private lateinit var btnBack: ImageView // A1: optional Back arrow in the bar
     private lateinit var btnFwd: ImageView // A1: optional Forward arrow in the bar
     private lateinit var btnTabs: MaterialButton
     private lateinit var btnShield: ImageView // S68: Privacy Guard
+    private lateinit var btnNewTab: ImageView // 0.0.319: "+" next to the address bar
     private lateinit var btnEngine: TextView // S69: search engine badge
     private lateinit var progress: LinearProgressIndicator
     private lateinit var backCb: OnBackPressedCallback
     private lateinit var floating: FloatingDl // S11
     private var lastNight = 0
     private var siteWin = false // 0.0.247 (A7): this window is a site window (own task for one social site)
+    companion object {
+        @Volatile private var mainRef: java.lang.ref.WeakReference<MainActivity>? = null // the live main (non-site) window
+    }
+
+    private var dup = false // fix: this instance only forwarded a Share/link to the already-open main window and closes at once
     private var shared = true // 0.0.247 (A7): this window owns the app-wide helpers (false = a site window while the main window lives)
 
     // S29 FIX: the saved theme must be set BEFORE AppCompat reads it (attachBaseContext). Before, the first start
@@ -45,8 +52,24 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // fix: MainActivity is launchMode "standard", so a Share / link from another app made a SECOND main window (its own tabs, no
+        // incognito tab). If a main window is already alive, hand the intent to it and close this one. Site windows are not touched.
+        val live = mainRef?.get()
+        if (live != null && !live.isFinishing && !live.isDestroyed && !SiteWindow.isSite(intent) &&
+            intent?.action.let { it != null && it != Intent.ACTION_MAIN }) {
+            dup = true
+            super.onCreate(null)
+            try { live.onNewIntent(intent) } catch (e: Exception) { android.util.Log.w("Thazir.win", "forward failed", e) }
+            try {
+                (getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).appTasks
+                    .firstOrNull { it.taskInfo.taskId == live.taskId }?.moveToFront()
+            } catch (e: Exception) { }
+            finish()
+            return
+        }
+        FsTemp.wipeIfDue(applicationContext) // 0.0.395: before any WebView exists in this process
         siteWin = SiteWindow.isSite(intent); shared = !siteWin || !SiteWindow.mainUp // 0.0.247 (A7)
-        if (siteWin) { SiteWindow.live++; SiteWindow.used = true } else SiteWindow.mainUp = true
+        if (siteWin) { SiteWindow.live++; SiteWindow.used = true } else { SiteWindow.mainUp = true; mainRef = java.lang.ref.WeakReference(this) }
         UiMode.apply(this) // S20: saved theme (System / Light / Dark), before the Activity is created
         AdBlock.init(this) // S19
         DlRules.init(this) // D2
@@ -57,6 +80,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         super.onCreate(savedInstanceState)
         noisyOn() // 0.0.310
         AccentTheme.apply(this) // 0.0.289: accent overlay (before the layout is inflated)
+        SurfaceStyle.apply(this) // 0.0.423: Classic white / True black / accent tint overlay
         setContentView(R.layout.activity_main)
         if (AppearancePrefs.compactBar(this)) findViewById<View>(R.id.bottom_bar)?.layoutParams?.height = Util.dp(this, 44) // A11: compact bar
         if (AppearancePrefs.barTop(this)) { // A4: bar position Top = move the pill to index 0, margins top 8 / bottom 6
@@ -80,10 +104,22 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         urlBar = findViewById(R.id.url_bar)
         urlBar.typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL) // 0.0.281: stronger address text
         btnHome = findViewById(R.id.btn_home)
+        btnHub = findViewById(R.id.btn_hub) // 0.0.456
         btnBack = findViewById(R.id.btn_back) // A1
         btnFwd = findViewById(R.id.btn_fwd) // A1
         btnTabs = findViewById(R.id.btn_tabs)
+        tabStroke0 = btnTabs.strokeColor // 0.0.380: the normal ring colour, restored when the active tab is in no group
         btnShield = findViewById(R.id.btn_shield) // S68
+        btnNewTab = findViewById(R.id.btn_newtab) // 0.0.319
+        btnNewTab.setOnClickListener { // same as Chrome: a private tab opens another private tab
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+            newTabHere()
+        }
+        btnNewTab.setOnLongClickListener {
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+            tabs.newTab(TabManager.HOME_PAGE, 0, true, true)
+            true
+        }
         btnEngine = findViewById(R.id.btn_engine) // S69
         progress = findViewById(R.id.progress)
         progress.trackColor = android.graphics.Color.TRANSPARENT // S21d: only the accent line, thicker
@@ -91,7 +127,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         EngineHost.start(this) // S6 (A7b: safe twice, it starts once for the whole app): background.js engine (hidden WebView)
         tabs = TabManager(this, findViewById<FrameLayout>(R.id.web_container), this)
         if (shared) TabsApi.attach(tabs)
-        if (shared) { GroupStrip.attach(this, tabs); SocialDock.attach(this, tabs); TabSwitcher.onChanged = { GroupStrip.refresh() } } // S13
+        if (shared) { GroupStrip.attach(this, tabs); SocialDock.attach(this, tabs); TabSwitcher.onChanged = { GroupStrip.refresh(); refreshTabRing() } } // S13 (0.0.380: ring follows group changes)
         BookmarksScreen.tabsRef = tabs // S25
         if (shared) TabsApi.onNativePanel = { floating.openSheet() } // MGB S51: Grabber page button -> Files detected! panel
         window.decorView.post { DlMode.init(this) } // S54: Smart download buttons on first start
@@ -123,6 +159,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         }
         floating = FloatingDl(this, findViewById<FrameLayout>(R.id.web_container).parent as FrameLayout, tabs) // S11
 
+        btnHub.setOnClickListener { it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); showHub() } // 0.0.456: tap = Hub, hold = the Home-button action
+        btnHub.setOnLongClickListener { it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS); homeClick(); true }
         btnHome.setOnClickListener { homeClick() } // S22, 0.0.130: Home opens in the same tab; APPEARANCE A3: action from Appearance (default = Home)
         btnBack.setOnClickListener { tabs.active?.let { if (tabs.canBack(it)) tabs.back(it) } } // A1
         btnFwd.setOnClickListener { tabs.active?.let { if (tabs.canFwd(it)) tabs.fwd(it) } } // A1
@@ -149,9 +187,11 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             if (focused) {
                 urlBar.setText(if (tabs.active?.home == true) "" else (tabs.active?.url ?: "")) // S13
                 urlBar.post { urlBar.selectAll() }
-            } else refreshUrlField()
+            } else { UrlSuggest.hide(); refreshUrlField() } // 0.0.377: suggestions go away with the focus
             refreshShield() // S68: shield hides while typing
         }
+        // 0.0.377: matching bookmarks / history under or above the bar while typing (Settings > Browser > Address suggestions)
+        UrlSuggest.attach(this, urlBar, { tabs.active?.priv == true }, { if (tabs.active?.home == true) "" else (tabs.active?.url ?: "") }) { u -> urlBar.setText(u); submitUrl() }
 
         urlBar.setOnLongClickListener { // 0.0.287 (#5): long-press the address (not while typing) = Copy link / Paste & go / Share
             val t = tabs.active
@@ -162,7 +202,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                 MenuSheet.Item("Copy link", R.drawable.ic_copy) { tabs.copyText(u) },
                 MenuSheet.Item("Paste & go", R.drawable.ic_paste, clip.isNotEmpty()) { urlBar.setText(clip); submitUrl() },
                 MenuSheet.Item("Share", R.drawable.ic_share) { tabs.shareText(u) }
-            ))
+            ) + (if (LinkGrab.menuOk(u)) listOf(MenuSheet.Item("Download video / file (smart)", R.drawable.ic_download) { LinkGrab.run(this, u) }) else emptyList())) // 0.0.410
             true
         }
 
@@ -175,7 +215,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                     urlBar.hasFocus() -> leaveUrlBar()
                     t != null && tabs.canBack(t) -> tabs.back(t) // 0.0.130: Home counts as a page
                     t != null && SocialBack.hold(this@MainActivity, t) -> Unit // 0.0.241 (A3): first page of a social tab: press Back again
-                    t != null && tabs.count > 1 -> tabs.close(t)
+                    t != null && tabs.count > 1 -> TabSwitcher.closeWithUndo(this@MainActivity, tabs, t) // 0.0.363 (P2): Undo bar
                     else -> {
                         isEnabled = false
                         onBackPressedDispatcher.onBackPressed()
@@ -185,9 +225,11 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         }
         onBackPressedDispatcher.addCallback(this, backCb)
 
+        CrashGuard.begin(this) // 0.0.451: native crash loop guard (see CrashGuard.kt)
+        CrashReport.showIfNeeded(this) // 0.0.455: report of the last crash BEFORE the tabs load
         if (siteWin) SiteWindow.start(this, tabs, intent, savedInstanceState == null) // 0.0.247 (A7): only this site, no session restore
         else if (!tabs.restoreSession()) tabs.newTab(TabManager.HOME_PAGE) // S13
-        else if (AppearancePrefs.startPage(this)) tabs.newTab(TabManager.HOME_PAGE) // A8: restored tabs + a fresh home tab selected
+        else if (AppearancePrefs.startPage(this) && !CrashGuard.safe) tabs.newTab(TabManager.HOME_PAGE) // A8: restored tabs + a fresh home tab selected
         LinkInbox.fromIntent(this, tabs, intent) // D1
         if (savedInstanceState == null) SocialShortcuts.fromIntent(this, tabs, intent) // 0.0.230 (P6): home-screen shortcut
         if (savedInstanceState == null) HomeShortcut.fromIntent(this, tabs, intent) // 0.0.298: "Add to home screen" icon of a page
@@ -202,11 +244,14 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         if (savedInstanceState == null) window.decorView.postDelayed({ HowToUse.maybeOffer(this) }, 2500) // V14: one-time welcome offer
     }
 
+    /** 0.0.452: ONE place for every "New tab" entry point of the main window: a private tab in front = the new tab is private too (Chrome way). */
+    private fun newTabHere() { tabs.newTab(TabManager.HOME_PAGE, 0, true, tabs.active?.priv == true) }
+
     /** APPEARANCE A3: the left bar button does what Appearance > Address bar says (default = Home, as before). */
     private fun homeClick() {
         when (AppearancePrefs.homeAction(this)) {
             "back" -> tabs.active?.let { if (tabs.canBack(it)) tabs.back(it) }
-            "newtab" -> tabs.newTab(TabManager.HOME_PAGE)
+            "newtab" -> newTabHere() // 0.0.452: from a private tab the new tab is private
             "refresh" -> reloadOrStop()
             "bookmarks" -> BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs)
             "extensions" -> ExtTray.show(this)
@@ -219,6 +264,147 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         val (icon, label) = AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(this))
         btnHome.setImageResource(icon)
         btnHome.contentDescription = label
+        val hub = AppearancePrefs.hubOn(this) // 0.0.456: Hub style = Hub button instead of the Home-action button
+        btnHub.visibility = if (hub) View.VISIBLE else View.GONE
+        btnHome.visibility = if (hub) View.GONE else View.VISIBLE
+        applyBarStyle() // 0.0.459: Hub style = accent-filled bar
+    }
+
+    // ---------- 0.0.459 (S4): Hub style look = accent-filled bar (reference screenshot). Hub OFF = the Classic drawables + tokens, untouched. ----------
+
+    private fun hubStyle(): Boolean = false // 0.0.463: the Hub no longer has its own (accent-filled) look: same flat minimal bar as Classic, so every hubStyle() look branch stays off
+
+    /** the real fill of the Hub bar (?attr/colorPrimary of the current theme: accent + surface overlays included). */
+    private fun barFill(): Int {
+        val tv = android.util.TypedValue()
+        return if (theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true) && tv.type in android.util.TypedValue.TYPE_FIRST_COLOR_INT..android.util.TypedValue.TYPE_LAST_COLOR_INT) tv.data else getColor(R.color.mg_primary)
+    }
+
+    /** ink on the filled bar: mg_on_primary when it keeps contrast >= 3:1 with the fill, else white / black, whichever reads better (checked at run time, so every accent in light + dark is readable). */
+    private fun barInk(): Int {
+        val fill = barFill()
+        val on = getColor(R.color.mg_on_primary)
+        fun cr(fg: Int) = androidx.core.graphics.ColorUtils.calculateContrast(fg or (0xFF shl 24), fill or (0xFF shl 24))
+        if (cr(on) >= 3.0) return on
+        return if (cr(android.graphics.Color.WHITE) >= cr(android.graphics.Color.BLACK)) android.graphics.Color.WHITE else android.graphics.Color.BLACK
+    }
+
+    private fun alphaOf(c: Int, a: Int): Int = androidx.core.graphics.ColorUtils.setAlphaComponent(c, a)
+
+    /** colour of the bar icons: ink on the Hub bar, mg_text on the Classic bar. */
+    private fun barIcon(): Int = if (hubStyle()) barInk() else getColor(R.color.mg_text)
+
+    /** colour of the tab count: ink on the Hub bar (private tab = the plum ring on the field), else as before (private = accent). */
+    private fun tabInk(priv: Boolean): Int = if (hubStyle()) barInk() else getColor(if (priv) R.color.mg_primary else R.color.mg_text)
+
+    /** address field on the Hub bar: resting = ink 20 % capsule, focused = surface + 2 dp ring; private tab = plum ring (also while typing). Radius 20 dp, 2 dp inset inside the 44 dp touch area. */
+    private fun hubFieldBg(priv: Boolean): android.graphics.drawable.Drawable {
+        val ink = barInk()
+        val plum = androidx.core.graphics.ColorUtils.blendARGB(getColor(R.color.mg_primary), getColor(R.color.mg_error), 0.5f)
+        fun shape(fill: Int, w: Int, stroke: Int) = android.graphics.drawable.GradientDrawable().apply {
+            setColor(fill); cornerRadius = Util.dp(this@MainActivity, 20).toFloat(); if (w > 0) setStroke(Util.dp(this@MainActivity, w), stroke)
+        }
+        val inset = Util.dp(this, 2)
+        val rest = if (priv) shape(alphaOf(plum, 0x55), 2, androidx.core.graphics.ColorUtils.blendARGB(ink, plum, 0.35f)) else shape(android.graphics.Color.TRANSPARENT, 0, 0) // 0.0.462: no boundary on a normal tab
+        val focus = shape(getColor(R.color.mg_surface), 2, if (priv) plum else ink)
+        val sl = android.graphics.drawable.StateListDrawable()
+        sl.addState(intArrayOf(android.R.attr.state_focused), android.graphics.drawable.InsetDrawable(focus, 0, inset, 0, inset))
+        sl.addState(intArrayOf(), android.graphics.drawable.InsetDrawable(rest, 0, inset, 0, inset))
+        return sl
+    }
+
+    /** Idempotent: sets (or puts back) the bar + field drawables and every static icon / text colour of the bar. Dynamic colours follow hubStyle() in applyNavArrows / refreshShield / refreshAll / refreshTabRing / setUrlLock. */
+    private fun applyBarStyle() {
+        val hub = hubStyle()
+        val bar = findViewById<View>(R.id.bottom_bar) ?: return
+        val ink = barInk()
+        val csl = { rest: Int, focus: Int -> android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()), intArrayOf(focus, rest)) }
+        bar.setBackgroundResource(if (hub) R.drawable.bg_bar_hub else R.drawable.bg_bar_pill)
+        val wasPriv = urlBgPriv
+        urlBgNormal = null
+        urlBgPriv = false
+        urlBar.setBackgroundResource(R.drawable.bg_url_field)
+        if (hub) { urlBgPriv = wasPriv; urlBar.background = hubFieldBg(wasPriv) } else tintUrlBar(wasPriv)
+        fixUrlPad() // 0.0.462: setting a background resets the padding to 0 (text rubbed the left edge)
+        urlBar.setTextColor(if (hub) csl(ink, getColor(R.color.mg_text)) else android.content.res.ColorStateList.valueOf(getColor(R.color.mg_text)))
+        urlBar.setHintTextColor(if (hub) csl(alphaOf(ink, 0xD9), getColor(R.color.mg_text_dim)) else android.content.res.ColorStateList.valueOf(getColor(R.color.mg_text_dim)))
+        for (v in listOf(btnHub, btnHome, findViewById<ImageView>(R.id.btn_menu))) if (hub) v.setColorFilter(ink) else v.clearColorFilter()
+        if (hub) { // Hub button: translucent rounded chip behind the dots (radius 14 dp, 4 dp inset inside the 44 dp touch area)
+            val chip = android.graphics.drawable.GradientDrawable().apply { setColor(alphaOf(ink, 0x26)); cornerRadius = Util.dp(this@MainActivity, 14).toFloat() }
+            btnHub.background = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(alphaOf(ink, 0x40)), android.graphics.drawable.InsetDrawable(chip, Util.dp(this, 4)), null)
+        } else {
+            val tv = android.util.TypedValue()
+            if (theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)) btnHub.setBackgroundResource(tv.resourceId)
+        }
+        btnTabs.setTextColor(tabInk(::tabs.isInitialized && tabs.active?.priv == true))
+        if (::tabs.isInitialized) refreshTabRing() else btnTabs.strokeColor = if (hub) android.content.res.ColorStateList.valueOf(ink) else (tabStroke0 ?: btnTabs.strokeColor)
+        btnEngine.setTextColor(if (hub) ink else barFill())
+        findViewById<TextView>(R.id.btn_social)?.setTextColor(if (hub) ink else barFill())
+    }
+
+    /** 0.0.456: the Hub (3x3 popup above / below the bar). 0.0.458: the 9 tiles come from HubSheet.ids (owner can change them, hold a tile = picker). Same calls as the 3-dot menu: see hubRun. */
+    private fun showHub() {
+        // 0.0.463: no duplicates: a tile is left out while the same thing is already on the bar (arrows ON, "+" shown, shield / engine badge shown)
+        fun onBar(id: String): Boolean = when (id) {
+            "back" -> AppearancePrefs.navBack(this)
+            "forward" -> AppearancePrefs.navFwd(this)
+            "newtab" -> btnNewTab.visibility == View.VISIBLE
+            "shield" -> btnShield.visibility == View.VISIBLE
+            "engine" -> btnEngine.visibility == View.VISIBLE
+            else -> false
+        }
+        val tiles = HubSheet.ids(this).mapIndexedNotNull { slot, id -> if (onBar(id)) null else hubTile(id).also { it.slot = slot } }
+        HubSheet.show(this, findViewById(R.id.bottom_bar), tiles, { hubRun(it) }) { findViewById<View>(R.id.bottom_bar)?.post { showHub() } } // after an edit the Hub opens again with the new tile
+    }
+
+    /** 0.0.458: look + enabled state of one Hub tile (ids = HubSheet.CATALOG). */
+    private fun hubTile(id: String): HubSheet.Tile {
+        val cur = tabs.active
+        val canPage = cur != null && !cur.home && !cur.isExt
+        val canMark = canPage && cur != null && cur.url.startsWith("http")
+        return when (id) {
+            "home" -> { val (i, l) = AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(this)); HubSheet.Tile(id, l, i) }
+            "newtab" -> HubSheet.Tile(id, "New tab", R.drawable.ic_add)
+            "private" -> HubSheet.Tile(id, "Incognito", R.drawable.ic_incognito)
+            "back" -> HubSheet.Tile(id, "Back", R.drawable.ic_back, cur != null && tabs.canBack(cur))
+            "forward" -> HubSheet.Tile(id, "Forward", R.drawable.ic_forward, cur != null && tabs.canFwd(cur))
+            "reload" -> HubSheet.Tile(id, if (cur?.loading == true) "Stop" else "Reload", if (cur?.loading == true) R.drawable.ic_close else R.drawable.ic_reload, cur != null)
+            "engine" -> HubSheet.Tile(id, "Engine", R.drawable.ic_search)
+            "shield" -> { val g = PrivacyGuard.state(cur); HubSheet.Tile(id, "Guard", R.drawable.ic_shield, g != 0, if (g == 1) 1 else 0) }
+            "bookmarks" -> HubSheet.Tile(id, "Bookmarks", R.drawable.ic_bookmark)
+            "history" -> HubSheet.Tile(id, "History", R.drawable.ic_history)
+            "downloads" -> HubSheet.Tile(id, "Downloads", R.drawable.ic_download)
+            "ext" -> HubSheet.Tile(id, "Extensions", R.drawable.ic_ext)
+            "share" -> HubSheet.Tile(id, "Share", R.drawable.ic_share, canMark)
+            "find" -> HubSheet.Tile(id, "Find", R.drawable.ic_search, canMark)
+            "desktop" -> HubSheet.Tile(id, "Desktop", R.drawable.ic_desktop, canPage, if (cur?.desktop == true) 1 else 0)
+            "settings" -> HubSheet.Tile(id, "Settings", R.drawable.ic_settings)
+            "bookmark" -> { val marked = canMark && cur != null && Bookmarks.isBookmarked(cur.url); HubSheet.Tile(id, if (marked) "Saved" else "Bookmark", if (marked) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border, canMark, if (marked) 1 else 0) }
+            else -> HubSheet.Tile(id, "Reload", R.drawable.ic_reload, cur != null)
+        }
+    }
+
+    private fun hubRun(id: String) {
+        val cur = tabs.active
+        when (id) {
+            "home" -> homeClick()
+            "newtab" -> newTabHere()
+            "private" -> tabs.newTab(TabManager.HOME_PAGE, 0, true, true)
+            "back" -> cur?.let { if (tabs.canBack(it)) tabs.back(it) }
+            "forward" -> cur?.let { if (tabs.canFwd(it)) tabs.fwd(it) }
+            "reload" -> reloadOrStop()
+            "engine" -> EnginePicker.show(this, btnHub) { refreshShield() }
+            "shield" -> PrivacyGuard.show(this, tabs) { refreshShield() }
+            "bookmarks" -> BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs)
+            "history" -> BookmarksScreen.open(this, BookmarksScreen.Mode.HISTORY, tabs) // 0.0.458: the same calls as showMenu.barAct
+            "downloads" -> DownloadsScreen.open(this)
+            "ext" -> ExtTray.show(this)
+            "share" -> cur?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) }
+            "find" -> FindBar.open(this, cur?.web)
+            "desktop" -> cur?.let { tabs.setDesktop(it, !it.desktop) }
+            "settings" -> SettingsScreen.open(this)
+            "bookmark" -> toggleBookmark()
+        }
     }
 
     /** A1: both arrows ON on a narrow screen (< 400 dp) = smaller arrows, no engine badge, url field keeps at least 96 dp. */
@@ -236,7 +422,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             v.visibility = if (show) View.VISIBLE else View.GONE
             v.isEnabled = can
             v.alpha = if (can) 1f else 0.38f
-            v.setColorFilter(getColor(R.color.mg_text))
+            v.setColorFilter(barIcon()) // 0.0.459: ink on the Hub bar
             v.layoutParams?.let { lp -> if (lp.width != w) { lp.width = w; v.layoutParams = lp } }
         }
         one(btnBack, AppearancePrefs.navBack(this), cur != null && tabs.canBack(cur))
@@ -267,18 +453,31 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Quick(R.drawable.ic_download, "Downloads") { DownloadsScreen.open(this) },
             MenuSheet.Quick(R.drawable.ic_play, "Grabber") { if (V77Alt.on(this)) openExt("popup.html") else floating.openSheet() } // S65: V77 only when the backup switch is ON
         )
-        val acts = listOf(
-            MenuSheet.Act(R.drawable.ic_back, cur != null && tabs.canBack(cur)) { cur?.let { tabs.back(it) } },
-            MenuSheet.Act(R.drawable.ic_forward, cur != null && tabs.canFwd(cur)) { cur?.let { tabs.fwd(it) } },
-            MenuSheet.Act(if (marked) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border, canMark) { toggleBookmark() },
-            MenuSheet.Act(R.drawable.ic_ext, true) { ExtTray.show(this) }, // S10: Thazir Extensions tray
-            MenuSheet.Act(if (cur?.loading == true) R.drawable.ic_close else R.drawable.ic_reload, cur != null) { reloadOrStop() }
-        )
+        val canPage = cur != null && !cur.home && !cur.isExt
+        fun barAct(id: String): MenuSheet.Act = when (id) { // 0.0.335: the 5 pinned icons come from MenuBar (hold one 3 s = Edit shortcut)
+            "back" -> MenuSheet.Act(R.drawable.ic_back, cur != null && tabs.canBack(cur)) { cur?.let { tabs.back(it) } }
+            "forward" -> MenuSheet.Act(R.drawable.ic_forward, cur != null && tabs.canFwd(cur)) { cur?.let { tabs.fwd(it) } }
+            "bookmark" -> MenuSheet.Act(if (marked) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border, canMark) { toggleBookmark() }
+            "ext" -> MenuSheet.Act(R.drawable.ic_ext, true) { ExtTray.show(this) } // S10: Thazir Extensions tray
+            "reload" -> MenuSheet.Act(if (cur?.loading == true) R.drawable.ic_close else R.drawable.ic_reload, cur != null) { reloadOrStop() }
+            "home" -> MenuSheet.Act(R.drawable.ic_home, true) { tabs.goHome() }
+            "share" -> MenuSheet.Act(R.drawable.ic_share, canMark) { tabs.active?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) } }
+            "downloads" -> MenuSheet.Act(R.drawable.ic_download, true) { DownloadsScreen.open(this) }
+            "history" -> MenuSheet.Act(R.drawable.ic_history, true) { BookmarksScreen.open(this, BookmarksScreen.Mode.HISTORY, tabs) }
+            "bookmarks" -> MenuSheet.Act(R.drawable.ic_bookmark, true) { BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs) }
+            "newtab" -> MenuSheet.Act(R.drawable.ic_add, true) { newTabHere() } // 0.0.452
+            "private" -> MenuSheet.Act(R.drawable.ic_incognito, true) { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }
+            "find" -> MenuSheet.Act(R.drawable.ic_search, canMark) { FindBar.open(this, tabs.active?.web) }
+            "desktop" -> MenuSheet.Act(R.drawable.ic_desktop, canPage) { tabs.active?.let { tabs.setDesktop(it, !it.desktop) } }
+            "settings" -> MenuSheet.Act(R.drawable.ic_settings, true) { SettingsScreen.open(this) }
+            else -> MenuSheet.Act(R.drawable.ic_reload, cur != null) { reloadOrStop() }
+        }
+        val acts = MenuBar.ids(this).map { barAct(it) }
         // S27: general card (app level) and page card (this page)
         val generalTop = listOf(
             MenuSheet.Item("Command Center", R.drawable.ic_search, true, "Actions · tabs · bookmarks") { CommandCenter.show(this, tabs) }, // S7
             MenuSheet.Item("Media Library", R.drawable.ic_play, true, "Detected · downloads · saved") { MediaLibrary.show(this, tabs) }, // S10
-            MenuSheet.Item("New private tab", R.drawable.ic_lock) { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }, // S26
+            MenuSheet.Item("New Incognito tab", R.drawable.ic_incognito, key = "New private tab") { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }, // S26
             MenuSheet.Item("Bookmark all tabs", R.drawable.ic_bookmark_border) { TabBookmarks.dialog(this, tabs) }, // S40
             MenuSheet.Item("Passwords", R.drawable.ic_lock) { PasswordStore.screen(this) }, // S40
             MenuSheet.Item("Vault", R.drawable.ic_vault, true, VaultScreen.summary(this)) { VaultScreen.open(this) }, // V3
@@ -306,6 +505,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Item("Page info", R.drawable.ic_info, canMark) { PageInfo.show(this, tabs) }, // S29
             MenuSheet.Item("View page source", R.drawable.ic_code, canMark) { tabs.active?.let { PageSource.open(this, it) } }, // T2
             MenuSheet.Item("Save page", R.drawable.ic_save, canMark && cur?.priv != true) { tabs.active?.let { PageSave.save(this, it) } }, // T3
+            MenuSheet.Item("Print / Save as PDF", R.drawable.ic_save, canMark, "") { tabs.active?.let { PagePrint.print(this, it) } }, // 0.0.420
             MenuSheet.Item("Add to home screen", R.drawable.ic_home, canMark && cur?.priv != true) { tabs.active?.let { HomeShortcut.add(this, it.pending ?: it.url, it.title) } }, // 0.0.298
             MenuSheet.Item("Install app", R.drawable.ic_add, canMark && cur?.priv != true) { tabs.active?.let { t -> WebApp.install(this, if (t.suspended) null else t.web, t.pending ?: t.url, t.title) } }, // 0.0.299
             MenuSheet.Item("Userscripts", R.drawable.ic_code, canMark, cur?.let { c -> Userscripts.matchingNow(this, c.url).count { it.on }.let { n -> if (n > 0) "$n active" else "" } } ?: "") { Userscripts.pageSheet(this, tabs.active?.url ?: "") }, // T8
@@ -322,11 +522,23 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             onHome -> ""
             else -> Util.host(cur.url).ifBlank { "New tab" }
         }
-        val quick = quickAll.filter { MenuCustom.on(this, it.key) }
-        val general = generalTop.filter { MenuCustom.on(this, it.key) } + MenuCustom.pinnedRows(this) + generalEnd
-        val page = if (onHome) emptyList() else pageAll.filter { MenuCustom.on(this, it.key) }
+        // 0.0.341: order + quick tile slots come from MenuCustom (Customise menu: hold a row, drag). Any row can sit in a tile.
+        val homeless = quickAll.map { q -> MenuSheet.Item(q.label, q.icon, true, "", q.key) { q.onClick() } } // the 4 old tiles as rows, shown when a tile gave them up
+        val byKey = (homeless + generalTop + generalEnd + pageAll).associateBy { it.key }
+        val pageKeys = pageAll.map { it.key }.toSet()
+        val quick = if (!MenuCustom.quickShown(this)) emptyList() else MenuCustom.quickKeys(this).mapNotNull { k ->
+            byKey[k]?.let { itm ->
+                MenuSheet.Quick(itm.icon, itm.label, k) { if (itm.enabled && !(onHome && k in pageKeys)) itm.onClick() else Util.toast(this, "Open a web page first") }
+            }
+        }
+        // 0.0.343: a row MenuCustom does not know (new menu row) is never lost: it stays on top, always shown
+        val gItems = generalTop.filter { MenuCustom.entryOf(it.key) == null } + MenuCustom.menuKeys(this, 'G').mapNotNull { byKey[it] }
+        var tail = gItems.size // Settings / Customise menu at the end keep the pinned extension rows above them
+        while (tail > 0 && (gItems[tail - 1].key == "Settings" || gItems[tail - 1].key == MenuCustom.CUSTOMISE)) tail--
+        val general = gItems.take(tail) + MenuCustom.pinnedRows(this) + gItems.drop(tail)
+        val page = if (onHome) emptyList() else pageAll.filter { MenuCustom.entryOf(it.key) == null } + MenuCustom.menuKeys(this, 'P').mapNotNull { byKey[it] }
         val share: (() -> Unit)? = if (canMark) ({ tabs.active?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) } }) else null
-        MenuSheet.show(this, quick, general, title, share, page, acts, "Thazir ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
+        MenuSheet.show(this, quick, general, title, share, page, acts, "Thazir ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})") { showMenu() } // 0.0.335: reopen after Edit shortcut
     }
 
     /** S40: open a site in a new tab (Passwords > Open site). */
@@ -341,11 +553,11 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         val t = tabs.active ?: return
         if (t.home || t.isExt || !t.url.startsWith("http")) return
         if (Bookmarks.isBookmarked(t.url)) {
+            val gone = Bookmarks.item(t.url)
             Bookmarks.removeBookmark(t.url)
-            Util.toast(this, "Bookmark removed")
+            if (gone != null) BmUndo.bookmarks(window.decorView, listOf(gone)) else Util.toast(this, "Bookmark removed") // 0.0.332
         } else {
-            Bookmarks.addBookmark(t.title.ifBlank { Util.host(t.url) }, t.url)
-            Util.toast(this, "Bookmark added")
+            BookmarkFolderPicker.save(this, t.title.ifBlank { Util.host(t.url) }, t.url) // 0.0.328: ask the folder
         }
     }
 
@@ -390,7 +602,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                 val i = s.indexOf(h)
                 val sp = android.text.SpannableString(s)
                 if (i >= 0) {
-                    val dim = getColor(R.color.mg_text_dim)
+                    val dim = if (hubStyle()) alphaOf(barInk(), 0xB3) else getColor(R.color.mg_text_dim) // 0.0.459
                     if (i > 0) sp.setSpan(android.text.style.ForegroundColorSpan(dim), 0, i, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                     if (i + h.length < s.length) sp.setSpan(android.text.style.ForegroundColorSpan(dim), i + h.length, s.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
@@ -403,15 +615,15 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     /** S3: small connection cue at the start of the address field: lock = https, open lock (red) = plain http, none = home / other. */
     private fun setUrlLock(secure: Boolean?) {
         val res: Int? = when (secure) { // S3 FIX: explicit types (no platform-type inference)
-            true -> R.drawable.ic_lock
+            true -> R.drawable.ic_tune // 0.0.335: https = site tune icon (Brave style); plain http keeps the red open lock
             false -> R.drawable.ic_pl_lock_open
             null -> null
         }
         val d: android.graphics.drawable.Drawable? = res?.let { androidx.core.content.ContextCompat.getDrawable(this, it)?.mutate() }
         if (d != null) {
-            val sz = Util.dp(this, 14)
+            val sz = Util.dp(this, if (secure == false) 14 else 18)
             d.setBounds(0, 0, sz, sz)
-            d.setTint(getColor(if (secure == false) R.color.mg_error else R.color.mg_success)) // 0.0.281: https lock = green
+            d.setTint(if (hubStyle()) barInk() else if (secure == false) getColor(R.color.mg_error) else androidx.core.graphics.ColorUtils.blendARGB(getColor(R.color.mg_text_dim), getColor(R.color.mg_success), 0.6f)) // 0.0.336: https tune icon = soft green (security cue kept)
         }
         urlBar.setCompoundDrawablesRelative(d, null, null, null)
     }
@@ -422,6 +634,19 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     /** 0.0.287: private tab = address field in a plum tone (violet + rose mixed from theme tokens), so it is never taken for a normal tab. */
     private fun tintUrlBar(priv: Boolean) {
         if (priv == urlBgPriv) return
+        tintUrlBarInner(priv)
+        fixUrlPad() // 0.0.462
+    }
+
+    /** 0.0.462: a new background drawable resets the view padding to the drawable's (0 at the sides): put the field padding back and centre the text unless typing. */
+    private fun fixUrlPad() {
+        val shieldOn = findViewById<View>(R.id.btn_shield)?.visibility == View.VISIBLE && !urlBar.hasFocus()
+        urlBar.setPaddingRelative(Util.dp(this, 18), urlBar.paddingTop, Util.dp(this, if (shieldOn) 40 else 16), urlBar.paddingBottom)
+        urlBar.gravity = if (urlBar.hasFocus()) (android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START) else android.view.Gravity.CENTER
+    }
+
+    private fun tintUrlBarInner(priv: Boolean) {
+        if (hubStyle()) { urlBgPriv = priv; urlBar.background = hubFieldBg(priv); return } // 0.0.459: Hub bar = ink capsule, private = plum ring
         if (urlBgNormal == null) urlBgNormal = urlBar.background?.constantState
         urlBgPriv = priv
         if (!priv) { urlBgNormal?.let { urlBar.background = it.newDrawable().mutate() }; return }
@@ -454,43 +679,119 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                 progress.alpha = 1f
             }.start()
         }
-        btnTabs.setTextColor(getColor(if (tab?.priv == true) R.color.mg_primary else R.color.mg_text)) // S26
+        btnTabs.setTextColor(tabInk(tab?.priv == true)) // S26, 0.0.459: ink on the Hub bar
+        refreshTabRing() // 0.0.380
         tintUrlBar(tab?.priv == true) // 0.0.287
         refreshUrlField()
         refreshShield()
         applyNavArrows() // A1: arrows follow tab switch, page load and history changes
     }
 
+    /** 0.0.336: the shield sits inside the field only when there is room: no Social chip and the field is at least 140 dp wide (0 = not measured yet = ok). */
+    private fun shieldRoom(): Boolean =
+        findViewById<View>(R.id.btn_social).visibility != View.VISIBLE && (urlBar.width == 0 || urlBar.width >= Util.dp(this, 140))
+
     /** S68: shield shows on web pages only (not while typing); rose = guarding, grey = blocker off here. */
     private fun refreshShield() {
         val st = PrivacyGuard.state(tabs.active)
-        val show = st != 0 && !urlBar.hasFocus()
+        val show = st != 0 && !urlBar.hasFocus() && shieldRoom()
         if (show && btnShield.visibility != View.VISIBLE) {
             btnShield.alpha = 0f; btnShield.visibility = View.VISIBLE
             btnShield.animate().alpha(1f).setDuration(160).start()
         } else if (!show) btnShield.visibility = View.GONE
-        btnShield.setColorFilter(getColor(if (st == 2) R.color.mg_text_dim else R.color.mg_primary))
+        btnShield.setColorFilter(if (hubStyle()) (if (st == 2) alphaOf(barInk(), 0x8C) else barInk()) else getColor(if (st == 2) R.color.mg_text_dim else R.color.mg_primary)) // 0.0.459: ink on the Hub bar (off = dim)
+        urlBar.setPaddingRelative(urlBar.paddingStart, urlBar.paddingTop, Util.dp(this, if (show) 40 else 16), urlBar.paddingBottom) // 0.0.335: shield sits inside the field, keep the text clear of it
+        urlBar.gravity = if (urlBar.hasFocus()) (android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START) else android.view.Gravity.CENTER // 0.0.462: centred when resting, left while typing
         // S69: engine badge on the home page and while typing (where the shield is not shown)
         val eng = (tabs.active?.home == true || urlBar.hasFocus()) && !navTight() // A1: no badge when both arrows squeeze the bar
         btnEngine.visibility = if (eng) View.VISIBLE else View.GONE
-        if (eng) EnginePicker.styleBadge(this, btnEngine)
+        if (eng) {
+            EnginePicker.styleBadge(this, btnEngine)
+            if (hubStyle()) { // 0.0.459: badge sits on the filled bar
+                btnEngine.setTextColor(barInk())
+                btnEngine.background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(alphaOf(barInk(), 0x33)) }
+            } else btnEngine.setTextColor(barFill())
+        }
         SocialChip.update(this, tabs, urlBar.hasFocus()) // 0.0.286: social chip at the end of the address bar
+        findViewById<TextView>(R.id.btn_social)?.let { chip -> // 0.0.459: chip on the filled bar = ink text + ink 20 % fill (outline when the site is ON)
+            chip.setTextColor(if (hubStyle()) barInk() else barFill())
+            if (hubStyle() && chip.visibility == View.VISIBLE) {
+                val p = tabs.active?.let { SocialProfiles.of(it.url) }
+                val on = p != null && SocialProfiles.siteOn(this, p.id)
+                chip.background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = Util.dp(this@MainActivity, 11).toFloat(); setColor(alphaOf(barInk(), 0x33)); if (on) setStroke(Util.dp(this@MainActivity, 1), alphaOf(barInk(), 0xAA))
+                }
+            }
+        }
+        if (btnShield.visibility == View.VISIBLE && !shieldRoom()) { // 0.0.336: chip appeared after the shield was decided: shield steps aside
+            btnShield.visibility = View.GONE
+            urlBar.setPaddingRelative(urlBar.paddingStart, urlBar.paddingTop, Util.dp(this, 16), urlBar.paddingBottom)
+        }
+        // 0.0.319: "+" hides while typing, on a squeezed bar and when the Social chip is shown, so the address field keeps its room
+        val showNew = shared && AppearancePrefs.newTabBtn(this) && !urlBar.hasFocus() && !navTight() && findViewById<View>(R.id.btn_social).visibility != View.VISIBLE
+        btnNewTab.visibility = if (showNew) View.VISIBLE else View.GONE
+        btnNewTab.setColorFilter(barIcon()) // 0.0.459
     }
 
     // ---------- TabManager.Listener ----------
 
+    /**
+     * 0.0.330 / 0.0.342: private tab = blank picture in Recents. FLAG_SECURE also blocks screenshots, so it is only used when
+     * Settings > Private tabs > "Allow screenshots" is OFF, and never while a WhatsApp Web tab is in front.
+     * Otherwise: Android 13+ setRecentsScreenshotEnabled(false); older phones: FLAG_SECURE only while the app is paused (onPause / onResume).
+     */
+    private var privSecure = false // FLAG_SECURE is set on the window now
+    private var privHide = false   // Recents picture is hidden through setRecentsScreenshotEnabled
+    private fun isWhatsApp(t: TabManager.Tab?): Boolean { val h = t?.let { Util.host(it.pending ?: it.url) } ?: return false; return h == "whatsapp.com" || h.endsWith(".whatsapp.com") }
+    fun syncPrivateSecure() { // 0.0.331: public (Settings calls it), follows the switch Hide private tabs in app preview
+        val any = PrivateTabs.secureOn(this) && (try { tabs.allTabs().any { it.priv } } catch (e: Exception) { false })
+        AppLock.privateOpen = any
+        val block = any && !PrivateTabs.shotsOn(this) && !isWhatsApp(tabs.active)
+        AppLock.blockShots = block
+        try {
+            if (block != privSecure) {
+                privSecure = block
+                if (block) window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
+                else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE) // App lock never keeps FLAG_SECURE on this window since 0.0.333
+            }
+            if (any != privHide) {
+                privHide = any
+                if (android.os.Build.VERSION.SDK_INT >= 33) {
+                    if (any) setRecentsScreenshotEnabled(false) else if (!AppLock.on(this)) setRecentsScreenshotEnabled(true)
+                }
+            }
+        } catch (e: Exception) { }
+    }
+
+    private var tabStroke0: android.content.res.ColorStateList? = null
+
+    /** 0.0.380: the ring of the tab counter takes the colour of the active tab's group (normal colour when it is in no group); the description tells the count and the group. */
+    private fun refreshTabRing() {
+        try {
+            val a = tabs.active
+            val g = if (a != null && !a.priv) TabSwitcher.groupInfoOf(a.id) else null
+            val c = if (g != null) android.content.res.ColorStateList.valueOf(g.color) else if (hubStyle()) android.content.res.ColorStateList.valueOf(barInk()) else tabStroke0
+            if (c != null) btnTabs.strokeColor = c
+            val n = tabs.count
+            btnTabs.contentDescription = "Tabs, " + n + " open" + (if (g != null) ", group " + g.name else "")
+        } catch (e: Exception) { }
+    }
+
     override fun onTabsChanged() {
-        val tabCount = tabs.count.toString()
+        syncPrivateSecure()
+        val tabCount = if (tabs.count > 99) "99+" else tabs.count.toString() // 0.0.380: 3 characters never overflow the 34dp box
         if (btnTabs.text.toString() != tabCount) { // S21c: the count pops when it changes
+            btnTabs.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, if (tabCount.length >= 3) 10f else if (tabCount.length == 2) 12f else 14f) // 0.0.380: size follows the digits
             btnTabs.text = tabCount
             btnTabs.animate().cancel()
             if (!TabPrefs.reduce(this)) btnTabs.scaleX = 1.35f
             if (!TabPrefs.reduce(this)) btnTabs.scaleY = 1.35f
             btnTabs.animate().scaleX(1f).scaleY(1f).setInterpolator(android.view.animation.OvershootInterpolator(2f)).setDuration(260).start()
         }
+        refreshTabRing() // 0.0.380
         GroupStrip.refresh() // S13
         SocialDock.refresh() // 0.0.272 (C1)
-        if (!siteWin) { // 0.0.302: "Close all private tabs" notification
+        if (!siteWin) { // 0.0.302: "Close all Incognito tabs" notification
             PrivNotify.closer = { runOnUiThread { tabs.allTabs().filter { it.priv }.forEach { tabs.close(it) } } }
             PrivNotify.update(this, tabs)
         }
@@ -500,6 +801,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         SettingsScreen.closeAll() // V18: a tab was opened / switched (e.g. from Saved pages or Recently closed): Settings underneath closes
         FindBar.close() // S21
         BarGestures.exit(this) // A6: a tab change leaves page fullscreen
+        syncPrivateSecure() // 0.0.342: WhatsApp tab in front = no FLAG_SECURE
         findViewById<View>(R.id.bottom_bar).visibility = View.VISIBLE // S33
         refreshAll(tab)
         SocialFull.sync(this, tab) // 0.0.238 (A1)
@@ -512,6 +814,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     override fun onPageInfo(tab: TabManager.Tab) {
         if (tab === tabs.active) {
+            syncPrivateSecure() // 0.0.342: the tab may have navigated to / away from WhatsApp Web
             refreshAll(tab)
             SocialFull.sync(this, tab) // 0.0.238 (A1): returns at once when the switch is OFF
             SocialBars.sync(this, tab) // 0.0.240 (A2)
@@ -530,23 +833,29 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     override fun onStart() {
         super.onStart()
         AppLock.onStart(this) // S45: lock again after the chosen delay
+        AppLock.privStart(this, tabs.active?.priv == true) // 0.0.331: private tabs lock
         SocialLock.onStart(this, tabs.active) // 0.0.260 (D7)
         SocialQuick.onStart(this, tabs.active) // 0.0.307: refresh the feed when you come back
         SocialTime.start(this, tabs) // 0.0.261 (C3)
         VaultStore.onAppStart(this); VaultScreen.refresh() // V3: vault auto-lock
         AutoDiag.start(this, tabs) // S87.2
+        UiStall.start() // 0.0.398: main thread stall watcher (foreground only)
     }
 
     override fun onStop() {
+        CrashGuard.end(this) // 0.0.451
         VaultStore.onAppStop(this) // V3
         AppLock.onStop(this) // S45
+        AppLock.privStop(this, tabs.active?.priv == true) // 0.0.331
         SocialLock.onStop() // 0.0.260 (D7)
         SocialQuick.onStop() // 0.0.307
         SocialTime.stop() // 0.0.261 (C3)
         AutoDiag.stop() // S87.2
+        UiStall.stop() // 0.0.398
         AdBlock.flushTotal() // S68
         super.onStop()
         MediaPrefs.onStop(this, tabs.active?.web) // 0.0.302: background play keeps the page running after the window is hidden
+        BgKeep.onStop(this, tabs.active?.web) // 0.0.366: same for a running download
     }
 
     override fun onNewIntent(intent: Intent) { // D1: Share while the browser is already open
@@ -564,6 +873,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     override fun onResume() {
         super.onResume()
+        syncPrivateSecure() // 0.0.330
+        if (!privSecure) try { window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE) } catch (e: Exception) { } // 0.0.342: pre-Android 13 pause flag off again
         backCb.isEnabled = true
         if (siteWin || SiteWindow.used) bindWindow() // 0.0.248 (A7b): the window in front owns the shared helpers
         tabs.active?.web?.onResume()
@@ -583,8 +894,11 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     override fun onPause() {
         floating.stop() // S11
-        if (!(MediaPrefs.bg(this) && MediaPrefs.audible(this))) tabs.active?.web?.onPause() // 0.0.296: Media > Background play: a playing page is not paused
+        val dlKeep = BgKeep.onPause(this, tabs.active?.web) // 0.0.366: a running download keeps the page + a service (wake lock) alive
+        if (!dlKeep && !(MediaPrefs.bg(this) && MediaPrefs.audible(this))) tabs.active?.web?.onPause() // 0.0.296: Media > Background play: a playing page is not paused
         MediaPrefs.onPause(this)
+        // 0.0.342: Android 12 and older: blank Recents picture of private tabs only while the app is away (screenshots stay allowed in the app)
+        if (android.os.Build.VERSION.SDK_INT < 33 && privHide && !privSecure) try { window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE) } catch (e: Exception) { }
         if (MediaPrefs.away) tabs.active?.web?.let { w -> w.post { try { w.onResume(); w.resumeTimers() } catch (_: Exception) { } } } // 0.0.302
         if (!siteWin) tabs.saveSession() // 0.0.247 (A7): a site window never overwrites the saved tabs
         super.onPause()
@@ -607,6 +921,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     }
 
     override fun onDestroy() {
+        if (dup) { super.onDestroy(); return } // forwarded duplicate: nothing was set up, and it must not reset mainUp
+        if (mainRef?.get() === this) mainRef = null
         noisyRx?.let { try { unregisterReceiver(it) } catch (_: Exception) { } }; noisyRx = null // 0.0.310
         if (!siteWin) SiteWindow.mainUp = false else SiteWindow.live-- // 0.0.247 (A7)
         if (!siteWin && isFinishing) { PrivNotify.closer = null; PrivNotify.cancel(this) } // 0.0.302
@@ -649,16 +965,27 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         return super.dispatchGenericMotionEvent(ev)
     }
 
+    // 0.0.413 FIX: StackOverflowError (MIUI). With uiMode in configChanges, AppCompat calls this method from
+    // updateActivityConfiguration, and super.onConfigurationChanged makes AppCompat call it again when the night mode it
+    // wants never shows up in resources.configuration (MIUI Configuration, forced Light / Dark). A re-entry guard cuts the loop.
+    private var inCfgChange = false
+
     override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
-        applyNavArrows(); refreshShield() // A1: narrow / wide rule follows rotation
-        // S35 FIX: compare the colours the app really uses (resources, after AppCompat applied the saved theme),
-        // not newConfig (= the system theme). With a forced Dark/Light theme the old test was true on EVERY rotation,
-        // so rotating recreated the Activity: the player closed and every tab reloaded.
-        val n = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-        if (n != lastNight) {
-            lastNight = n
-            recreate()
+        if (inCfgChange) return // 0.0.413: nested call from AppCompat = stop here
+        inCfgChange = true
+        try {
+            super.onConfigurationChanged(newConfig)
+            applyNavArrows(); refreshShield() // A1: narrow / wide rule follows rotation
+            // S35 FIX: compare the colours the app really uses (resources, after AppCompat applied the saved theme),
+            // not newConfig (= the system theme). With a forced Dark/Light theme the old test was true on EVERY rotation,
+            // so rotating recreated the Activity: the player closed and every tab reloaded.
+            val n = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+            if (n != lastNight) {
+                lastNight = n
+                UiMode.smoothRecreate(this) // 0.0.422
+            }
+        } finally {
+            inCfgChange = false
         }
     }
 }
