@@ -26,6 +26,10 @@ object PrivateTabs {
     fun block3pOn(c: Context): Boolean = ui(c).getBoolean("priv_3p", true)
     fun setBlock3p(c: Context, v: Boolean) { ui(c).edit().putBoolean("priv_3p", v).apply() }
 
+    /** 0.0.483 (priv_keep, mgb_ui, default ON): Incognito tabs stay (address list + the Incognito cookies / logins) until the person closes them all, also after the app was closed or killed. OFF = old behaviour: everything is wiped when the app closes. TabManager.saveSession / restoreSession read it. */
+    fun keepOn(c: Context): Boolean = ui(c).getBoolean("priv_keep", true)
+    fun setKeep(c: Context, v: Boolean) { ui(c).edit().putBoolean("priv_keep", v).apply() }
+
     fun lockOn(c: Context): Boolean = lk(c).getBoolean("priv_lock", false)
 
     /** Turn the lock ON (asks the user to prove it is them first, so it cannot lock them out) or OFF. */

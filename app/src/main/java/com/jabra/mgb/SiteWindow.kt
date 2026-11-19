@@ -96,6 +96,7 @@ object SiteWindow {
 
     /** MainActivity.onCreate of a site window: one tab with the site start page + Recent apps card name / icon. */
     fun start(act: Activity, tabs: TabManager, intent: Intent?, fresh: Boolean) {
+        tabs.ownsSession = false // 0.0.483: a site window never writes the saved session (also not the kept Incognito list)
         if (intent != null && intent.hasExtra(EXTRA_APP_URL)) { startApp(act, tabs, intent); return } // 0.0.299 (installed app window)
         val p = siteId(intent)?.let { SocialProfiles.byId(it) }
         if (p == null) { tabs.newTab(TabManager.HOME_PAGE); return }

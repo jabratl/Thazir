@@ -18,6 +18,8 @@ import android.os.Looper
 import android.provider.MediaStore
 import android.util.Base64
 import android.webkit.CookieManager
+import androidx.webkit.ProfileStore
+import androidx.webkit.WebViewFeature
 import android.webkit.MimeTypeMap
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -74,9 +76,19 @@ object Downloader {
 
     private class Pub(val path: String, val uri: String)
 
-    private val jar = object : CookieJar {
+    /**
+     * 0.0.483: the cookie store of a download. priv = the download comes from an Incognito tab: its cookies / logins live in the separate WebView profile
+     * (TabManager.PRIVATE_PROFILE), so the normal store would send the wrong (or no) cookies. null = no store (Incognito profile not there): no cookies are sent
+     * and none are saved, the normal store is never used for an Incognito download. Where the WebView has no profiles, Incognito tabs share the normal store (same as the tabs).
+     */
+    internal fun cookieManagerOf(priv: Boolean): CookieManager? = try {
+        if (priv && WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) ProfileStore.getInstance().getProfile(TabManager.PRIVATE_PROFILE)?.cookieManager
+        else CookieManager.getInstance()
+    } catch (e: Throwable) { null }
+
+    private class WebJar(val priv: Boolean) : CookieJar {
         override fun loadForRequest(url: HttpUrl): List<Cookie> {
-            val raw = try { CookieManager.getInstance().getCookie(url.toString()) } catch (e: Exception) { null }
+            val raw = try { cookieManagerOf(priv)?.getCookie(url.toString()) } catch (e: Exception) { null }
             if (raw.isNullOrEmpty()) return emptyList()
             val out = ArrayList<Cookie>()
             for (part in raw.split(";")) {
@@ -91,7 +103,7 @@ object Downloader {
         }
 
         override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
-            try { for (c in cookies) CookieManager.getInstance().setCookie(url.toString(), c.toString()) } catch (e: Exception) { }
+            try { val cm = cookieManagerOf(priv); if (cm != null) for (c in cookies) cm.setCookie(url.toString(), c.toString()) } catch (e: Exception) { }
         }
     }
 
@@ -99,8 +111,11 @@ object Downloader {
         OkHttpClient.Builder()
             .connectTimeout(20, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS)
             .followRedirects(true).followSslRedirects(true).retryOnConnectionFailure(true)
-            .cookieJar(jar).build()
+            .cookieJar(WebJar(false)).build()
     }
+
+    /** 0.0.483: same client (same connection pool) with the Incognito cookie store, used for items with priv = true. */
+    private val privClient: OkHttpClient by lazy { client.newBuilder().cookieJar(WebJar(true)).build() }
 
     fun partFile(id: Int): File {
         val d = File(DownloadsApi.app.filesDir, "dl")
@@ -208,7 +223,7 @@ object Downloader {
             val ct = h["Content-Type"]?.toMediaTypeOrNull()
             rb.post((item.body ?: "").toRequestBody(ct))
         } else rb.get()
-        val call = client.newCall(rb.build())
+        val call = (if (item.priv) privClient else client).newCall(rb.build()) // 0.0.483: Incognito download = Incognito cookies
         if (onCall != null) onCall(call) else item.call = call
         return call.execute()
     }

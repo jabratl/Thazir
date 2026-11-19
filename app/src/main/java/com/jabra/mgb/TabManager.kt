@@ -209,6 +209,9 @@ class TabManager(
     // Now the dead WebView is replaced by a fresh one (like doSuspend) and the page comes back: the open tab at once, other tabs when opened.
     private val crashLog = HashMap<Int, ArrayList<Long>>()
     @Volatile private var lastPopupAt = 0L // 0.0.468: onCreateWindow rate limit
+    /** 0.0.483: false in a site window (SiteWindow.start): it never owns the saved session, so closing its Incognito tab must not rewrite the kept Incognito list. */
+    @Volatile var ownsSession = true
+    private var restoringPriv = false // 0.0.483: restorePrivate() is making Incognito tabs from the saved list: newTab must NOT wipe the Incognito profile for the first one
     @Volatile private var lastExtBlockAt = 0L // 0.0.479 (ad hardening): toast rate limit for blocked app / browser opens
 
     /** 0.0.470: one line of app state, saved by CrashGuard at every page start of a normal tab, so the Report center can show it after a native crash. */
@@ -298,7 +301,7 @@ class TabManager(
         }
         // S26: a tab opened from a private tab stays private
         val isPriv = priv || (openerId != 0 && tabs.any { it.id == openerId && it.priv })
-        if (isPriv && tabs.none { it.priv }) purgePrivate() // drop data left from an earlier run
+        if (isPriv && !restoringPriv && tabs.none { it.priv }) purgePrivate() // drop data left from an earlier run (0.0.483: not while the kept Incognito tabs are restored)
         // 0.0.234 (P9): own login profile = explicit name (clone / restore), else the opener's, else by address
         val sProf = if (isPriv) null else (social ?: tabs.firstOrNull { it.id == openerId }?.socialProfile ?: SocialMode.profileName(ctx, url))
         val web = createWebView(isPriv, sProf)
@@ -480,6 +483,7 @@ class TabManager(
                 ?: tabs.getOrNull(minOf(idx, tabs.size - 1))
             if (next != null) switchTo(next) else newTab(HOME_PAGE) // S13
         }
+        if (tab.priv && ownsSession) saveSession() // 0.0.483: the kept Incognito list must not hold a tab (or the whole list) the person already closed, even if the app is killed right now
         listener.onTabsChanged()
     }
 
@@ -509,8 +513,18 @@ class TabManager(
         val tp = JSONArray() // 0.0.276 (C5): login profile name of each saved tab (same order), "" = none
         val pn = JSONArray() // 0.0.296: pinned flag of each saved tab (same order)
         var activeIdx = 0
+        // 0.0.483: Incognito tabs are kept in their OWN list (keys ptabs / pts), only while Settings > Keep Incognito tabs is ON. Never mixed with the normal list.
+        val pArr = JSONArray()
+        val pTs = JSONArray()
+        if (PrivateTabs.keepOn(ctx)) for (t in tabs) {
+            if (!t.priv) continue
+            val u = if (t.home) HOME_PAGE else (t.pending ?: t.web.url ?: t.url)
+            if (u.isBlank() || u == "about:blank" || u.startsWith(ContentInjector.EXT_ORIGIN)) continue
+            pArr.put(u)
+            pTs.put(t.lastActive)
+        }
         for (t in tabs) {
-            if (t.priv) continue // S26: private tabs are never saved
+            if (t.priv) continue // S26: private tabs are never saved in the normal list
             val u = if (t.home) HOME_PAGE else (t.web.url ?: t.url)
             if (u.isBlank() || u == "about:blank" || u.startsWith(ContentInjector.EXT_ORIGIN)) continue
             if (t === active) activeIdx = arr.length()
@@ -525,6 +539,8 @@ class TabManager(
             .putString("ts", ts.toString())
             .putString("tp", tp.toString())
             .putString("pn", pn.toString())
+            .putString("ptabs", pArr.toString()) // 0.0.483
+            .putString("pts", pTs.toString())
             .putString("groups", TabSwitcher.exportGroups(idx))
             .putInt("active", activeIdx)
             .apply()
@@ -532,8 +548,11 @@ class TabManager(
 
     /** Returns false when there is nothing to restore (caller opens the home page). */
     fun restoreSession(): Boolean {
-        if (tabs.none { it.priv }) purgePrivate() // 0.0.478: the app was closed or killed with Incognito tabs open: their cookies / cache are wiped now, not at the next Incognito tab
         val sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        // 0.0.483: the Incognito tabs of the last run come back (not selected) while Keep Incognito tabs is ON and the list is not empty; their cookies / logins stay.
+        // Otherwise (switch OFF, list empty = the person closed them all) the Incognito profile is wiped now (0.0.478 behaviour).
+        val keptPriv = if (tabs.none { it.priv }) restorePrivate(sp) else 0
+        if (keptPriv == 0 && tabs.none { it.priv }) purgePrivate()
         val raw = sp.getString("tabs", null) ?: return false
         val arr = try { JSONArray(raw) } catch (_: Exception) { return false }
         if (arr.length() == 0) return false
@@ -564,6 +583,31 @@ class TabManager(
         }
         switchTo(sel)
         return true
+    }
+
+    /**
+     * 0.0.483: make the saved Incognito tabs (prefs keys ptabs / pts) again: lazy (the page loads when the tab is opened), NOT selected, not in a group.
+     * Returns how many were made (0 = switch OFF / nothing saved). Main thread, before any normal tab is selected.
+     */
+    private fun restorePrivate(sp: android.content.SharedPreferences): Int {
+        if (!PrivateTabs.keepOn(ctx)) return 0
+        val arr = try { JSONArray(sp.getString("ptabs", "[]") ?: "[]") } catch (_: Exception) { return 0 }
+        if (arr.length() == 0) return 0
+        val ts = try { JSONArray(sp.getString("pts", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
+        var n = 0
+        restoringPriv = true
+        try {
+            for (i in 0 until arr.length()) {
+                val u = arr.optString(i, "")
+                if (u.isBlank()) continue
+                val t = newTab(null, 0, false, true) ?: break
+                t.url = u
+                ts.optLong(i, 0L).let { if (it > 0L) t.lastActive = it }
+                if (u == HOME_PAGE) t.home = true else t.pending = u
+                n++
+            }
+        } finally { restoringPriv = false }
+        return n
     }
 
     // ---------- WebView ----------

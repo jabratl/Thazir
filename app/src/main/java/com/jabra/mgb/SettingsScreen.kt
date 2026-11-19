@@ -96,7 +96,7 @@ object SettingsScreen {
             "grabber" to listOf("web_play", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),
             "player" to listOf("pl_gestures", "pl_hold_speed", "pl_hold_slide", "pl_dtap_sec", "pl_seek_sens", "pl_vol_boost", "pl_bright", "pl_fit_default",
                 "pl_speed_keep", "pl_speed_last", "pl_speeds", "pl_quality_cap", "pl_repeat", "pl_sub_size", "pl_sub_bg", "pl_sub_pos", "sub_size", "sub_color", "bg_audio"),
-            "privacy" to listOf("https_only", "hide_ad_space", "hide_cookie", "priv_secure", "priv_3p"),
+            "privacy" to listOf("https_only", "hide_ad_space", "hide_cookie", "priv_secure", "priv_3p", "priv_keep"),
             "data" to listOf("auto_backup")
         )
         private val RESTART = setOf("Theme", "Rotate browser with phone", "Extra native download button") // Step C: restart icon
@@ -1402,6 +1402,11 @@ object SettingsScreen {
                 Row(R.drawable.ic_incognito, "Block third-party cookies in Incognito", if (PrivateTabs.block3pOn(act)) "ON" else "OFF", "Like Chrome: a site in an Incognito tab cannot set cookies for other sites. Some embedded logins and players may stop working. OFF = allowed") { // 0.0.478
                     PrivateTabs.setBlock3p(act, !PrivateTabs.block3pOn(act))
                     tabs?.applyIncognito3p()
+                    fill()
+                },
+                Row(R.drawable.ic_incognito, "Keep Incognito tabs", if (PrivateTabs.keepOn(act)) "ON" else "OFF", "Incognito tabs (and their logins) stay until you close all of them, also after the app was closed. OFF = they are wiped when the app closes") { // 0.0.483
+                    PrivateTabs.setKeep(act, !PrivateTabs.keepOn(act))
+                    tabs?.saveSession()
                     fill()
                 },
                 Row(R.drawable.ic_lock, "Lock Incognito tabs", if (PrivateTabs.lockOn(act)) "ON" else "OFF", "Fingerprint or PIN when you come back to an Incognito tab") {

@@ -63,6 +63,7 @@ class DlItem(val id: Int, val url: String) {
     @Volatile var call: okhttp3.Call? = null
     @Volatile var pn = 0                             // 0.0.372 (N4): parts for THIS download. 0 = Auto (global dp_n), 1 = single connection, 2..16 = that many
     @Volatile var plain = false                      // 0.0.325: started by a tab link / blob (DownloadListener); listed in the Downloads queue
+    @Volatile var priv = false                       // 0.0.483: started from an Incognito tab: Incognito cookie store (Downloader.cookieManagerOf), no Cookie header is saved in headers
     @Volatile var userName = false                   // 0.0.425: the person typed this name (Ask before download): betterThanBin / NameSniff must not change it
 }
 
@@ -166,7 +167,7 @@ object DownloadsApi {
         .put("received", i.received).put("total", i.total).put("fileSize", i.fileSize)
         .put("start", i.start).put("end", i.end).put("validator", i.validator)
         .put("conflict", i.conflict).put("headers", i.headers).put("method", i.method)
-        .put("body", i.body ?: JSONObject.NULL).put("plain", i.plain).put("pn", i.pn).put("userName", i.userName)
+        .put("body", i.body ?: JSONObject.NULL).put("plain", i.plain).put("pn", i.pn).put("userName", i.userName).put("priv", i.priv)
 
     private fun fromStore(o: JSONObject): DlItem {
         val i = DlItem(o.getInt("id"), o.getString("url"))
@@ -180,6 +181,7 @@ object DownloadsApi {
         i.plain = o.optBoolean("plain")
         i.pn = o.optInt("pn", 0) // 0.0.372: missing in old saved data = Auto
         i.userName = o.optBoolean("userName", false) // 0.0.425: missing in old saved data = false = old naming
+        i.priv = o.optBoolean("priv", false) // 0.0.483: missing in old saved data = false
         return i
     }
 
@@ -264,6 +266,38 @@ object DownloadsApi {
         return g
     }
 
+    /** 0.0.483: is this WebView the page of an Incognito tab? (main thread; false when unknown) */
+    private fun isPrivWeb(web: WebView?): Boolean {
+        if (web == null) return false
+        return try { TabsApi.manager()?.all()?.firstOrNull { it.web === web }?.priv == true } catch (e: Exception) { false }
+    }
+
+    /**
+     * 0.0.483: does a chrome.downloads.download call of the Media Grabber come from an Incognito tab? The call carries no tab, so: the page / opener that made the call,
+     * else a Referer that is the address of an Incognito tab (and of no normal tab), else the tab on screen. Main thread.
+     */
+    private fun fromPrivate(c: ChromeBridge.Call, headers: JSONArray): Boolean {
+        return try {
+            val m = TabsApi.manager() ?: return false
+            val me = if (c.ctx.tabId > 0) m.byId(c.ctx.tabId) else null
+            if (me != null) {
+                if (me.priv) return true
+                if (me.openerId > 0 && m.byId(me.openerId)?.priv == true) return true
+            }
+            var ref = ""
+            for (n in 0 until headers.length()) {
+                val o = headers.optJSONObject(n) ?: continue
+                if (o.optString("name").equals("referer", true)) ref = o.optString("value")
+            }
+            if (ref.startsWith("http", true)) {
+                val rh = Util.host(ref)
+                val all = m.all()
+                if (rh.isNotEmpty() && all.any { it.priv && Util.host(it.url) == rh } && all.none { !it.priv && Util.host(it.url) == rh }) return true
+            }
+            m.active?.priv == true
+        } catch (e: Exception) { false }
+    }
+
     /** 0.0.425: the file name startPlain would give (no folder part, can be empty). Used by the Ask before download sheet. Never throws. */
     fun suggestName(url: String, disposition: String?, mime: String?): String =
         try { cleanRel(plainName(url, disposition, mime)).substringAfterLast('/') } catch (e: Exception) { "" }
@@ -272,6 +306,7 @@ object DownloadsApi {
     fun startPlain(url: String, userAgent: String?, disposition: String?, mime: String?, referer: String?, src: WebView?, nameOverride: String? = null): DlItem? {
         if (!listOf("http://", "https://", "data:", "blob:").any { url.startsWith(it, true) }) return null
         val item = newItem(url)
+        item.priv = isPrivWeb(src) // 0.0.483: a link / blob of an Incognito tab uses the Incognito cookies
         item.plain = true // 0.0.325: shows in Downloads > Downloading (EngineApi.jobs)
         val chosen = if (nameOverride.isNullOrBlank()) "" else cleanRel(nameOverride).substringAfterLast('/')
         item.userName = chosen.isNotEmpty()
@@ -283,7 +318,8 @@ object DownloadsApi {
             if (!referer.isNullOrBlank() && referer.startsWith("http", true))
                 h.put(JSONObject().put("name", "Referer").put("value", referer))
             if (!userAgent.isNullOrBlank()) h.put(JSONObject().put("name", "User-Agent").put("value", userAgent))
-            val ck = try { android.webkit.CookieManager.getInstance().getCookie(url) } catch (e: Exception) { null }
+            // 0.0.483: an Incognito download gets NO saved Cookie header (it would be written to the downloads list); Downloader's Incognito cookie jar adds the cookies per request
+            val ck = if (item.priv) null else try { android.webkit.CookieManager.getInstance().getCookie(url) } catch (e: Exception) { null }
             if (!ck.isNullOrBlank()) h.put(JSONObject().put("name", "Cookie").put("value", ck))
         }
         item.headers = h
@@ -712,6 +748,7 @@ object DownloadsApi {
             item.method = o.optString("method", "GET").uppercase()
             if (o.has("body") && !o.isNull("body")) item.body = o.optString("body")
             item.headers = o.optJSONArray("headers") ?: JSONArray()
+            item.priv = fromPrivate(c, item.headers) // 0.0.483: Media Grabber download of an Incognito tab = Incognito cookies
             item.canResume = url.startsWith("http", true)
             if (url.startsWith("blob:", true)) item.src = WeakReference(c.ctx.web)
             save()
