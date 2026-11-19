@@ -38,6 +38,13 @@ object BookmarksScreen {
     /** 0.0.366: true only while one screen hands over to the next (keeps lastPill). */
     private var switching = false
 
+    /**
+     * 0.0.482: the open folder and the scroll position of Bookmarks / History are kept (until the app process ends), so after opening a link
+     * and coming back you are in the same folder at the same place (Quetta does the same). Saved when a screen closes, used when one opens.
+     */
+    private class Saved(val folder: String?, val scroll: Int)
+    private val saved = HashMap<Mode, Saved>()
+
     /** 0.0.366: Pills = rounded track + ONE indicator that slides between the 3 labels (was: pill redrawn, so it jumped). */
     class PillBar(act: Activity) : android.widget.FrameLayout(act) {
         var moveTo: (Int) -> Unit = {}
@@ -140,10 +147,10 @@ object BookmarksScreen {
      * 0.0.446: add the rows of a list in small batches: the first screen at once, the rest one batch per frame, so opening a page or
      * switching Bookmarks / History / Downloads never blocks the UI thread while the slide runs. alive() = false means a newer render started: stop.
      */
-    internal fun fillChunked(box: LinearLayout, jobs: List<() -> View>, alive: () -> Boolean, from: Int = 0, first: Int = 6, step: Int = 8) { // 0.0.464: first batch 10 -> 6, the slide starts sooner
+    internal fun fillChunked(box: LinearLayout, jobs: List<() -> View>, alive: () -> Boolean, from: Int = 0, first: Int = 6, step: Int = 8, done: (() -> Unit)? = null) { // 0.0.464: first batch 10 -> 6, the slide starts sooner
         val end = minOf(jobs.size, from + (if (from == 0) first else step))
         for (i in from until end) box.addView(jobs[i]())
-        if (end < jobs.size) box.post { if (alive()) fillChunked(box, jobs, alive, end, first, step) }
+        if (end < jobs.size) box.post { if (alive()) fillChunked(box, jobs, alive, end, first, step, done) } else done?.invoke() // 0.0.482: done = all rows are in
     }
 
     /** 0.0.366: DownloadsScreen hands over: take the open screen out of `current` (it is dismissed after the new one is shown). */
@@ -194,6 +201,9 @@ object BookmarksScreen {
         private var empty: TextView? = null
         private var query = "" // S23: search text
         private var folder: String? = null // S24: open folder (null = top level)
+        private var scroll: ScrollView? = null // 0.0.482: the list scroller (position is saved / restored)
+        private var pendingScroll = 0 // 0.0.482: scroll position to restore once the rows are in
+        private var pendingFor: String? = null; private var pendingMode: Mode? = null
         // S27: multi-select (bookmarks and history). Key = url (bookmarks) or "time|url" (history).
         private var selecting = false
         private val picked = LinkedHashSet<String>()
@@ -209,6 +219,30 @@ object BookmarksScreen {
 
         init {
             setOnDismissListener { if (current === this) current = null; if (!switching) lastPill = -1 }
+            restoreState(mode)
+        }
+
+        /** 0.0.482: remember the folder and scroll position of the current mode (the search text is not kept, so its scroll position is not either). */
+        private fun saveState() {
+            if (selecting) return
+            val y = if (query.isBlank()) (scroll?.scrollY ?: 0) else 0
+            saved[mode] = Saved(if (mode == Mode.BOOKMARKS) folder else null, y)
+        }
+
+        /** 0.0.482: take the saved folder / position of [m]. A folder that no longer exists is ignored. */
+        private fun restoreState(m: Mode) {
+            val st = saved[m]
+            pendingScroll = 0; pendingFor = null; pendingMode = null
+            if (st == null) return
+            var f = if (m == Mode.BOOKMARKS) st.folder else null
+            if (f != null && Bookmarks.folders().none { Bookmarks.under(it, f!!) }) f = null
+            folder = f
+            if (st.scroll > 0 && (f == st.folder)) { pendingScroll = st.scroll; pendingFor = f; pendingMode = m }
+        }
+
+        override fun dismiss() { // 0.0.482
+            try { saveState() } catch (_: Exception) { }
+            super.dismiss()
         }
 
         override fun onCreate(savedInstanceState: Bundle?) {
@@ -263,6 +297,7 @@ object BookmarksScreen {
             val sv = ScrollView(act)
             sv.addView(box, ViewGroup.LayoutParams(MATCH, WRAP))
             body.addView(sv, LinearLayout.LayoutParams(MATCH, 0, 1f))
+            scroll = sv // 0.0.482
             list = items
             empty = emptyView
             return body
@@ -280,7 +315,8 @@ object BookmarksScreen {
         private fun switchMode(m: Mode) {
             if (m == mode) return
             val dir = if (m.ordinal > mode.ordinal) 1 else -1
-            mode = m; query = ""; folder = null
+            saveState() // 0.0.482: the mode we leave keeps its folder / position
+            mode = m; query = ""; folder = null; restoreState(m)
             val host = bodyHost
             val bar = pillBar
             if (host == null || bar == null || TabPrefs.reduce(act)) { build(); return }
@@ -535,6 +571,7 @@ object BookmarksScreen {
 
         private fun render() {
             val box = list ?: return
+            val restoring = pendingScroll > 0 && pendingFor == folder && pendingMode == mode && query.isBlank() // 0.0.482
             val fresh = box.childCount == 0 // 0.0.446: only a NEW (empty) list is filled in batches; a refresh of a filled list stays at once so the scroll position is kept
             box.removeAllViews()
             val gen = ++renderGen
@@ -576,7 +613,25 @@ object BookmarksScreen {
                 gravity = Gravity.CENTER
                 setPadding(dp(16), dp(16), dp(16), dp(24))
             } }
-            if (fresh) fillChunked(box, jobs, { gen == renderGen && list === box }) else for (j in jobs) box.addView(j())
+            // 0.0.482: while the saved position is restored the list stays invisible until all rows are in and the scroller has jumped (no visible jump)
+            val sv = scroll
+            box.alpha = if (restoring && fresh && sv != null) 0f else 1f
+            val finish: () -> Unit = {
+                val y = pendingScroll
+                val ok = y > 0 && pendingFor == folder && pendingMode == mode && query.isBlank()
+                pendingScroll = 0; pendingFor = null; pendingMode = null
+                if (ok && sv != null) {
+                    sv.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+                        override fun onPreDraw(): Boolean {
+                            sv.viewTreeObserver.removeOnPreDrawListener(this)
+                            sv.scrollTo(0, y); box.alpha = 1f
+                            return false
+                        }
+                    })
+                    sv.requestLayout()
+                } else box.alpha = 1f
+            }
+            if (fresh) fillChunked(box, jobs, { gen == renderGen && list === box }, done = finish) else { for (j in jobs) box.addView(j()); finish() }
         }
 
         /** S24: one folder line (icon, name, count). Tap = open, long press = delete folder. */

@@ -1,0 +1,7 @@
+0.0.482 (NEW: Bookmarks and History remember the open folder and the scroll position)
+- Base = 0.0.481. Changed files: BookmarksScreen.kt, app/build.gradle.kts. No new permission, no new dependency.
+- 1. Open a link from a bookmark folder and open Bookmarks again: you are in the same folder at the same place (before: top level, scroll to the folder and the link again). History keeps its scroll position too. Bookmarks and History each keep their own place when you switch between them.
+- 2. The place is kept until the app is closed. The search text is not kept. A folder you deleted in the meantime is ignored (top level).
+- 3. The list shows at once at the saved place, without jumping from the top.
+- NOT tested: Gradle build (CI), device. Written without a Kotlin compiler. If CI shows an error: BookmarksScreen.kt (init, saveState / restoreState, dismiss(), render(), fillChunked).
+- ROLLBACK: restore BookmarksScreen.kt and app/build.gradle.kts from 0.0.481.

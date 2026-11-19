@@ -1,5 +1,16 @@
 # CHANGELOG_ARCHIVE.txt - the text of every pruned CHANGELOG_PREPEND_<ver>.txt, newest first (tools/handoff_prune.py).
 
+=== CHANGELOG_PREPEND_0_0_471.txt ===
+0.0.471 (Report center: crash history, render-crash counter, risky sites expire) (includes 0.0.470, see CHANGELOG_PREPEND_0_0_470_included.txt)
+- Base = 0.0.470. Changed files: app/build.gradle.kts, CrashGuard.kt, CrashHistory.kt (NEW), CrashReport.kt, TabManager.kt, DiagReport.kt
+1. CrashHistory.kt (NEW): the app keeps its own list of the last 20 crashes (filesDir/mgb_crash_hist.jsonl): time, reason, signal, host that was loading, app version, WebView version, first native library. Written by CrashReport.check when the crash is found at the next start (same crash never twice). Report center > Device > "Crash history": count, crashes in the last 7 days (3 or more = warning), counts by WebView version and by site, newest 10 lines. Only a host is stored, never a private tab. WebView version = the one installed when the crash was found.
+2. Render crash counter (TabManager.onRenderProcessGone + CrashGuard.rendererCrash): a real render process crash (didCrash) of a normal tab is counted per host for 24 h; 2 of them = the host becomes "risky" (pop-ups refused, no early scripts), Diag line "guard: render process crashed N times in 24 h". A kill for low memory is not counted.
+3. Risky sites expire: every entry now has its time (prefs bad = "host|time"; old entries start their 30 days at the first run of 0.0.471). Dropped at app start after 30 days. Max 40. Report center > Crash guard shows "host (N d)" and the render crash counts of the last 24 h. "Crash-risky sites: n (tap to clear)" also clears the render counters.
+- COULD BREAK: nothing in page loading; only the lists above. One extra prefs write on a render process crash.
+- NOT tested: Gradle build (CI), device. Brackets: balanced; Kotlin 1.5+ (firstNotNullOfOrNull).
+- DEVICE TEST: (1) Report center shows "Crash history: No crash recorded yet". (2) Force stop in front, start: dialog / report, then Crash history has 1 line with the host and the WebView version. (3) Crash guard shows risky host with "(0 d)". (4) tap "Crash-risky sites ... clear": list empty.
+- ROLLBACK: restore the 5 files from 0.0.470, delete CrashHistory.kt.
+
 === CHANGELOG_PREPEND_0_0_470_included.txt ===
 0.0.470 (Report center: native crash report with library names, crash-time data kept, Crash guard section)
 - Base = 0.0.469 (0.0.468 + 0.0.469 are in). Changed files: app/build.gradle.kts, Diag.kt, DiagExtra.kt, CrashGuard.kt, TabManager.kt, DiagReport.kt, DiagScreen.kt
