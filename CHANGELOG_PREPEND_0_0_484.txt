@@ -1,0 +1,8 @@
+0.0.484 (FIX: Novel grabber cover - more ways to find it, cover page in DOCX, cover.jpg in ZIP)
+- Base = 0.0.483. Changed files: app/src/main/assets/ext/novel/studio.js, studio.html, lib/export.js, app/build.gradle.kts. No Kotlin change, no new permission, no new dependency.
+- 1. COVER CHAIN (EPUB, DOCX, ZIP): each step is tried in turn and a failure only moves to the next step, it never stops the build: (a) the picture you chose with the new "Cover image file" field; (b) the page cover - normal download, then without cookies / Referer, then downloaded from inside the novel page itself (works with hotlink-protected covers); every candidate is tried: the typed URL, og:image, twitter:image, image_src, JSON-LD image, <img> tags named cover / poster / book; (c) a small picture (logo size) only if nothing bigger exists; (d) the generated cover; (e) no cover. The old two cover lines in build() stay as the fallback if the new chain itself fails.
+- 2. The log now says which step gave the cover (or why a link did not work). Before, a failed cover was replaced by the generated one without a word.
+- 3. NEW "Test cover" button (Book tab): shows the cover that would be used + which step found it, without building.
+- 4. DOCX gets a cover page (first page, then the title page). ZIP gets cover.jpg / cover.png. TXT cannot hold a picture (unchanged). If anything fails the file is built without a cover, as before.
+- NOT tested: device. Tested in Node: fallback chain with simulated failures, DOCX / ZIP output (opens in Word-compatible readers, cover on page 1).
+- ROLLBACK: restore studio.js, studio.html, lib/export.js and app/build.gradle.kts from 0.0.483.

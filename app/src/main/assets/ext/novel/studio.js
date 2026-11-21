@@ -373,6 +373,127 @@ async function makeCover(title, author) {
   return { mime: 'image/jpeg', bytes: new Uint8Array(await b.arrayBuffer()) };
 }
 
+// ---------- cover chain (0.0.484) ----------
+// Every step is tried in turn. A step that fails only moves on to the next one (finally: the generated cover, then no cover);
+// nothing in here is allowed to stop a build or an export.
+const COVER_MIN = 240;   // shortest side (px) of a "real" cover; smaller pictures (logos, icons) are kept only as a last resort
+const _cvMsg = e => (e && e.message) || String(e);
+const _cvTime = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+async function coverNorm(bytes, mime) {   // -> { mime, bytes, w, h } as JPEG / PNG, or null
+  if (!bytes || bytes.length < 300) return null;
+  const s = sniff(bytes); if (s) mime = s;
+  if (!mime || !String(mime).startsWith('image/')) return null;
+  if (mime !== 'image/jpeg' && mime !== 'image/png') { bytes = await toJpeg(bytes, mime); mime = 'image/jpeg'; }
+  const bmp = await createImageBitmap(new Blob([bytes], { type: mime }));   // throws when the file is not a real picture
+  const w = bmp.width, h = bmp.height; if (bmp.close) bmp.close();
+  if (!w || !h) return null;
+  return { mime, bytes, w, h };
+}
+async function coverAnon(url) {          // no cookies, no Referer: some sites refuse the browser's own sign-in / referrer
+  const ac = new AbortController(), t = setTimeout(() => ac.abort(), 15000);
+  try {
+    const r = await fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer', signal: ac.signal });
+    if (!r.ok) return null;
+    return { bytes: new Uint8Array(await r.arrayBuffer()), mime: (r.headers.get('content-type') || '').split(';')[0].trim() };
+  } finally { clearTimeout(t); }
+}
+async function coverViaPage(url) {       // fetch from inside the novel page itself: right Referer + cookies (hotlink protection)
+  if (!tab || !tab.id) return null;
+  const [{ result }] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: async u => {
+      try {
+        const r = await fetch(u, { credentials: 'include' }); if (!r.ok) return null;
+        const buf = new Uint8Array(await r.arrayBuffer()); if (buf.length > 8e6) return null;
+        let s = ''; for (let i = 0; i < buf.length; i += 8192) s += String.fromCharCode.apply(null, buf.subarray(i, i + 8192));
+        return { b64: btoa(s), type: r.headers.get('content-type') || '' };
+      } catch (e) { return null; }
+    }, args: [url]
+  });
+  if (!result || !result.b64) return null;
+  const bin = atob(result.b64), b = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+  return { bytes: b, mime: (result.type || '').split(';')[0].trim() };
+}
+function coverCandidates(o) {            // the typed / found URL first, then every other picture the page offers as its cover
+  const base = (tabInfo && tabInfo.url) || o.url || '', seen = new Set(), out = [];
+  const add = u => { try { if (!u || /^data:/i.test(u)) return; const h = new URL(String(u).trim(), base).href; if (/^https?:/i.test(h) && !seen.has(h)) { seen.add(h); out.push(h); } } catch { } };
+  add(o.coverUrl);
+  try { if (tabInfo) add(tabInfo.image); } catch { }
+  try {
+    const d = tabDoc;
+    if (d) {
+      const q = (sel, fn) => { try { d.querySelectorAll(sel).forEach(fn); } catch { } };
+      q('meta[property="og:image"],meta[property="og:image:url"],meta[property="og:image:secure_url"],meta[name="twitter:image"],meta[name="twitter:image:src"],meta[itemprop="image"]', e => add(e.getAttribute('content')));
+      q('link[rel="image_src"]', e => add(e.getAttribute('href')));
+      q('script[type="application/ld+json"]', e => {
+        try {
+          const walk = x => { if (!x || typeof x !== 'object') return; if (Array.isArray(x)) return x.forEach(walk); if (x.image) (Array.isArray(x.image) ? x.image : [x.image]).forEach(v => add(typeof v === 'string' ? v : v && (v.url || v.contentUrl))); Object.values(x).forEach(v => { if (v && typeof v === 'object') walk(v); }); };
+          walk(JSON.parse(e.textContent));
+        } catch { }
+      });
+      q('img[class*="cover" i],img[id*="cover" i],img[alt*="cover" i],img[class*="book" i],img[class*="poster" i],img[class*="thumb" i],img[itemprop="image"],[itemprop="image"] img',
+        e => add(e.getAttribute('data-src') || e.getAttribute('data-original') || e.getAttribute('data-lazy-src') || e.currentSrc || e.getAttribute('src')));
+    }
+  } catch { }
+  return out.slice(0, 5);
+}
+async function resolveCover(o) {         // -> { mime, bytes, w, h, how } or null.  Never throws.
+  const say = (t, c) => { try { log('Cover: ' + t, c || ''); } catch { } };
+  try {
+    // 1) a picture chosen by hand
+    try {
+      const f = $('coverFile') && $('coverFile').files && $('coverFile').files[0];
+      if (f) {
+        const c = await coverNorm(new Uint8Array(await f.arrayBuffer()), f.type);
+        if (c) { c.how = 'the picture you chose'; say('using ' + c.how + '.', 'ok'); return c; }
+        say('the chosen file is not a usable picture, trying the page cover.', 'warn');
+      }
+    } catch (e) { say('the chosen file failed (' + _cvMsg(e) + '), trying the page cover.', 'warn'); }
+    // 2) the page's own cover: normal fetch -> without cookies / Referer -> fetched from inside the page
+    let weak = null;
+    const steps = [
+      ['site', async u => { const r = await _cvTime(getImage(u, true), 20000); return r ? coverNorm(r.bytes, r.mime) : null; }],
+      ['site, no cookies', async u => { const r = await coverAnon(u); return r ? coverNorm(r.bytes, r.mime) : null; }],
+      ['site, through the page', async u => { const r = await _cvTime(coverViaPage(u), 20000); return r ? coverNorm(r.bytes, r.mime) : null; }]
+    ];
+    for (const u of coverCandidates(o)) {
+      let got = false;
+      for (const [name, fn] of steps) {
+        let c = null; try { c = await fn(u); } catch { c = null; }
+        if (!c) continue;
+        got = true; c.how = name;
+        if (Math.min(c.w, c.h) >= COVER_MIN) { say(`found (${name}) ${c.w}x${c.h}.`, 'ok'); return c; }
+        if (!weak || c.w * c.h > weak.w * weak.h) weak = c;
+        break;
+      }
+      if (!got) say('could not load ' + (() => { try { return new URL(u).host + new URL(u).pathname.slice(-24); } catch { return u.slice(0, 40); } })() + ', next one.', 'warn');
+    }
+    if (weak) { weak.how = 'small picture from the page'; say(`only a small picture found (${weak.w}x${weak.h}), using it.`, 'warn'); return weak; }
+    // 3) generated cover  4) no cover
+    say('no usable cover on the page, generated cover used.', 'warn');
+    try {
+      const g = await makeCover(o.title, o.author);
+      let n = null; try { n = await coverNorm(g.bytes, g.mime); } catch { }
+      n = n || { mime: g.mime, bytes: g.bytes, w: 1200, h: 1800 }; n.how = 'generated cover'; return n;
+    } catch (e) { say('could not make a cover (' + _cvMsg(e) + '), the book will have no cover.', 'warn'); return null; }
+  } catch (e) { say('cover step failed (' + _cvMsg(e) + ').', 'warn'); return null; }
+}
+{ // "Test cover" button: shows what the build would use, without building
+  const bc = $('btnCover'); let prev = '';
+  if (bc) bc.onclick = async () => {
+    const msg = $('coverMsg'), img = $('coverPrev');
+    try {
+      if (msg) msg.textContent = 'Checking…';
+      const c = await resolveCover(readOpts());
+      if (!c) { if (msg) msg.textContent = 'No cover could be made.'; if (img) img.hidden = true; return; }
+      if (prev) URL.revokeObjectURL(prev);
+      prev = URL.createObjectURL(new Blob([c.bytes], { type: c.mime }));
+      if (img) { img.src = prev; img.hidden = false; }
+      if (msg) msg.textContent = `${c.how} · ${c.w}x${c.h}`;
+    } catch (e) { if (msg) msg.textContent = 'Test failed: ' + _cvMsg(e); }
+  };
+}
+
 // ---------- options ----------
 function smartUI() {
   const on = $('smartOn').checked; $('smartOpts').hidden = !on; $('smartCustom').hidden = !on || $('smartLang').value !== 'custom';
@@ -684,13 +805,15 @@ $('btnTest').onclick = async () => {
 async function exportOther(o, chapters) {
   const size = o.perVol > 0 ? o.perVol : chapters.length, parts = Math.ceil(chapters.length / size), label = { txt: 'TXT', docx: 'DOCX', zip: 'ZIP (one .txt per chapter)' }[o.outFmt];
   log(`Packing ${label}…`);
+  let cv = null;
+  if (o.outFmt === 'docx' || o.outFmt === 'zip') { try { cv = await resolveCover(o); } catch { cv = null; } }   // 0.0.484: cover page in DOCX, cover.jpg in ZIP (never stops the export)
   for (let p = 0; p < parts; p++) {
     const chs = chapters.slice(p * size, (p + 1) * size);
     const name = parts > 1 ? `${o.title} - Vol ${String(p + 1).padStart(2, '0')} (Ch ${p * size + 1}-${p * size + chs.length})` : o.title;
     let blob, ext;
     if (o.outFmt === 'txt') { blob = buildTxt({ title: name, author: o.author, chapters: chs }); ext = '.txt'; }
-    else if (o.outFmt === 'docx') { blob = await buildDocx({ title: name, author: o.author, chapters: chs }); ext = '.docx'; }
-    else { blob = await buildTxtZip({ chapters: chs }); ext = '.zip'; }
+    else if (o.outFmt === 'docx') { blob = await buildDocx({ title: name, author: o.author, chapters: chs, cover: cv }); ext = '.docx'; }
+    else { blob = await buildTxtZip({ chapters: chs, cover: cv }); ext = '.zip'; }
     await saveBlob(blob, fileNameFor(o, name, p, parts, size, chs.length).replace(/[\\/:*?"<>|]+/g, '_').slice(0, 120) + ext);
     log(`Done${parts > 1 ? ` (part ${p + 1}/${parts})` : ''}: ${chs.length} chapters, ${(blob.size / 1048576).toFixed(2)} MB (${ext})`, 'ok');
     if (parts > 1) await sleep(700);
@@ -894,8 +1017,9 @@ async function build() {
     else {
     log('Packing EPUB…');
     let cover = null;
-    if (o.coverUrl) cover = await getImage(o.coverUrl, o.convert);
-    if (!cover) cover = await makeCover(o.title, o.author);
+    try { cover = await resolveCover(o); } catch (e) { log('Cover chain failed (' + _cvMsg(e) + '), using the old cover step.', 'warn'); }
+    if (!cover) { try { if (o.coverUrl) cover = await getImage(o.coverUrl, o.convert); } catch { } }   // previous behaviour
+    if (!cover) { try { cover = await makeCover(o.title, o.author); } catch { } }                      // previous behaviour
     const size = o.perVol > 0 ? o.perVol : chapters.length, parts = Math.ceil(chapters.length / size);
     for (let p = 0; p < parts; p++) {
       const chs = chapters.slice(p * size, (p + 1) * size), used = new Set();

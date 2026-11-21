@@ -100,6 +100,9 @@
   <label>Title<input id="title"></label>
   <div class="row"><label>Author<input id="author"></label><label>Language<input id="lang" value="en" size="6"></label></div>
   <label>Cover image URL <span class="hint">blank = auto-generate</span><input id="coverUrl"></label>
+  <label>Cover image file <span class="hint">optional · used instead of the URL</span><input id="coverFile" type="file" accept="image/*"></label>
+  <div class="btns"><button id="btnCover" type="button">Test cover</button></div>
+  <div id="coverMsg" class="muted"></div><img id="coverPrev" alt="" hidden style="max-height:180px;max-width:100%;border-radius:6px;margin-top:6px">
   <label>Series <span class="hint">optional</span><input id="series"></label>
   <label>Description<textarea id="desc" rows="3"></textarea></label>
   <label>Chapter titles<select id="titleMode"><option value="smart">Smart — catalog title, completed from the chapter page (recommended)</option><option value="auto">Detect from page</option><option value="number">“Chapter N” numbering</option><option value="toc">Catalog list titles (completed when only “Chapter N”)</option></select></label>
